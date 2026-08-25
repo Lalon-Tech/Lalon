@@ -1,0 +1,169 @@
+{
+  "entities": {
+    "members": {
+      "title": "Members",
+      "description": "Somiti registered members records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "memberNo": { "type": "string" },
+        "name": { "type": "string" },
+        "nameEn": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "nid": { "type": "string" },
+        "status": { "type": "string" },
+        "totalSavings": { "type": "number" },
+        "activeLoanBalance": { "type": "number" }
+      },
+      "required": ["memberNo", "name", "phone"]
+    },
+    "loans": {
+      "title": "Loans",
+      "description": "Loans disbursed to members and installment schedules",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "loanNo": { "type": "string" },
+        "memberId": { "type": "string" },
+        "principalAmount": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "paidAmount": { "type": "number" },
+        "remainingAmount": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["loanNo", "memberId", "principalAmount"]
+    },
+    "savings": {
+      "title": "Savings Schemes",
+      "description": "Savings, DPS, FDR accounts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "memberId": { "type": "string" },
+        "accountNo": { "type": "string" },
+        "schemeName": { "type": "string" },
+        "totalDeposited": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["memberId", "accountNo"]
+    },
+    "transactions": {
+      "title": "Transactions",
+      "description": "All financial ledger entries and receipts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "voucherNo": { "type": "string" },
+        "type": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string" },
+        "paymentMethod": { "type": "string" },
+        "collectedBy": { "type": "string" }
+      },
+      "required": ["voucherNo", "type", "amount", "date"]
+    },
+    "incomeExpenses": {
+      "title": "Income Expenses",
+      "description": "Office incomes and expenditures",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "voucherNo": { "type": "string" },
+        "type": { "type": "string" },
+        "category": { "type": "string" },
+        "title": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string" }
+      },
+      "required": ["voucherNo", "type", "amount"]
+    },
+    "bankAccounts": {
+      "title": "Bank Accounts",
+      "description": "Somiti bank accounts and balances",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "bankName": { "type": "string" },
+        "accountNumber": { "type": "string" },
+        "balance": { "type": "number" }
+      },
+      "required": ["bankName", "accountNumber"]
+    },
+    "systemUsers": {
+      "title": "System Users",
+      "description": "App staff and collectors",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "email": { "type": "string" }
+      },
+      "required": ["name", "role"]
+    },
+    "settings": {
+      "title": "Settings",
+      "description": "Somiti organization profile and operational settings",
+      "type": "object",
+      "properties": {
+        "somitiName": { "type": "string" },
+        "registrationNo": { "type": "string" }
+      }
+    },
+    "memberFinancials": {
+      "title": "Member Financials",
+      "description": "Private member balances, savings, loans, and shares isolated for security",
+      "type": "object",
+      "properties": {
+        "memberId": { "type": "string" },
+        "totalSavings": { "type": "number" },
+        "generalSavingsBalance": { "type": "number" },
+        "dpsSavingsBalance": { "type": "number" },
+        "fdrSavingsBalance": { "type": "number" },
+        "activeLoanBalance": { "type": "number" },
+        "shareCount": { "type": "number" },
+        "shareValue": { "type": "number" }
+      },
+      "required": ["memberId"]
+    }
+  },
+  "firestore": {
+    "members/{memberId}": {
+      "schema": "members",
+      "description": "Individual member public profile documents"
+    },
+    "memberFinancials/{memberId}": {
+      "schema": "memberFinancials",
+      "description": "Isolated private member financial records"
+    },
+    "loans/{loanId}": {
+      "schema": "loans",
+      "description": "Loan records"
+    },
+    "savings/{savingsId}": {
+      "schema": "savings",
+      "description": "Savings accounts"
+    },
+    "transactions/{transactionId}": {
+      "schema": "transactions",
+      "description": "Ledger transactions"
+    },
+    "incomeExpenses/{itemId}": {
+      "schema": "incomeExpenses",
+      "description": "Income and expense records"
+    },
+    "bankAccounts/{accountId}": {
+      "schema": "bankAccounts",
+      "description": "Bank accounts"
+    },
+    "systemUsers/{userId}": {
+      "schema": "systemUsers",
+      "description": "System users"
+    },
+    "settings/{docId}": {
+      "schema": "settings",
+      "description": "System settings"
+    }
+  }
+}

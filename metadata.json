@@ -1,0 +1,6 @@
+{
+  "name": "Bondhu Somiti - সমিতি ব্যবস্থাপনা সফটওয়্যার",
+  "description": "Comprehensive Somiti / Microfinance cooperative management system featuring member profiles, savings (DPS/FDR), loan installments, transactions, agreements, receipts, bank accounts, income/expense tracking, and automated reporting.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

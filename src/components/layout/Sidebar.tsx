@@ -1,0 +1,347 @@
+import React, { useState } from 'react';
+import {
+  LayoutDashboard,
+  Users,
+  BadgePercent,
+  PiggyBank,
+  FileSignature,
+  FileSpreadsheet,
+  Building2,
+  Receipt,
+  Settings as SettingsIcon,
+  ChevronDown,
+  ChevronRight,
+  ShieldCheck,
+  UserCheck,
+  TrendingUp,
+  FileText,
+  RotateCcw,
+  Sparkles,
+  HelpCircle,
+  Video,
+  LogOut,
+  LogIn,
+  Flame,
+  FolderDown,
+  Calculator,
+  UserPlus
+} from 'lucide-react';
+import { useSomiti } from '../../context/SomitiContext';
+import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
+
+interface MenuItem {
+  id: string;
+  label: string;
+  icon: React.ElementType;
+  badge?: string;
+  subItems?: { id: string; label: string; action?: () => void }[];
+}
+
+export const Sidebar: React.FC<{ 
+  isOpen: boolean; 
+  setIsOpen: (open: boolean) => void;
+  onOpenAuthModal?: () => void;
+}> = ({ isOpen, setIsOpen, onOpenAuthModal }) => {
+  const { language, t } = useLanguage();
+  const { 
+    activeTab, 
+    setActiveTab, 
+    settings, 
+    setShowNewMemberModal,
+    setShowQuickDepositModal,
+    setShowQuickWithdrawModal,
+    setShowQuickLoanModal,
+    setShowQuickKistiModal,
+    resetToDemoData
+  } = useSomiti();
+
+  const { user: firebaseUser, logOut } = useAuth();
+
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
+    members: true,
+    transactions: false,
+    savings: false,
+    reports: false,
+  });
+
+  const toggleSubmenu = (menuId: string) => {
+    setExpandedMenus(prev => ({
+      ...prev,
+      [menuId]: !prev[menuId],
+    }));
+  };
+
+  const handleMenuClick = (item: MenuItem) => {
+    if (item.subItems) {
+      toggleSubmenu(item.id);
+    } else {
+      if (window.innerWidth < 1024) {
+        setIsOpen(false);
+      }
+    }
+    setActiveTab(item.id);
+  };
+
+  const menuItems: MenuItem[] = [
+    {
+      id: 'dashboard',
+      label: language === 'bn' ? 'ড্যাশবোর্ড' : 'Dashboard',
+      icon: LayoutDashboard,
+    },
+    {
+      id: 'members',
+      label: language === 'bn' ? 'সদস্য ও গ্রাহক' : 'Members & Clients',
+      icon: Users,
+      subItems: [
+        { id: 'all_members', label: language === 'bn' ? 'সকল সদস্য' : 'All Members' },
+        { id: 'new_member', label: language === 'bn' ? 'নতুন সদস্য ভর্তি' : 'New Member Registration', action: () => setShowNewMemberModal(true) },
+        { id: 'active_members', label: language === 'bn' ? 'সক্রিয় সদস্য' : 'Active Members' },
+        { id: 'member_profile', label: language === 'bn' ? 'সদস্যের প্রোফাইল' : 'Member Profile' },
+      ],
+    },
+    {
+      id: 'transactions',
+      label: language === 'bn' ? 'লেনদেন ও কিস্তি' : 'Transactions & Kisti',
+      icon: BadgePercent,
+      subItems: [
+        { id: 'tx_deposit', label: language === 'bn' ? 'টাকা জমা' : 'Deposit Money', action: () => setShowQuickDepositModal(true) },
+        { id: 'tx_withdraw', label: language === 'bn' ? 'টাকা উত্তোলন' : 'Withdraw Money', action: () => setShowQuickWithdrawModal(true) },
+        { id: 'tx_loan', label: language === 'bn' ? 'ঋণ বিতরণ' : 'Disburse Loan', action: () => setShowQuickLoanModal(true) },
+        { id: 'tx_kisti', label: language === 'bn' ? 'ঋণের কিস্তি জমা' : 'Collect Loan Installment', action: () => setShowQuickKistiModal(true) },
+        { id: 'tx_history', label: language === 'bn' ? 'লেনদেন হিস্ট্রি' : 'Transaction History' },
+      ],
+    },
+    {
+      id: 'savings',
+      label: language === 'bn' ? 'সঞ্চয় স্কিম' : 'Savings Scheme',
+      icon: PiggyBank,
+      subItems: [
+        { id: 'savings_dps', label: language === 'bn' ? 'মাসিক সঞ্চয় (DPS)' : 'Monthly Savings (DPS)' },
+        { id: 'savings_fdr', label: language === 'bn' ? 'স্থায়ী আমানত (FDR)' : 'Fixed Deposit (FDR)' },
+        { id: 'savings_ledger', label: language === 'bn' ? 'সদস্য সঞ্চয় লেজার' : 'Member Savings Ledger' },
+      ],
+    },
+    {
+      id: 'nominees',
+      label: language === 'bn' ? 'নমিনি ও ওয়ারিশ' : 'Nominee & Legal Heir',
+      icon: UserCheck,
+    },
+    {
+      id: 'agreements',
+      label: language === 'bn' ? 'চুক্তিপত্র ও স্ট্যাম্প' : 'Agreement & Stamp',
+      icon: FileSignature,
+    },
+    {
+      id: 'reports',
+      label: language === 'bn' ? 'রিপোর্টস ও অডিট' : 'Reports & Audit',
+      icon: TrendingUp,
+      subItems: [
+        { id: 'report_daily', label: language === 'bn' ? 'দৈনিক রিপোর্ট' : 'Daily Report' },
+        { id: 'report_monthly', label: language === 'bn' ? 'মাসিক রিপোর্ট' : 'Monthly Report' },
+        { id: 'report_members', label: language === 'bn' ? 'সদস্য তালিকা রিপোর্ট' : 'Member List Report' },
+        { id: 'report_income_expense', label: language === 'bn' ? 'আয়-ব্যয় স্টেটমেন্ট' : 'Income-Expense Statement' },
+        { id: 'report_yearly', label: language === 'bn' ? 'বাৎসরিক অডিট' : 'Yearly Audit' },
+      ],
+    },
+    {
+      id: 'accounts',
+      label: language === 'bn' ? 'আয়-ব্যয় ও ভাউচার' : 'Income & Expense',
+      icon: FileText,
+    },
+    {
+      id: 'banking',
+      label: language === 'bn' ? 'ব্যাংক ও ক্যাশ ভল্ট' : 'Bank & Cash Vault',
+      icon: Building2,
+    },
+    {
+      id: 'users',
+      label: language === 'bn' ? 'ইউজার ও কর্মচারী' : 'Users & Staff',
+      icon: ShieldCheck,
+    },
+    {
+      id: 'excel',
+      label: language === 'bn' ? 'এক্সেল ব্যাকআপ/ইমপোর্ট' : 'Excel Import/Export',
+      icon: FolderDown,
+    },
+    {
+      id: 'receipts',
+      label: language === 'bn' ? 'রসিদ ও প্রিন্ট' : 'Receipts & Print',
+      icon: Receipt,
+    },
+    {
+      id: 'settings',
+      label: language === 'bn' ? 'সমিতি সেটিংস' : 'Settings',
+      icon: SettingsIcon,
+    },
+  ];
+
+  return (
+    <>
+      {/* Mobile overlay backdrop */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-xs"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      <aside
+        className={`fixed top-0 left-0 bottom-0 z-40 w-64 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        {/* Somiti Branding Header */}
+        <div className="p-4.5 border-b border-slate-800 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md font-bold text-lg">
+            {language === 'bn' ? 'ব' : 'B'}
+          </div>
+          <div className="overflow-hidden">
+            <h1 className="font-bold text-base text-white truncate tracking-wide">
+              {settings.somitiName || (language === 'bn' ? 'বন্ধু সমিতি' : 'Bondhu Somiti')}
+            </h1>
+            <p className="text-xs text-blue-400 font-medium truncate">
+              {settings.registrationNo || (language === 'bn' ? 'সমবায় সমিতি লিঃ' : 'Cooperative Society Ltd.')}
+            </p>
+          </div>
+        </div>
+
+        {/* Navigation List */}
+        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1 scrollbar-thin scrollbar-thumb-slate-700">
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 px-3 mb-2">
+            {language === 'bn' ? 'প্রধান মেনু' : 'Main Menu'}
+          </div>
+
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            const isExpanded = expandedMenus[item.id];
+            const hasSub = item.subItems && item.subItems.length > 0;
+
+            return (
+              <div key={item.id} className="space-y-0.5">
+                <button
+                  id={`nav-${item.id}`}
+                  onClick={() => handleMenuClick(item)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all group cursor-pointer ${
+                    isActive
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 truncate">
+                    <Icon className={`w-4.5 h-4.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-blue-400'}`} />
+                    <span className="truncate">{item.label}</span>
+                  </div>
+
+                  {hasSub && (
+                    <span className="text-slate-400">
+                      {isExpanded ? (
+                        <ChevronDown className="w-4 h-4" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4" />
+                      )}
+                    </span>
+                  )}
+                </button>
+
+                {/* Sub-menu items */}
+                {hasSub && isExpanded && (
+                  <div className="pl-9 pr-2 py-1 space-y-1">
+                    {item.subItems!.map((sub) => (
+                      <button
+                        key={sub.id}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) {
+                            setIsOpen(false);
+                          }
+                          if (sub.action) {
+                            sub.action();
+                          } else {
+                            setActiveTab(item.id);
+                          }
+                        }}
+                        className="w-full text-left py-1.5 px-2.5 rounded-md text-xs text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors flex items-center gap-2 cursor-pointer"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                        <span className="truncate">{sub.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          <div className="pt-4 border-t border-slate-800 mt-4">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 px-3 mb-2">
+              {language === 'bn' ? 'সিস্টেম ও সাপোর্ট' : 'System & Support'}
+            </div>
+
+            <button
+              onClick={() => {
+                const confirmMsg = language === 'bn' 
+                  ? 'আপনি কি নিশ্চিত যে ডেমো ডেটা রিসেট করতে চান?' 
+                  : 'Are you sure you want to reset to demo data?';
+                if (window.confirm(confirmMsg)) {
+                  resetToDemoData();
+                  alert(language === 'bn' ? 'ডেটা সফলভাবে রিসেট করা হয়েছে!' : 'Data successfully reset to demo values!');
+                }
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs text-rose-400 hover:bg-rose-950/40 transition-colors cursor-pointer"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>{language === 'bn' ? 'ফ্যাক্টরি রিসেট (Demo)' : 'Factory Reset (Demo)'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Footer User Info & Firebase Auth */}
+        <div className="p-3 bg-slate-950 border-t border-slate-800 space-y-2">
+          {firebaseUser ? (
+            <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-900 border border-emerald-500/30">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0">
+                  <Flame className="w-3.5 h-3.5 text-amber-400" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-slate-200 truncate">{firebaseUser.displayName || firebaseUser.email}</p>
+                  <p className="text-[10px] text-emerald-400 truncate">
+                    {language === 'bn' ? 'Firebase লগইন সক্রিয়' : 'Firebase Auth Active'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={logOut}
+                title={language === 'bn' ? 'লগআউট করুন' : 'Log out'}
+                className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              id="sidebar-firebase-login-btn"
+              onClick={() => {
+                if (onOpenAuthModal) onOpenAuthModal();
+                if (window.innerWidth < 1024) setIsOpen(false);
+              }}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer active:scale-95"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>{language === 'bn' ? 'Firebase লগইন / সাইন-আপ' : 'Firebase Login / Sign-up'}</span>
+            </button>
+          )}
+
+          <div className="flex items-center justify-between text-[11px] text-slate-500 px-1 pt-1">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>{language === 'bn' ? 'অনলাইন সিস্টেম' : 'Online System'}</span>
+            </div>
+            <span>{language === 'bn' ? '© ২০২৬ বন্ধু' : '© 2026 Bondhu'}</span>
+          </div>
+        </div>
+      </aside>
+    </>
+  );
+};
