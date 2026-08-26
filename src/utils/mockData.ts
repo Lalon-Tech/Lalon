@@ -23,7 +23,7 @@ export const initialSettings: SomitiSettings = {
   useBengaliDigits: true,
 };
 
-export const initialUsers: AppUser[] = [
+export const sampleDemoUsers: AppUser[] = [
   {
     id: 'usr-1',
     name: 'রিয়াদ ইসলাম',
@@ -104,7 +104,23 @@ export const initialUsers: AppUser[] = [
   },
 ];
 
-export const initialBankAccounts: BankAccount[] = [
+export const initialUsers: AppUser[] = [
+  {
+    id: 'usr-admin',
+    name: 'প্রধান প্রশাসক',
+    phone: '01752012365',
+    email: 'admin@bondhusomiti.com',
+    role: 'admin',
+    roleTitle: 'প্রধান প্রশাসক (Super Admin)',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    assignedArea: 'হেড অফিস',
+    dailyTarget: 0,
+    collectedToday: 0,
+    status: 'active',
+  },
+];
+
+export const sampleDemoBankAccounts: BankAccount[] = [
   {
     id: 'bank-1',
     bankName: 'সোনালী ব্যাংক পিএলসি',
@@ -147,7 +163,20 @@ export const initialBankAccounts: BankAccount[] = [
   },
 ];
 
-export const initialMembers: Member[] = [
+export const initialBankAccounts: BankAccount[] = [
+  {
+    id: 'bank-1',
+    bankName: 'সোনালী ব্যাংক পিএলসি',
+    branchName: 'প্রধান শাখা',
+    accountName: 'বন্ধু সমবায় সমিতি',
+    accountNumber: '০২০০০০১০০৯৮৭২',
+    accountType: 'current',
+    balance: 0,
+    updatedAt: '2026-08-26',
+  },
+];
+
+export const sampleDemoMembers: Member[] = [
   {
     id: 'mem-101',
     memberNo: 'BS-101',
@@ -522,7 +551,9 @@ export const initialMembers: Member[] = [
   },
 ];
 
-export const initialSavingsSchemes: SavingsScheme[] = [
+export const initialMembers: Member[] = [];
+
+export const sampleDemoSavingsSchemes: SavingsScheme[] = [
   {
     id: 'dps-1',
     memberId: 'mem-101',
@@ -618,7 +649,9 @@ export const initialSavingsSchemes: SavingsScheme[] = [
   },
 ];
 
-export const initialLoans: Loan[] = [
+export const initialSavingsSchemes: SavingsScheme[] = [];
+
+export const sampleDemoLoans: Loan[] = [
   {
     id: 'loan-1',
     loanNo: 'LN-2026-001',
@@ -765,7 +798,9 @@ export const initialLoans: Loan[] = [
   },
 ];
 
-export const initialTransactions: Transaction[] = [
+export const initialLoans: Loan[] = [];
+
+export const sampleDemoTransactions: Transaction[] = [
   {
     id: 'tx-101',
     voucherNo: 'V-2026-0089',
@@ -945,7 +980,9 @@ export const initialTransactions: Transaction[] = [
   },
 ];
 
-export const initialVouchers: IncomeExpenseItem[] = [
+export const initialTransactions: Transaction[] = [];
+
+export const sampleDemoVouchers: IncomeExpenseItem[] = [
   {
     id: 'vch-1',
     voucherNo: 'EXP-2026-001',
@@ -1021,3 +1058,6 @@ export const initialVouchers: IncomeExpenseItem[] = [
     notes: 'জানুয়ারি মাসের বিদ্যুৎ ও ইন্টারনেট বিল',
   },
 ];
+
+export const initialVouchers: IncomeExpenseItem[] = [];
+
