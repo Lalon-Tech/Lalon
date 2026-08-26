@@ -625,12 +625,6 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           console.warn('Firestore users snapshot error:', err);
         });
         unsubs.push(unsubUsers);
-            setUsers(list);
-          }
-        }, (err) => {
-          console.warn('Firestore users snapshot error:', err);
-        });
-        unsubs.push(unsubUsers);
 
         // Check if database is empty; if so, populate initial records
         if (!isInitialLoadDone.current) {
