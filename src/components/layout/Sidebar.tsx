@@ -48,6 +48,9 @@ export const Sidebar: React.FC<{
     activeTab, 
     setActiveTab, 
     settings, 
+    members,
+    selectedMemberId,
+    setSelectedMemberId,
     setShowNewMemberModal,
     setShowQuickDepositModal,
     setShowQuickWithdrawModal,
@@ -94,10 +97,39 @@ export const Sidebar: React.FC<{
       label: language === 'bn' ? 'সদস্য ও গ্রাহক' : 'Members & Clients',
       icon: Users,
       subItems: [
-        { id: 'all_members', label: language === 'bn' ? 'সকল সদস্য' : 'All Members' },
-        { id: 'new_member', label: language === 'bn' ? 'নতুন সদস্য ভর্তি' : 'New Member Registration', action: () => setShowNewMemberModal(true) },
-        { id: 'active_members', label: language === 'bn' ? 'সক্রিয় সদস্য' : 'Active Members' },
-        { id: 'member_profile', label: language === 'bn' ? 'সদস্যের প্রোফাইল' : 'Member Profile' },
+        { 
+          id: 'all_members', 
+          label: language === 'bn' ? 'সকল সদস্য' : 'All Members',
+          action: () => {
+            setSelectedMemberId(null);
+            setActiveTab('all_members');
+          }
+        },
+        { 
+          id: 'new_member', 
+          label: language === 'bn' ? 'নতুন সদস্য ভর্তি' : 'New Member Registration', 
+          action: () => {
+            setShowNewMemberModal(true);
+          }
+        },
+        { 
+          id: 'active_members', 
+          label: language === 'bn' ? 'সক্রিয় সদস্য' : 'Active Members',
+          action: () => {
+            setSelectedMemberId(null);
+            setActiveTab('active_members');
+          }
+        },
+        { 
+          id: 'member_profile', 
+          label: language === 'bn' ? 'সদস্যের প্রোফাইল' : 'Member Profile',
+          action: () => {
+            if (!selectedMemberId && members.length > 0) {
+              setSelectedMemberId(members[0].id);
+            }
+            setActiveTab('member_profile');
+          }
+        },
       ],
     },
     {
@@ -105,11 +137,11 @@ export const Sidebar: React.FC<{
       label: language === 'bn' ? 'লেনদেন ও কিস্তি' : 'Transactions & Kisti',
       icon: BadgePercent,
       subItems: [
-        { id: 'tx_deposit', label: language === 'bn' ? 'টাকা জমা' : 'Deposit Money', action: () => setShowQuickDepositModal(true) },
-        { id: 'tx_withdraw', label: language === 'bn' ? 'টাকা উত্তোলন' : 'Withdraw Money', action: () => setShowQuickWithdrawModal(true) },
-        { id: 'tx_loan', label: language === 'bn' ? 'ঋণ বিতরণ' : 'Disburse Loan', action: () => setShowQuickLoanModal(true) },
-        { id: 'tx_kisti', label: language === 'bn' ? 'ঋণের কিস্তি জমা' : 'Collect Loan Installment', action: () => setShowQuickKistiModal(true) },
-        { id: 'tx_history', label: language === 'bn' ? 'লেনদেন হিস্ট্রি' : 'Transaction History' },
+        { id: 'tx_deposit', label: language === 'bn' ? 'টাকা জমা' : 'Deposit Money', action: () => { setShowQuickDepositModal(true); setActiveTab('transactions'); } },
+        { id: 'tx_withdraw', label: language === 'bn' ? 'টাকা উত্তোলন' : 'Withdraw Money', action: () => { setShowQuickWithdrawModal(true); setActiveTab('transactions'); } },
+        { id: 'tx_loan', label: language === 'bn' ? 'ঋণ বিতরণ' : 'Disburse Loan', action: () => { setShowQuickLoanModal(true); setActiveTab('loans'); } },
+        { id: 'tx_kisti', label: language === 'bn' ? 'ঋণের কিস্তি জমা' : 'Collect Loan Installment', action: () => { setShowQuickKistiModal(true); setActiveTab('loans'); } },
+        { id: 'tx_history', label: language === 'bn' ? 'লেনদেন হিস্ট্রি' : 'Transaction History', action: () => setActiveTab('transactions') },
       ],
     },
     {
@@ -117,9 +149,9 @@ export const Sidebar: React.FC<{
       label: language === 'bn' ? 'সঞ্চয় স্কিম' : 'Savings Scheme',
       icon: PiggyBank,
       subItems: [
-        { id: 'savings_dps', label: language === 'bn' ? 'মাসিক সঞ্চয় (DPS)' : 'Monthly Savings (DPS)' },
-        { id: 'savings_fdr', label: language === 'bn' ? 'স্থায়ী আমানত (FDR)' : 'Fixed Deposit (FDR)' },
-        { id: 'savings_ledger', label: language === 'bn' ? 'সদস্য সঞ্চয় লেজার' : 'Member Savings Ledger' },
+        { id: 'savings_dps', label: language === 'bn' ? 'মাসিক সঞ্চয় (DPS)' : 'Monthly Savings (DPS)', action: () => setActiveTab('savings') },
+        { id: 'savings_fdr', label: language === 'bn' ? 'স্থায়ী আমানত (FDR)' : 'Fixed Deposit (FDR)', action: () => setActiveTab('savings') },
+        { id: 'savings_ledger', label: language === 'bn' ? 'সদস্য সঞ্চয় লেজার' : 'Member Savings Ledger', action: () => setActiveTab('savings') },
       ],
     },
     {
@@ -137,11 +169,11 @@ export const Sidebar: React.FC<{
       label: language === 'bn' ? 'রিপোর্টস ও অডিট' : 'Reports & Audit',
       icon: TrendingUp,
       subItems: [
-        { id: 'report_daily', label: language === 'bn' ? 'দৈনিক রিপোর্ট' : 'Daily Report' },
-        { id: 'report_monthly', label: language === 'bn' ? 'মাসিক রিপোর্ট' : 'Monthly Report' },
-        { id: 'report_members', label: language === 'bn' ? 'সদস্য তালিকা রিপোর্ট' : 'Member List Report' },
-        { id: 'report_income_expense', label: language === 'bn' ? 'আয়-ব্যয় স্টেটমেন্ট' : 'Income-Expense Statement' },
-        { id: 'report_yearly', label: language === 'bn' ? 'বাৎসরিক অডিট' : 'Yearly Audit' },
+        { id: 'report_daily', label: language === 'bn' ? 'দৈনিক রিপোর্ট' : 'Daily Report', action: () => setActiveTab('reports_daily') },
+        { id: 'report_monthly', label: language === 'bn' ? 'মাসিক রিপোর্ট' : 'Monthly Report', action: () => setActiveTab('reports_monthly') },
+        { id: 'report_members', label: language === 'bn' ? 'সদস্য তালিকা রিপোর্ট' : 'Member List Report', action: () => setActiveTab('reports_member') },
+        { id: 'report_income_expense', label: language === 'bn' ? 'আয়-ব্যয় স্টেটমেন্ট' : 'Income-Expense Statement', action: () => setActiveTab('reports_income_expense') },
+        { id: 'report_yearly', label: language === 'bn' ? 'বাৎসরিক অডিট' : 'Yearly Audit', action: () => setActiveTab('reports_yearly') },
       ],
     },
     {
@@ -248,25 +280,37 @@ export const Sidebar: React.FC<{
                 {/* Sub-menu items */}
                 {hasSub && isExpanded && (
                   <div className="pl-9 pr-2 py-1 space-y-1">
-                    {item.subItems!.map((sub) => (
-                      <button
-                        key={sub.id}
-                        onClick={() => {
-                          if (window.innerWidth < 1024) {
-                            setIsOpen(false);
-                          }
-                          if (sub.action) {
-                            sub.action();
-                          } else {
-                            setActiveTab(item.id);
-                          }
-                        }}
-                        className="w-full text-left py-1.5 px-2.5 rounded-md text-xs text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors flex items-center gap-2 cursor-pointer"
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
-                        <span className="truncate">{sub.label}</span>
-                      </button>
-                    ))}
+                    {item.subItems!.map((sub) => {
+                      const isSubActive = 
+                        activeTab === sub.id || 
+                        (sub.id === 'all_members' && (activeTab === 'members' || activeTab === 'all_members' || activeTab === 'members_all') && !selectedMemberId) ||
+                        (sub.id === 'active_members' && (activeTab === 'active_members' || activeTab === 'members_active')) ||
+                        (sub.id === 'member_profile' && (activeTab === 'member_profile' || activeTab === 'members_profile' || (selectedMemberId !== null && (activeTab === 'members' || activeTab.startsWith('members_')))));
+
+                      return (
+                        <button
+                          key={sub.id}
+                          onClick={() => {
+                            if (window.innerWidth < 1024) {
+                              setIsOpen(false);
+                            }
+                            if (sub.action) {
+                              sub.action();
+                            } else {
+                              setActiveTab(sub.id);
+                            }
+                          }}
+                          className={`w-full text-left py-1.5 px-2.5 rounded-md text-xs transition-colors flex items-center gap-2 cursor-pointer ${
+                            isSubActive
+                              ? 'bg-blue-600/30 text-blue-300 font-semibold'
+                              : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${isSubActive ? 'bg-blue-400' : 'bg-slate-500'}`}></span>
+                          <span className="truncate">{sub.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>

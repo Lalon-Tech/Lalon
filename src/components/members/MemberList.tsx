@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   UserPlus, 
@@ -33,6 +33,7 @@ export const MemberList: React.FC = () => {
   const isBn = language === 'bn';
 
   const { 
+    activeTab,
     members, 
     useBengaliDigits, 
     setSelectedMemberId, 
@@ -46,7 +47,18 @@ export const MemberList: React.FC = () => {
   } = useSomiti();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'has_loan'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'has_loan'>(() => {
+    if (activeTab === 'active_members' || activeTab === 'members_active') return 'active';
+    return 'all';
+  });
+
+  useEffect(() => {
+    if (activeTab === 'active_members' || activeTab === 'members_active') {
+      setStatusFilter('active');
+    } else if (activeTab === 'all_members' || activeTab === 'members_all' || activeTab === 'members') {
+      setStatusFilter('all');
+    }
+  }, [activeTab]);
 
   const filteredMembers = members.filter((m) => {
     const q = (searchTerm || '').toLowerCase();

@@ -21,7 +21,9 @@ import {
   Lock,
   Camera,
   X,
-  Check
+  Check,
+  Users,
+  UserPlus
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -44,6 +46,8 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
     savingsSchemes, 
     transactions, 
     useBengaliDigits,
+    setSelectedMemberId,
+    setShowNewMemberModal,
     openReceiptForTx,
     setShowQuickDepositModal,
     setShowQuickWithdrawModal,
@@ -56,26 +60,50 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
     canViewMemberFinancials
   } = useSomiti();
 
-  const hasFinancialAccess = canViewMemberFinancials(memberId);
-
   const [activeTab, setActiveTab] = useState<'passbook' | 'savings' | 'loans' | 'nominee' | 'agreement'>('passbook');
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [newPhotoUrl, setNewPhotoUrl] = useState('');
 
   const displayCount = (num: number) => (isBn || useBengaliDigits ? toBengaliNumber(num) : num.toString());
 
-  const member = members.find(m => m.id === memberId);
+  const member = members.find(m => m.id === memberId) || (members.length > 0 ? members[0] : undefined);
 
   if (!member) {
     return (
-      <div className="p-8 text-center bg-white rounded-xl border border-slate-200">
-        <p className="text-slate-500 mb-4">{isBn ? 'সদস্যের তথ্য খুঁজে পাওয়া যায়নি।' : 'Member information not found.'}</p>
-        <button onClick={onBack} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm cursor-pointer">
-          {isBn ? 'তালিকায় ফিরে যান' : 'Back to Member List'}
-        </button>
+      <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-xs max-w-lg mx-auto space-y-4 my-8">
+        <div className="w-16 h-16 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
+          <Users className="w-8 h-8" />
+        </div>
+        <div>
+          <h3 className="text-base font-bold text-slate-800">
+            {isBn ? 'কোনো সদস্য নিবন্ধিত নেই' : 'No Members Registered'}
+          </h3>
+          <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+            {isBn 
+              ? 'সদস্যের সম্পূর্ণ প্রোফাইল, পাসবুক ও হিসাব লেজার দেখতে অনুগ্রহ করে প্রথমে নতুন সদস্য ভর্তি করুন।'
+              : 'To view a member profile, passbook, and ledger, please register a new member first.'}
+          </p>
+        </div>
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button
+            onClick={onBack}
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+          >
+            {isBn ? 'তালিকায় ফিরে যান' : 'Back to Member List'}
+          </button>
+          <button
+            onClick={() => setShowNewMemberModal(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>{isBn ? 'নতুন সদস্য ভর্তি করুন' : 'Register New Member'}</span>
+          </button>
+        </div>
       </div>
     );
   }
+
+  const hasFinancialAccess = canViewMemberFinancials(member.id);
 
   const memberTransactions = transactions.filter(t => t.memberId === member.id);
   const memberLoans = loans.filter(l => l.memberId === member.id);
@@ -105,13 +133,32 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
     <div className="space-y-6 pb-16">
       {/* Top Back & Quick Action Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-slate-600 hover:text-blue-600 text-xs font-bold transition-colors w-fit cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>{isBn ? 'সকল সদস্যের তালিকায় ফিরে যান' : 'Back to Member List'}</span>
-        </button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-slate-600 hover:text-blue-600 text-xs font-bold transition-colors w-fit cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>{isBn ? 'সকল সদস্য তালিকা' : 'Member List'}</span>
+          </button>
+
+          {members.length > 1 && (
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg">
+              <span className="text-xs text-slate-500 font-semibold">{isBn ? 'সদস্য পরিবর্তন:' : 'Switch Member:'}</span>
+              <select
+                value={member.id}
+                onChange={(e) => setSelectedMemberId(e.target.value)}
+                className="text-xs font-bold text-slate-800 bg-transparent border-0 focus:outline-hidden cursor-pointer"
+              >
+                {members.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.memberNo} - {m.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center gap-2 flex-wrap">
           {hasFinancialAccess && (

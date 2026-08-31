@@ -36,6 +36,8 @@ const AppContent: React.FC = () => {
 
   const { 
     activeTab, 
+    setActiveTab,
+    members,
     selectedMemberId, 
     setSelectedMemberId,
     showNewMemberModal,
@@ -66,9 +68,9 @@ const AppContent: React.FC = () => {
   }
 
   const renderActiveView = () => {
-    // If a member profile is selected and we are in a member-related tab
-    if (selectedMemberId && (activeTab === 'members' || activeTab.startsWith('members_') || activeTab === 'nominee')) {
-      return <MemberProfileView memberId={selectedMemberId} onBack={() => setSelectedMemberId(null)} />;
+    // If a member profile is selected and we are in a member-related tab (or if tab is member_profile)
+    if (selectedMemberId && (activeTab === 'members' || activeTab.startsWith('members_') || activeTab === 'all_members' || activeTab === 'active_members' || activeTab === 'member_profile' || activeTab === 'nominee')) {
+      return <MemberProfileView memberId={selectedMemberId} onBack={() => { setSelectedMemberId(null); setActiveTab('all_members'); }} />;
     }
 
     switch (activeTab) {
@@ -77,16 +79,27 @@ const AppContent: React.FC = () => {
 
       case 'members':
       case 'members_all':
+      case 'all_members':
       case 'members_active':
+      case 'active_members':
       case 'members_new':
-      case 'members_profile':
         return <MemberList />;
+
+      case 'members_profile':
+      case 'member_profile':
+        return (
+          <MemberProfileView 
+            memberId={selectedMemberId || (members.length > 0 ? members[0].id : '')} 
+            onBack={() => { setSelectedMemberId(null); setActiveTab('all_members'); }} 
+          />
+        );
 
       case 'nominees':
       case 'nominee':
         return <NomineesView />;
 
       case 'transactions':
+      case 'tx_history':
       case 'transactions_deposit':
       case 'transactions_withdraw':
       case 'transactions_history':
@@ -97,6 +110,9 @@ const AppContent: React.FC = () => {
         return <ReceiptsView />;
 
       case 'savings':
+      case 'savings_dps':
+      case 'savings_fdr':
+      case 'savings_ledger':
       case 'savings_monthly':
       case 'savings_5year':
       case 'savings_member':
@@ -116,6 +132,11 @@ const AppContent: React.FC = () => {
         return <AgreementsView />;
 
       case 'reports':
+      case 'report_daily':
+      case 'report_monthly':
+      case 'report_members':
+      case 'report_income_expense':
+      case 'report_yearly':
       case 'reports_daily':
       case 'reports_monthly':
       case 'reports_member':
@@ -123,10 +144,12 @@ const AppContent: React.FC = () => {
       case 'reports_yearly':
         return <ReportsView />;
 
+      case 'accounts':
       case 'finance':
       case 'income_expense':
         return <IncomeExpenseView />;
 
+      case 'banking':
       case 'bank':
       case 'bank_cash':
         return <BankCashView />;
