@@ -30,6 +30,7 @@ export const SettingsView: React.FC = () => {
     clearAllData,
     resetToDemoData,
     exportDatabaseJson,
+    importDatabaseJson,
     firestoreConnected,
     isSyncing,
     lastSyncTime,
@@ -101,23 +102,32 @@ export const SettingsView: React.FC = () => {
   };
 
   const exportBackupJson = () => {
-    const fullBackup = {
-      timestamp: new Date().toISOString(),
-      members: localStorage.getItem('bondhu_somiti_members'),
-      loans: localStorage.getItem('bondhu_somiti_loans'),
-      savings: localStorage.getItem('bondhu_somiti_savings'),
-      transactions: localStorage.getItem('bondhu_somiti_transactions'),
-      income_expense: localStorage.getItem('bondhu_somiti_income_expense'),
-      bank_accounts: localStorage.getItem('bondhu_somiti_bank_accounts'),
-      settings: localStorage.getItem('bondhu_somiti_settings'),
-    };
+    exportDatabaseJson();
+  };
 
-    const blob = new Blob([JSON.stringify(fullBackup, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `bondhu_somiti_backup_${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
+  const handleImportBackupJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        if (content) {
+          const success = importDatabaseJson(content);
+          if (success) {
+            alert(language === 'bn' ? 'ডাটাবেজ ব্যাকআপ সফলভাবে রিস্টোর করা হয়েছে!' : 'Database backup restored successfully!');
+          } else {
+            alert(language === 'bn' ? 'ভুল ফরম্যাট! ব্যাকআপ ফাইলটি সঠিক JSON ফরম্যাটে নেই।' : 'Invalid format! The file is not a valid backup JSON.');
+          }
+        }
+      } catch (err) {
+        alert(language === 'bn' ? 'ফাইল পড়তে সমস্যা হয়েছে।' : 'Error reading backup file.');
+      }
+    };
+    reader.readAsText(file);
+    // Reset file input value so user can re-upload if needed
+    e.target.value = '';
   };
 
   const handleClearAllData = async () => {
@@ -467,11 +477,22 @@ export const SettingsView: React.FC = () => {
             <button
               type="button"
               onClick={exportBackupJson}
-              className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs"
             >
               <Download className="w-4 h-4 text-emerald-400" />
               <span>সম্পূর্ণ ডাটাবেজ ব্যাকআপ (JSON ডাউনলোড)</span>
             </button>
+
+            <label className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs">
+              <Upload className="w-4 h-4 text-blue-600" />
+              <span>ব্যাকআপ ফাইল থেকে রিস্টোর (JSON আপলোড)</span>
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleImportBackupJson}
+                className="hidden"
+              />
+            </label>
           </div>
         </div>
 

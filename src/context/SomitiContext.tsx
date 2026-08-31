@@ -329,25 +329,6 @@ const SomitiContext = createContext<SomitiContextType | undefined>(undefined);
 export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user: authUser } = useAuth();
 
-  // One-time automatic clean wipe of legacy mock data from browser localStorage
-  const CLEAR_VERSION_KEY = 'bondhu_data_wiped_v7';
-  if (typeof window !== 'undefined' && localStorage.getItem(CLEAR_VERSION_KEY) !== 'true') {
-    const keysToPurge = [
-      'bondhu_members', 'bondhu_loans', 'bondhu_savings', 'bondhu_transactions',
-      'bondhu_vouchers', 'bondhu_bank_accounts', 'bondhu_users', 'bondhu_somiti_members',
-      'bondhu_somiti_loans', 'bondhu_somiti_savings', 'bondhu_somiti_transactions',
-      'bondhu_somiti_income_expense', 'bondhu_somiti_bank_accounts', 'bondhu_somiti_users'
-    ];
-    keysToPurge.forEach(k => {
-      try {
-        localStorage.removeItem(k);
-      } catch (_) {}
-    });
-    try {
-      localStorage.setItem(CLEAR_VERSION_KEY, 'true');
-    } catch (_) {}
-  }
-
   const safeParse = <T,>(key: string, fallback: T, isArray = false): T => {
     try {
       const saved = localStorage.getItem(key);
@@ -542,33 +523,6 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const initFirestoreSync = async () => {
       try {
-        // One-time automatic cleanup of cloud database collections if not yet wiped
-        const FIRESTORE_WIPE_KEY = 'bondhu_firestore_wiped_v7';
-        if (typeof window !== 'undefined' && localStorage.getItem(FIRESTORE_WIPE_KEY) !== 'true') {
-          try {
-            const collectionsToClear = ['members', 'loans', 'savings', 'transactions', 'incomeExpenses', 'vouchers', 'systemUsers'];
-            for (const col of collectionsToClear) {
-              const snap = await getDocs(collection(db, col));
-              if (!snap.empty) {
-                const batch = writeBatch(db);
-                snap.forEach(d => batch.delete(d.ref));
-                await batch.commit();
-              }
-            }
-            const bankSnap = await getDocs(collection(db, 'bankAccounts'));
-            if (!bankSnap.empty) {
-              const bankBatch = writeBatch(db);
-              bankSnap.forEach(d => bankBatch.delete(d.ref));
-              await bankBatch.commit();
-            }
-            // Seed clean initial admin in Firestore
-            await safeSetDoc(doc(db, 'systemUsers', initialUsers[0].id), initialUsers[0]);
-            localStorage.setItem(FIRESTORE_WIPE_KEY, 'true');
-          } catch (wipeErr) {
-            console.warn('One-time Firestore purge warning:', wipeErr);
-          }
-        }
-
         // 1. Settings listener
         const unsubSettings = onSnapshot(doc(db, 'settings', 'general'), (snap) => {
           if (snap.exists()) {
