@@ -174,7 +174,7 @@ export const DashboardView: React.FC = () => {
                     <button
                       onClick={() => {
                         setSelectedMemberId(m.id);
-                        setActiveTab('members');
+                        setActiveTab('member_profile');
                       }}
                       className="w-full py-1 bg-blue-700 hover:bg-blue-800 text-white text-[11px] font-semibold rounded-md transition-colors cursor-pointer"
                     >

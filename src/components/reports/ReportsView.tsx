@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BarChart3, 
   Printer, 
@@ -36,10 +36,25 @@ export const ReportsView: React.FC = () => {
     bankAccounts,
     settings, 
     useBengaliDigits,
-    distributeProfitToSavings
+    distributeProfitToSavings,
+    activeTab
   } = useSomiti();
 
-  const [activeReport, setActiveReport] = useState<'daily' | 'monthly' | 'member' | 'income_expense' | 'dividend' | 'yearly'>('daily');
+  const [activeReport, setActiveReport] = useState<'daily' | 'monthly' | 'member' | 'income_expense' | 'dividend' | 'yearly'>(() => {
+    if (activeTab === 'reports_monthly' || activeTab === 'report_monthly') return 'monthly';
+    if (activeTab === 'reports_member' || activeTab === 'report_members') return 'member';
+    if (activeTab === 'reports_income_expense' || activeTab === 'report_income_expense') return 'income_expense';
+    if (activeTab === 'reports_yearly' || activeTab === 'report_yearly') return 'yearly';
+    return 'daily';
+  });
+
+  useEffect(() => {
+    if (activeTab === 'reports_monthly' || activeTab === 'report_monthly') setActiveReport('monthly');
+    else if (activeTab === 'reports_member' || activeTab === 'report_members') setActiveReport('member');
+    else if (activeTab === 'reports_income_expense' || activeTab === 'report_income_expense') setActiveReport('income_expense');
+    else if (activeTab === 'reports_yearly' || activeTab === 'report_yearly') setActiveReport('yearly');
+    else if (activeTab === 'reports_daily' || activeTab === 'report_daily') setActiveReport('daily');
+  }, [activeTab]);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedMonth, setSelectedMonth] = useState('2026-08');
   

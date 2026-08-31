@@ -142,7 +142,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
                 key={m.id}
                 onClick={() => {
                   setSelectedMemberId(m.id);
-                  setActiveTab('members');
+                  setActiveTab('member_profile');
                   setShowSearchResults(false);
                   setSearchQuery('');
                 }}

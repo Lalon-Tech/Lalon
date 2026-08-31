@@ -34,6 +34,7 @@ export const MemberList: React.FC = () => {
 
   const { 
     activeTab,
+    setActiveTab,
     members, 
     useBengaliDigits, 
     setSelectedMemberId, 
@@ -243,7 +244,10 @@ export const MemberList: React.FC = () => {
                   <tr
                     key={member.id}
                     className="hover:bg-slate-50/80 transition-colors group cursor-pointer"
-                    onClick={() => setSelectedMemberId(member.id)}
+                    onClick={() => {
+                      setSelectedMemberId(member.id);
+                      setActiveTab('member_profile');
+                    }}
                   >
                     {/* Member Info */}
                     <td className="py-3 px-4">
@@ -344,7 +348,10 @@ export const MemberList: React.FC = () => {
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                         <button
-                          onClick={() => setSelectedMemberId(member.id)}
+                          onClick={() => {
+                            setSelectedMemberId(member.id);
+                            setActiveTab('member_profile');
+                          }}
                           title={isBn ? "প্রোফাইল ও পাসবুক দেখুন" : "View Profile & Passbook"}
                           className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
                         >
@@ -353,7 +360,10 @@ export const MemberList: React.FC = () => {
                         {isUserAdmin && (
                           <>
                             <button
-                              onClick={() => setShowQuickDepositModal(true)}
+                              onClick={() => {
+                                setSelectedMemberId(member.id);
+                                setShowQuickDepositModal(true);
+                              }}
                               title={isBn ? "টাকা জমা নিন" : "Deposit Money"}
                               className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
                             >
@@ -361,7 +371,10 @@ export const MemberList: React.FC = () => {
                             </button>
                             {member.activeLoanBalance > 0 && (
                               <button
-                                onClick={() => setShowQuickKistiModal(true)}
+                                onClick={() => {
+                                  setSelectedMemberId(member.id);
+                                  setShowQuickKistiModal(true);
+                                }}
                                 title={isBn ? "কিস্তি আদায়" : "Collect Installment"}
                                 className="p-1.5 text-teal-600 hover:bg-teal-50 rounded-lg transition-colors cursor-pointer"
                               >

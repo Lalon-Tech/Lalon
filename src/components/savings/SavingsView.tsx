@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Coins, 
   PlusCircle, 
@@ -30,10 +30,21 @@ export const SavingsView: React.FC = () => {
     useBengaliDigits, 
     addSavingsScheme, 
     setShowQuickDepositModal,
-    setSelectedMemberId 
+    setSelectedMemberId,
+    activeTab: contextActiveTab
   } = useSomiti();
 
-  const [activeTab, setActiveTab] = useState<'all' | 'dps' | 'fdr' | 'general'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'dps' | 'fdr' | 'general'>(() => {
+    if (contextActiveTab === 'savings_dps') return 'dps';
+    if (contextActiveTab === 'savings_fdr') return 'fdr';
+    return 'all';
+  });
+
+  useEffect(() => {
+    if (contextActiveTab === 'savings_dps') setActiveTab('dps');
+    else if (contextActiveTab === 'savings_fdr') setActiveTab('fdr');
+    else if (contextActiveTab === 'savings' || contextActiveTab === 'savings_ledger') setActiveTab('all');
+  }, [contextActiveTab]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showNewSchemeModal, setShowNewSchemeModal] = useState(false);
 

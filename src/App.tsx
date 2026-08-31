@@ -68,11 +68,6 @@ const AppContent: React.FC = () => {
   }
 
   const renderActiveView = () => {
-    // If a member profile is selected and we are in a member-related tab (or if tab is member_profile)
-    if (selectedMemberId && (activeTab === 'members' || activeTab.startsWith('members_') || activeTab === 'all_members' || activeTab === 'active_members' || activeTab === 'member_profile' || activeTab === 'nominee')) {
-      return <MemberProfileView memberId={selectedMemberId} onBack={() => { setSelectedMemberId(null); setActiveTab('all_members'); }} />;
-    }
-
     switch (activeTab) {
       case 'dashboard':
         return <DashboardView />;

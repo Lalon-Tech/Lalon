@@ -15,7 +15,6 @@ import {
   UserCheck,
   TrendingUp,
   FileText,
-  RotateCcw,
   Sparkles,
   HelpCircle,
   Video,
@@ -55,8 +54,7 @@ export const Sidebar: React.FC<{
     setShowQuickDepositModal,
     setShowQuickWithdrawModal,
     setShowQuickLoanModal,
-    setShowQuickKistiModal,
-    resetToDemoData
+    setShowQuickKistiModal
   } = useSomiti();
 
   const { user: firebaseUser, logOut } = useAuth();
@@ -316,28 +314,6 @@ export const Sidebar: React.FC<{
               </div>
             );
           })}
-
-          <div className="pt-4 border-t border-slate-800 mt-4">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 px-3 mb-2">
-              {language === 'bn' ? 'সিস্টেম ও সাপোর্ট' : 'System & Support'}
-            </div>
-
-            <button
-              onClick={() => {
-                const confirmMsg = language === 'bn' 
-                  ? 'আপনি কি নিশ্চিত যে ডেমো ডেটা রিসেট করতে চান?' 
-                  : 'Are you sure you want to reset to demo data?';
-                if (window.confirm(confirmMsg)) {
-                  resetToDemoData();
-                  alert(language === 'bn' ? 'ডেটা সফলভাবে রিসেট করা হয়েছে!' : 'Data successfully reset to demo values!');
-                }
-              }}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs text-rose-400 hover:bg-rose-950/40 transition-colors cursor-pointer"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span>{language === 'bn' ? 'ফ্যাক্টরি রিসেট (Demo)' : 'Factory Reset (Demo)'}</span>
-            </button>
-          </div>
         </div>
 
         {/* Footer User Info & Firebase Auth */}
