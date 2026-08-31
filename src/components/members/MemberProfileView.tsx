@@ -23,11 +23,17 @@ import {
   X,
   Check,
   Users,
-  UserPlus
+  UserPlus,
+  Archive,
+  TrendingUp,
+  PieChart
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { PhotoUploadField } from '../common/PhotoUploadField';
+import { ShareClosureModal } from './ShareClosureModal';
+import { BuyShareModal } from './BuyShareModal';
+import { ShareClosuresList } from './ShareClosuresList';
 import { 
   formatCurrency, 
   formatInteger, 
@@ -44,6 +50,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
     members, 
     loans, 
     savingsSchemes, 
+    shareClosures,
     transactions, 
     useBengaliDigits,
     setSelectedMemberId,
@@ -60,9 +67,11 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
     canViewMemberFinancials
   } = useSomiti();
 
-  const [activeTab, setActiveTab] = useState<'passbook' | 'savings' | 'loans' | 'nominee' | 'agreement'>('passbook');
+  const [activeTab, setActiveTab] = useState<'passbook' | 'savings' | 'shares' | 'loans' | 'nominee' | 'agreement'>('passbook');
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [newPhotoUrl, setNewPhotoUrl] = useState('');
+  const [showShareClosureModal, setShowShareClosureModal] = useState(false);
+  const [showBuyShareModal, setShowBuyShareModal] = useState(false);
 
   const displayCount = (num: number) => (isBn || useBengaliDigits ? toBengaliNumber(num) : num.toString());
 
@@ -108,6 +117,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
   const memberTransactions = transactions.filter(t => t.memberId === member.id);
   const memberLoans = loans.filter(l => l.memberId === member.id);
   const memberSavings = savingsSchemes.filter(s => s.memberId === member.id);
+  const memberShareClosures = shareClosures.filter(c => c.memberId === member.id);
 
   const printPassbook = () => {
     window.print();
@@ -185,6 +195,22 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
               >
                 <ArrowUpRight className="w-3.5 h-3.5" />
                 <span>{isBn ? 'উত্তোলন' : 'Withdraw'}</span>
+              </button>
+              <button
+                onClick={() => setShowShareClosureModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                title="শেয়ার ক্লোজ বা সমর্পণ করুন"
+              >
+                <Archive className="w-3.5 h-3.5" />
+                <span>{isBn ? 'শেয়ার সমর্পণ/ক্লোজ' : 'Surrender Shares'}</span>
+              </button>
+              <button
+                onClick={() => setShowBuyShareModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                title="নতুন শেয়ার ক্রয় করুন"
+              >
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span>{isBn ? 'শেয়ার ক্রয়' : 'Buy Shares'}</span>
               </button>
               <button
                 onClick={() => setShowQuickLoanModal(true)}
@@ -307,6 +333,17 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
           >
             <Coins className="w-4 h-4" />
             <span>{isBn ? `সঞ্চয় ও ডিপিএস হিসাব (${displayCount(memberSavings.length)})` : `Savings & DPS (${displayCount(memberSavings.length)})`}</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('shares')}
+            className={`px-5 py-3 text-xs font-bold border-b-2 flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
+              activeTab === 'shares'
+                ? 'border-blue-600 text-blue-700 bg-white'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Archive className="w-4 h-4 text-amber-600" />
+            <span>{isBn ? `শেয়ার ও সমর্পণ আর্কাইভ (${displayCount(memberShareClosures.length)})` : `Shares & Closures (${displayCount(memberShareClosures.length)})`}</span>
           </button>
           <button
             onClick={() => setActiveTab('loans')}
@@ -434,7 +471,35 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
             renderPrivacyProtectedNotice()
           ) : (
             <div className="p-6 space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl relative overflow-hidden">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-semibold text-amber-900 block">
+                      {isBn ? 'সক্রিয় শেয়ার মূলধন' : 'Active Share Capital'}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900 font-mono">
+                      {displayCount(member.shareCount || 0)} টি শেয়ার
+                    </span>
+                  </div>
+                  <div className="text-xl font-bold text-amber-950">
+                    {formatCurrency(member.shareValue || 0, isBn && useBengaliDigits)}
+                  </div>
+                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-amber-200/60">
+                    <button
+                      onClick={() => setShowShareClosureModal(true)}
+                      className="text-[11px] font-bold text-rose-700 hover:underline cursor-pointer"
+                    >
+                      {isBn ? 'সমর্পণ / ক্লোজ' : 'Surrender'}
+                    </button>
+                    <span className="text-amber-300">•</span>
+                    <button
+                      onClick={() => setShowBuyShareModal(true)}
+                      className="text-[11px] font-bold text-blue-700 hover:underline cursor-pointer"
+                    >
+                      {isBn ? 'বৃদ্ধি / ক্রয়' : 'Buy More'}
+                    </button>
+                  </div>
+                </div>
                 <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl">
                   <span className="text-xs font-semibold text-emerald-800 block mb-1">
                     {isBn ? 'সাধারণ সঞ্চয় স্থিতি' : 'General Savings Balance'}
@@ -514,6 +579,88 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          )
+        )}
+
+        {/* Tab: Shares & Closure Archive */}
+        {activeTab === 'shares' && (
+          !hasFinancialAccess ? (
+            renderPrivacyProtectedNotice()
+          ) : (
+            <div className="p-6 space-y-6">
+              {/* Member Active Shares Status Card */}
+              <div className="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-200/80 rounded-2xl p-5">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="p-2 bg-amber-500 text-white rounded-xl shadow-xs">
+                        <PieChart className="w-5 h-5" />
+                      </span>
+                      <div>
+                        <h4 className="font-bold text-slate-800 text-base">
+                          {isBn ? 'সদস্যের বর্তমান সক্রিয় শেয়ার মূলধন' : 'Member Active Share Capital'}
+                        </h4>
+                        <p className="text-xs text-slate-500">
+                          {isBn ? 'সমিতিতে সদস্যের বর্তমান অংশীদারিত্ব ও মূলধন স্থিতি' : 'Current equity holding and share status in the somiti'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowBuyShareModal(true)}
+                      className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <TrendingUp className="w-4 h-4" />
+                      <span>{isBn ? 'নতুন শেয়ার কিনুন' : 'Buy Shares'}</span>
+                    </button>
+                    <button
+                      onClick={() => setShowShareClosureModal(true)}
+                      className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Archive className="w-4 h-4" />
+                      <span>{isBn ? 'শেয়ার সমর্পণ/ক্লোজ' : 'Surrender Shares'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-amber-200/60">
+                  <div className="bg-white p-3 rounded-xl border border-amber-100 shadow-2xs">
+                    <span className="text-[11px] text-slate-500 block">বর্তমান সক্রিয় শেয়ার</span>
+                    <span className="text-lg font-black text-amber-700 font-mono">
+                      {displayCount(member.shareCount || 0)} টি
+                    </span>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-amber-100 shadow-2xs">
+                    <span className="text-[11px] text-slate-500 block">শেয়ার প্রতি নির্ধারিত মূল্য</span>
+                    <span className="text-base font-bold text-slate-800">
+                      {formatCurrency(settings.sharePricePerUnit || 100, isBn && useBengaliDigits)}
+                    </span>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-amber-100 shadow-2xs">
+                    <span className="text-[11px] text-slate-500 block">মোট শেয়ার মূলধন স্থিতি</span>
+                    <span className="text-lg font-black text-emerald-700">
+                      {formatCurrency(member.shareValue || 0, isBn && useBengaliDigits)}
+                    </span>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-amber-100 shadow-2xs">
+                    <span className="text-[11px] text-slate-500 block">পূর্বে বন্ধকৃত শেয়ার</span>
+                    <span className="text-base font-bold text-slate-700 font-mono">
+                      {displayCount(memberShareClosures.reduce((s, c) => s + (c.closedSharesCount || 0), 0))} টি
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Closed Shares Archive List for this member */}
+              <div>
+                <ShareClosuresList 
+                  memberId={member.id} 
+                  onOpenClosureModal={() => setShowShareClosureModal(true)} 
+                />
               </div>
             </div>
           )
@@ -838,6 +985,20 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
           </div>
         </div>
       )}
+
+      {/* Share Closure Modal */}
+      <ShareClosureModal
+        isOpen={showShareClosureModal}
+        onClose={() => setShowShareClosureModal(false)}
+        preselectedMemberId={member.id}
+      />
+
+      {/* Buy Share Modal */}
+      <BuyShareModal
+        isOpen={showBuyShareModal}
+        onClose={() => setShowBuyShareModal(false)}
+        preselectedMemberId={member.id}
+      />
     </div>
   );
 };

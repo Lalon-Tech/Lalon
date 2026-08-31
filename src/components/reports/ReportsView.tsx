@@ -7,21 +7,23 @@ import {
   ArrowDownRight, 
   ArrowUpRight, 
   CreditCard, 
-  Coins,
-  TrendingUp,
-  FileText,
-  Filter,
-  PieChart,
-  Calculator,
-  CheckCircle2,
-  Users
+  Coins, 
+  TrendingUp, 
+  FileText, 
+  Filter, 
+  PieChart, 
+  Calculator, 
+  CheckCircle2, 
+  Users,
+  Archive
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useSomiti } from '../../context/SomitiContext';
+import { ShareClosuresList } from '../members/ShareClosuresList';
 import { 
   formatCurrency, 
   formatBengaliDate, 
-  getTransactionTypeName,
+  getTransactionTypeName, 
   toBengaliNumber 
 } from '../../utils/bengaliUtils';
 
@@ -31,20 +33,22 @@ export const ReportsView: React.FC = () => {
     loans, 
     savingsSchemes, 
     transactions, 
+    shareClosures,
     incomeExpenses, 
-    cashInHand,
-    bankAccounts,
+    cashInHand, 
+    bankAccounts, 
     settings, 
-    useBengaliDigits,
-    distributeProfitToSavings,
-    activeTab
+    useBengaliDigits, 
+    distributeProfitToSavings, 
+    activeTab 
   } = useSomiti();
 
-  const [activeReport, setActiveReport] = useState<'daily' | 'monthly' | 'member' | 'income_expense' | 'dividend' | 'yearly'>(() => {
+  const [activeReport, setActiveReport] = useState<'daily' | 'monthly' | 'member' | 'income_expense' | 'dividend' | 'yearly' | 'closed_shares'>(() => {
     if (activeTab === 'reports_monthly' || activeTab === 'report_monthly') return 'monthly';
     if (activeTab === 'reports_member' || activeTab === 'report_members') return 'member';
     if (activeTab === 'reports_income_expense' || activeTab === 'report_income_expense') return 'income_expense';
     if (activeTab === 'reports_yearly' || activeTab === 'report_yearly') return 'yearly';
+    if (activeTab === 'reports_shares' || activeTab === 'report_shares') return 'closed_shares';
     return 'daily';
   });
 
@@ -53,6 +57,7 @@ export const ReportsView: React.FC = () => {
     else if (activeTab === 'reports_member' || activeTab === 'report_members') setActiveReport('member');
     else if (activeTab === 'reports_income_expense' || activeTab === 'report_income_expense') setActiveReport('income_expense');
     else if (activeTab === 'reports_yearly' || activeTab === 'report_yearly') setActiveReport('yearly');
+    else if (activeTab === 'reports_shares' || activeTab === 'report_shares') setActiveReport('closed_shares');
     else if (activeTab === 'reports_daily' || activeTab === 'report_daily') setActiveReport('daily');
   }, [activeTab]);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -215,6 +220,15 @@ export const ReportsView: React.FC = () => {
           >
             বার্ষিক আর্থিক প্রতিবেদন
           </button>
+          <button
+            onClick={() => setActiveReport('closed_shares')}
+            className={`px-3.5 py-1.5 text-xs font-bold rounded-md whitespace-nowrap transition-all flex items-center gap-1.5 ${
+              activeReport === 'closed_shares' ? 'bg-white text-amber-700 shadow-xs font-extrabold' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Archive className="w-3.5 h-3.5" />
+            <span>শেয়ার সমর্পণ/ক্লোজার রেজিস্টার</span>
+          </button>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -271,6 +285,7 @@ export const ReportsView: React.FC = () => {
             {activeReport === 'income_expense' && 'প্রাতিষ্ঠানিক আয় ও ব্যয় বিবরণী'}
             {activeReport === 'dividend' && `সদস্যদের সঞ্চয় আনুপাতিক মুনাফা/লভ্যাংশ বণ্টন বিবরণী (মোট বণ্টন: ${formatCurrency(profitToDistribute, useBengaliDigits)})`}
             {activeReport === 'yearly' && 'বার্ষিক অডিট ও স্থিতিপত্র (Balance Sheet & Summary)'}
+            {activeReport === 'closed_shares' && 'সমিতির সকল সদস্যের শেয়ার ক্লোজার ও সমর্পণ রেজিস্টার (স্থায়ী অডিট রেকর্ড)'}
           </div>
         </div>
 
@@ -740,6 +755,13 @@ export const ReportsView: React.FC = () => {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* 7. Closed Shares Register */}
+        {activeReport === 'closed_shares' && (
+          <div className="space-y-6">
+            <ShareClosuresList />
           </div>
         )}
 

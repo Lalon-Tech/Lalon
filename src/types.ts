@@ -11,12 +11,33 @@ export type TransactionType =
   | 'fdr_deposit'       // এফডিআর / স্থায়ী আমানত
   | 'admission_fee'     // ভর্তি ফি
   | 'share_purchase'    // শেয়ার ক্রয়
+  | 'share_surrender'   // শেয়ার সমর্পণ / ক্লোজিং
   | 'fine'              // জরিমানা
   | 'profit_share'      // লভ্যাংশ প্রদান
   | 'income'            // বিবিধ আয়
   | 'expense';          // ব্যয়
 
 export type PaymentMethod = 'cash' | 'bank' | 'bkash' | 'nagad' | 'rocket';
+
+export interface ShareClosure {
+  id: string;
+  memberId: string;
+  memberNo: string;
+  memberName: string;
+  closedSharesCount: number;
+  unitPrice: number;
+  principalAmount: number;     // closedSharesCount * unitPrice
+  profitAmount: number;        // bonus or profit paid out
+  totalRefundAmount: number;   // principalAmount + profitAmount
+  closureDate: string;
+  voucherNo: string;
+  paymentMethod: PaymentMethod;
+  bankAccountId?: string;
+  handledBy: string;
+  notes?: string;
+  remainingActiveShares: number;
+  createdAt: string;
+}
 
 export interface Nominee {
   id: string;

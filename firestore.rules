@@ -52,6 +52,11 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // 11. Share Closures & Surrender Archives
+    match /shareClosures/{closureId} {
+      allow read, write: if true;
+    }
+
     // Default fallback
     match /{document=**} {
       allow read, write: if true;

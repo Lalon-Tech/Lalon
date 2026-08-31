@@ -21,7 +21,8 @@ import {
   TransactionType,
   PaymentMethod,
   Nominee,
-  LoanInstallmentSchedule
+  LoanInstallmentSchedule,
+  ShareClosure
 } from '../types';
 import { 
   initialMembers, 
@@ -155,6 +156,28 @@ const sanitizeUser = (u: any): AppUser => {
   };
 };
 
+const sanitizeShareClosure = (c: any): ShareClosure => {
+  return {
+    id: c.id || `sc-${Date.now()}`,
+    memberId: c.memberId || '',
+    memberNo: c.memberNo || '',
+    memberName: c.memberName || '',
+    closedSharesCount: Number(c.closedSharesCount) || 0,
+    unitPrice: Number(c.unitPrice) || 0,
+    principalAmount: Number(c.principalAmount) || 0,
+    profitAmount: Number(c.profitAmount) || 0,
+    totalRefundAmount: Number(c.totalRefundAmount) || 0,
+    closureDate: c.closureDate || new Date().toISOString().split('T')[0],
+    voucherNo: c.voucherNo || `SCV-${Date.now()}`,
+    paymentMethod: c.paymentMethod || 'cash',
+    bankAccountId: c.bankAccountId,
+    handledBy: c.handledBy || 'Admin',
+    notes: c.notes || '',
+    remainingActiveShares: Number(c.remainingActiveShares) || 0,
+    createdAt: c.createdAt || new Date().toISOString(),
+  };
+};
+
 interface SomitiContextType {
   // Navigation & UI state
   activeTab: string;
@@ -181,17 +204,37 @@ interface SomitiContextType {
   members: Member[];
   loans: Loan[];
   savingsSchemes: SavingsScheme[];
+  shareClosures: ShareClosure[];
   transactions: Transaction[];
   vouchers: IncomeExpenseItem[];
   incomeExpenses: IncomeExpenseItem[];
   bankAccounts: BankAccount[];
   users: AppUser[];
 
-  // Actions - Members
+  // Actions - Members & Shares
   addMember: (memberData: Omit<Member, 'id' | 'memberNo' | 'totalSavings' | 'generalSavingsBalance' | 'dpsSavingsBalance' | 'fdrSavingsBalance' | 'activeLoanBalance'>) => Member;
   updateMember: (id: string, memberData: Partial<Member>) => void;
   deleteMember: (id: string) => void;
   importMembersFromList: (newMembers: Member[]) => void;
+  closeMemberShares: (params: {
+    memberId: string;
+    sharesToClose: number;
+    unitPrice: number;
+    profitAmount: number;
+    paymentMethod: PaymentMethod;
+    bankAccountId?: string;
+    notes?: string;
+    date?: string;
+  }) => Promise<{ success: boolean; error?: string; closure?: ShareClosure }>;
+  buyMemberShares: (params: {
+    memberId: string;
+    sharesToBuy: number;
+    unitPrice: number;
+    paymentMethod: PaymentMethod;
+    bankAccountId?: string;
+    notes?: string;
+    date?: string;
+  }) => Promise<{ success: boolean; error?: string }>;
 
   // Actions - Transactions
   addDeposit: (params: {
@@ -368,6 +411,11 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return raw.map(sanitizeSavings);
   });
 
+  const [shareClosures, setShareClosures] = useState<ShareClosure[]>(() => {
+    const raw = safeParse('bondhu_share_closures', [], true);
+    return raw.map(sanitizeShareClosure);
+  });
+
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const raw = safeParse('bondhu_transactions', initialTransactions, true);
     return raw.map(sanitizeTransaction);
@@ -496,6 +544,10 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [savingsSchemes]);
 
   useEffect(() => {
+    localStorage.setItem('bondhu_share_closures', JSON.stringify(shareClosures));
+  }, [shareClosures]);
+
+  useEffect(() => {
     localStorage.setItem('bondhu_transactions', JSON.stringify(transactions));
   }, [transactions]);
 
@@ -517,7 +569,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
   };
 
-  // Setup Firestore Real-time Listeners
+  // Setup Firestore Real-time Listeners with anti-wipe protection & automatic cloud seeding
   useEffect(() => {
     let unsubs: (() => void)[] = [];
 
@@ -528,72 +580,139 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (snap.exists()) {
             setSettings(snap.data() as SomitiSettings);
             setFirestoreConnected(true);
+          } else {
+            // Seed settings to Firestore if not present
+            safeSetDoc(doc(db, 'settings', 'general'), settings).catch(console.error);
           }
         }, (err) => {
           console.warn('Firestore settings snapshot error:', err);
         });
         unsubs.push(unsubSettings);
 
-        // 2. Members listener with sanitization
+        // 2. Members listener with sanitization & protection against empty wipe
         const unsubMembers = onSnapshot(collection(db, 'members'), (snapshot) => {
-          const list: Member[] = [];
-          snapshot.forEach(docSnap => {
-            const data = docSnap.data();
-            list.push(sanitizeMember({ ...data, id: docSnap.id }));
-          });
-          setMembers(list);
-          setFirestoreConnected(true);
-          setLastSyncTime(new Date().toLocaleTimeString());
+          if (!snapshot.empty) {
+            const list: Member[] = [];
+            snapshot.forEach(docSnap => {
+              const data = docSnap.data();
+              list.push(sanitizeMember({ ...data, id: docSnap.id }));
+            });
+            setMembers(list);
+            setFirestoreConnected(true);
+            setLastSyncTime(new Date().toLocaleTimeString());
+          } else {
+            // If cloud is empty but local state has members, seed local members to Firestore!
+            setFirestoreConnected(true);
+            if (members.length > 0 && !isInitialLoadDone.current) {
+              const batch = writeBatch(db);
+              members.forEach(m => safeBatchSet(batch, doc(db, 'members', m.id), m));
+              batch.commit().catch(console.error);
+            }
+          }
         }, (err) => {
           console.warn('Firestore members snapshot error:', err);
         });
         unsubs.push(unsubMembers);
 
-        // 3. Loans listener with sanitization
+        // 3. Loans listener with sanitization & protection
         const unsubLoans = onSnapshot(collection(db, 'loans'), (snapshot) => {
-          const list: Loan[] = [];
-          snapshot.forEach(docSnap => {
-            const data = docSnap.data();
-            list.push(sanitizeLoan({ ...data, id: docSnap.id }));
-          });
-          setLoans(list);
+          if (!snapshot.empty) {
+            const list: Loan[] = [];
+            snapshot.forEach(docSnap => {
+              const data = docSnap.data();
+              list.push(sanitizeLoan({ ...data, id: docSnap.id }));
+            });
+            setLoans(list);
+          } else {
+            if (loans.length > 0 && !isInitialLoadDone.current) {
+              const batch = writeBatch(db);
+              loans.forEach(l => safeBatchSet(batch, doc(db, 'loans', l.id), l));
+              batch.commit().catch(console.error);
+            }
+          }
         }, (err) => {
           console.warn('Firestore loans snapshot error:', err);
         });
         unsubs.push(unsubLoans);
 
-        // 4. Savings Schemes listener with sanitization
+        // 4. Savings Schemes listener with sanitization & protection
         const unsubSavings = onSnapshot(collection(db, 'savings'), (snapshot) => {
-          const list: SavingsScheme[] = [];
-          snapshot.forEach(docSnap => {
-            const data = docSnap.data();
-            list.push(sanitizeSavings({ ...data, id: docSnap.id }));
-          });
-          setSavingsSchemes(list);
+          if (!snapshot.empty) {
+            const list: SavingsScheme[] = [];
+            snapshot.forEach(docSnap => {
+              const data = docSnap.data();
+              list.push(sanitizeSavings({ ...data, id: docSnap.id }));
+            });
+            setSavingsSchemes(list);
+          } else {
+            if (savingsSchemes.length > 0 && !isInitialLoadDone.current) {
+              const batch = writeBatch(db);
+              savingsSchemes.forEach(s => safeBatchSet(batch, doc(db, 'savings', s.id), s));
+              batch.commit().catch(console.error);
+            }
+          }
         }, (err) => {
           console.warn('Firestore savings snapshot error:', err);
         });
         unsubs.push(unsubSavings);
 
-        // 5. Transactions listener with sanitization
+        // 4b. Share Closures listener with sanitization & protection
+        const unsubShareClosures = onSnapshot(collection(db, 'shareClosures'), (snapshot) => {
+          if (!snapshot.empty) {
+            const list: ShareClosure[] = [];
+            snapshot.forEach(docSnap => {
+              const data = docSnap.data();
+              list.push(sanitizeShareClosure({ ...data, id: docSnap.id }));
+            });
+            list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+            setShareClosures(list);
+          } else {
+            if (shareClosures.length > 0 && !isInitialLoadDone.current) {
+              const batch = writeBatch(db);
+              shareClosures.forEach(c => safeBatchSet(batch, doc(db, 'shareClosures', c.id), c));
+              batch.commit().catch(console.error);
+            }
+          }
+        }, (err) => {
+          console.warn('Firestore shareClosures snapshot error:', err);
+        });
+        unsubs.push(unsubShareClosures);
+
+        // 5. Transactions listener with sanitization & protection
         const unsubTx = onSnapshot(collection(db, 'transactions'), (snapshot) => {
-          const list: Transaction[] = [];
-          snapshot.forEach(docSnap => {
-            const data = docSnap.data();
-            list.push(sanitizeTransaction({ ...data, id: docSnap.id }));
-          });
-          list.sort((a, b) => b.id.localeCompare(a.id));
-          setTransactions(list);
+          if (!snapshot.empty) {
+            const list: Transaction[] = [];
+            snapshot.forEach(docSnap => {
+              const data = docSnap.data();
+              list.push(sanitizeTransaction({ ...data, id: docSnap.id }));
+            });
+            list.sort((a, b) => b.id.localeCompare(a.id));
+            setTransactions(list);
+          } else {
+            if (transactions.length > 0 && !isInitialLoadDone.current) {
+              const batch = writeBatch(db);
+              transactions.forEach(t => safeBatchSet(batch, doc(db, 'transactions', t.id), t));
+              batch.commit().catch(console.error);
+            }
+          }
         }, (err) => {
           console.warn('Firestore transactions snapshot error:', err);
         });
         unsubs.push(unsubTx);
 
-        // 6. Income/Expenses Vouchers listener
+        // 6. Income/Expenses Vouchers listener with protection
         const unsubVouchers = onSnapshot(collection(db, 'incomeExpenses'), (snapshot) => {
-          const list: IncomeExpenseItem[] = [];
-          snapshot.forEach(docSnap => list.push(docSnap.data() as IncomeExpenseItem));
-          setVouchers(list);
+          if (!snapshot.empty) {
+            const list: IncomeExpenseItem[] = [];
+            snapshot.forEach(docSnap => list.push(docSnap.data() as IncomeExpenseItem));
+            setVouchers(list);
+          } else {
+            if (vouchers.length > 0 && !isInitialLoadDone.current) {
+              const batch = writeBatch(db);
+              vouchers.forEach(v => safeBatchSet(batch, doc(db, 'incomeExpenses', v.id), v));
+              batch.commit().catch(console.error);
+            }
+          }
         }, (err) => {
           console.warn('Firestore incomeExpenses snapshot error:', err);
         });
@@ -601,13 +720,19 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         // 7. Bank Accounts listener with sanitization
         const unsubBanks = onSnapshot(collection(db, 'bankAccounts'), (snapshot) => {
-          const list: BankAccount[] = [];
-          snapshot.forEach(docSnap => {
-            const data = docSnap.data();
-            list.push(sanitizeBank({ ...data, id: docSnap.id }));
-          });
-          if (list.length > 0) {
+          if (!snapshot.empty) {
+            const list: BankAccount[] = [];
+            snapshot.forEach(docSnap => {
+              const data = docSnap.data();
+              list.push(sanitizeBank({ ...data, id: docSnap.id }));
+            });
             setBankAccounts(list);
+          } else {
+            if (bankAccounts.length > 0 && !isInitialLoadDone.current) {
+              const batch = writeBatch(db);
+              bankAccounts.forEach(b => safeBatchSet(batch, doc(db, 'bankAccounts', b.id), b));
+              batch.commit().catch(console.error);
+            }
           }
         }, (err) => {
           console.warn('Firestore bankAccounts snapshot error:', err);
@@ -616,15 +741,19 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         // 8. Users listener with sanitization
         const unsubUsers = onSnapshot(collection(db, 'systemUsers'), (snapshot) => {
-          const list: AppUser[] = [];
-          snapshot.forEach(docSnap => {
-            const data = docSnap.data();
-            list.push(sanitizeUser({ ...data, id: docSnap.id }));
-          });
-          if (list.length > 0) {
+          if (!snapshot.empty) {
+            const list: AppUser[] = [];
+            snapshot.forEach(docSnap => {
+              const data = docSnap.data();
+              list.push(sanitizeUser({ ...data, id: docSnap.id }));
+            });
             setUsers(list);
           } else {
-            setUsers(initialUsers);
+            if (users.length > 0 && !isInitialLoadDone.current) {
+              const batch = writeBatch(db);
+              users.forEach(u => safeBatchSet(batch, doc(db, 'systemUsers', u.id), u));
+              batch.commit().catch(console.error);
+            }
           }
         }, (err) => {
           console.warn('Firestore users snapshot error:', err);
@@ -709,6 +838,11 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         safeBatchSet(batch, doc(db, 'savings', s.id), s);
       });
 
+      // Share Closures
+      shareClosures.forEach(c => {
+        safeBatchSet(batch, doc(db, 'shareClosures', c.id), c);
+      });
+
       // Transactions
       transactions.forEach(t => {
         safeBatchSet(batch, doc(db, 'transactions', t.id), t);
@@ -751,6 +885,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         membersSnap,
         loansSnap,
         savingsSnap,
+        shareClosuresSnap,
         txSnap,
         vouchersSnap,
         banksSnap,
@@ -760,6 +895,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         getDocs(collection(db, 'members')),
         getDocs(collection(db, 'loans')),
         getDocs(collection(db, 'savings')),
+        getDocs(collection(db, 'shareClosures')),
         getDocs(collection(db, 'transactions')),
         getDocs(collection(db, 'incomeExpenses')),
         getDocs(collection(db, 'bankAccounts')),
@@ -787,6 +923,13 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const list: SavingsScheme[] = [];
         savingsSnap.forEach(d => list.push(d.data() as SavingsScheme));
         setSavingsSchemes(list);
+      }
+
+      if (!shareClosuresSnap.empty) {
+        const list: ShareClosure[] = [];
+        shareClosuresSnap.forEach(d => list.push(sanitizeShareClosure(d.data())));
+        list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+        setShareClosures(list);
       }
 
       if (!txSnap.empty) {
@@ -920,6 +1063,254 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       safeBatchSet(batch, doc(db, 'members', m.id), m);
     });
     batch.commit().catch(console.error);
+  };
+
+  // Close Member Shares (Partial or Full Share Surrender with principal + profit refund)
+  const closeMemberShares = async (params: {
+    memberId: string;
+    sharesToClose: number;
+    unitPrice: number;
+    profitAmount: number;
+    paymentMethod: PaymentMethod;
+    bankAccountId?: string;
+    notes?: string;
+    date?: string;
+  }): Promise<{ success: boolean; error?: string; closure?: ShareClosure }> => {
+    const member = members.find(m => m.id === params.memberId);
+    if (!member) {
+      return { success: false, error: 'সদস্য খুঁজে পাওয়া যায়নি।' };
+    }
+    const currentShares = Number(member.shareCount) || 0;
+    const sharesToClose = Number(params.sharesToClose) || 0;
+    if (sharesToClose <= 0) {
+      return { success: false, error: 'কমপক্ষে ১টি শেয়ার নির্বাচন করুন।' };
+    }
+    if (sharesToClose > currentShares) {
+      return { success: false, error: `সদস্যের বর্তমান শেয়ার (${currentShares} টি) এর চেয়ে বেশি ক্লোজ করা সম্ভব নয়।` };
+    }
+
+    const unitPrice = Number(params.unitPrice) || settings.sharePricePerUnit || 100;
+    const principalAmount = sharesToClose * unitPrice;
+    const profitAmount = Number(params.profitAmount) || 0;
+    const totalRefundAmount = principalAmount + profitAmount;
+    const remainingShares = Math.max(0, currentShares - sharesToClose);
+    const remainingShareValue = Math.max(0, (member.shareValue || 0) - principalAmount);
+    const remainingTotalSavings = (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0) + remainingShareValue;
+
+    const voucherNo = `SCV-${Date.now().toString().slice(-6)}`;
+    const txId = `tx-sc-${Date.now()}`;
+    const closureId = `sc-${Date.now()}`;
+    const closureDate = params.date || getTodayDateStr();
+
+    const closureRecord: ShareClosure = {
+      id: closureId,
+      memberId: member.id,
+      memberNo: member.memberNo,
+      memberName: member.name,
+      closedSharesCount: sharesToClose,
+      unitPrice,
+      principalAmount,
+      profitAmount,
+      totalRefundAmount,
+      closureDate,
+      voucherNo,
+      paymentMethod: params.paymentMethod,
+      bankAccountId: params.paymentMethod === 'bank' ? params.bankAccountId : undefined,
+      handledBy: currentUser?.name || 'Admin',
+      notes: params.notes || `${sharesToClose} টি শেয়ার সমর্পণ ও নিষ্পত্তি (মূলধন ৳${principalAmount} + লাভ ৳${profitAmount})`,
+      remainingActiveShares: remainingShares,
+      createdAt: new Date().toISOString(),
+    };
+
+    // 1. Transaction record for financial ledger
+    const newTx: Transaction = {
+      id: txId,
+      voucherNo,
+      memberId: member.id,
+      memberName: member.name,
+      memberNo: member.memberNo,
+      type: 'share_surrender',
+      amount: totalRefundAmount,
+      date: closureDate,
+      time: getCurrentTimeStr(),
+      paymentMethod: params.paymentMethod,
+      bankAccountId: params.paymentMethod === 'bank' ? params.bankAccountId : undefined,
+      collectedBy: currentUser?.name || 'Admin',
+      verifiedBy: currentUser?.name || 'Admin',
+      notes: `${sharesToClose} টি শেয়ার সমর্পণ ও নিষ্পত্তি বাবদ সদস্যকে মোট ৳${totalRefundAmount} প্রদান (মূলধন ৳${principalAmount} + লভ্যাংশ ৳${profitAmount})। অবশিষ্ট সক্রিয় শেয়ার: ${remainingShares} টি।`,
+      status: 'completed',
+    };
+
+    // Update state
+    setShareClosures(prev => [closureRecord, ...prev]);
+    setTransactions(prev => [newTx, ...prev]);
+    setMembers(prev => prev.map(m => {
+      if (m.id === member.id) {
+        return {
+          ...m,
+          shareCount: remainingShares,
+          shareValue: remainingShareValue,
+          totalSavings: remainingTotalSavings,
+        };
+      }
+      return m;
+    }));
+
+    if (params.paymentMethod === 'bank' && params.bankAccountId) {
+      setBankAccounts(prev => prev.map(b => {
+        if (b.id === params.bankAccountId) {
+          return { ...b, balance: Math.max(0, b.balance - totalRefundAmount), updatedAt: new Date().toISOString() };
+        }
+        return b;
+      }));
+    }
+
+    // Persist to Firestore
+    try {
+      await safeSetDoc(doc(db, 'shareClosures', closureRecord.id), closureRecord);
+      await safeSetDoc(doc(db, 'transactions', newTx.id), newTx);
+      await safeSetDoc(doc(db, 'members', member.id), {
+        ...member,
+        shareCount: remainingShares,
+        shareValue: remainingShareValue,
+        totalSavings: remainingTotalSavings,
+      });
+      await safeSetDoc(doc(db, 'memberFinancials', member.id), {
+        memberId: member.id,
+        memberNo: member.memberNo,
+        totalSavings: remainingTotalSavings,
+        generalSavingsBalance: member.generalSavingsBalance,
+        dpsSavingsBalance: member.dpsSavingsBalance,
+        fdrSavingsBalance: member.fdrSavingsBalance,
+        activeLoanBalance: member.activeLoanBalance,
+        shareCount: remainingShares,
+        shareValue: remainingShareValue,
+        admissionFee: member.admissionFee,
+        monthlyIncome: member.monthlyIncome,
+        updatedAt: new Date().toISOString()
+      });
+      if (params.paymentMethod === 'bank' && params.bankAccountId) {
+        const targetBank = bankAccounts.find(b => b.id === params.bankAccountId);
+        if (targetBank) {
+          await safeSetDoc(doc(db, 'bankAccounts', targetBank.id), {
+            ...targetBank,
+            balance: Math.max(0, targetBank.balance - totalRefundAmount),
+            updatedAt: new Date().toISOString()
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Firestore share closure sync error:', e);
+    }
+
+    return { success: true, closure: closureRecord };
+  };
+
+  // Buy Member Additional Shares
+  const buyMemberShares = async (params: {
+    memberId: string;
+    sharesToBuy: number;
+    unitPrice: number;
+    paymentMethod: PaymentMethod;
+    bankAccountId?: string;
+    notes?: string;
+    date?: string;
+  }): Promise<{ success: boolean; error?: string }> => {
+    const member = members.find(m => m.id === params.memberId);
+    if (!member) {
+      return { success: false, error: 'সদস্য খুঁজে পাওয়া যায়নি।' };
+    }
+    const sharesToBuy = Number(params.sharesToBuy) || 0;
+    if (sharesToBuy <= 0) {
+      return { success: false, error: 'কমপক্ষে ১টি শেয়ার সংখ্যা উল্লেখ করুন।' };
+    }
+    const unitPrice = Number(params.unitPrice) || settings.sharePricePerUnit || 100;
+    const totalAmount = sharesToBuy * unitPrice;
+    const newShareCount = (member.shareCount || 0) + sharesToBuy;
+    const newShareValue = (member.shareValue || 0) + totalAmount;
+    const newTotalSavings = (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0) + newShareValue;
+
+    const voucherNo = `SPV-${Date.now().toString().slice(-6)}`;
+    const txId = `tx-sp-${Date.now()}`;
+    const txDate = params.date || getTodayDateStr();
+
+    const newTx: Transaction = {
+      id: txId,
+      voucherNo,
+      memberId: member.id,
+      memberName: member.name,
+      memberNo: member.memberNo,
+      type: 'share_purchase',
+      amount: totalAmount,
+      date: txDate,
+      time: getCurrentTimeStr(),
+      paymentMethod: params.paymentMethod,
+      bankAccountId: params.paymentMethod === 'bank' ? params.bankAccountId : undefined,
+      collectedBy: currentUser?.name || 'Admin',
+      verifiedBy: currentUser?.name || 'Admin',
+      notes: params.notes || `${sharesToBuy} টি নতুন শেয়ার ক্রয় বাবদ জমা`,
+      status: 'completed',
+    };
+
+    setTransactions(prev => [newTx, ...prev]);
+    setMembers(prev => prev.map(m => {
+      if (m.id === member.id) {
+        return {
+          ...m,
+          shareCount: newShareCount,
+          shareValue: newShareValue,
+          totalSavings: newTotalSavings,
+        };
+      }
+      return m;
+    }));
+
+    if (params.paymentMethod === 'bank' && params.bankAccountId) {
+      setBankAccounts(prev => prev.map(b => {
+        if (b.id === params.bankAccountId) {
+          return { ...b, balance: b.balance + totalAmount, updatedAt: new Date().toISOString() };
+        }
+        return b;
+      }));
+    }
+
+    try {
+      await safeSetDoc(doc(db, 'transactions', newTx.id), newTx);
+      await safeSetDoc(doc(db, 'members', member.id), {
+        ...member,
+        shareCount: newShareCount,
+        shareValue: newShareValue,
+        totalSavings: newTotalSavings,
+      });
+      await safeSetDoc(doc(db, 'memberFinancials', member.id), {
+        memberId: member.id,
+        memberNo: member.memberNo,
+        totalSavings: newTotalSavings,
+        generalSavingsBalance: member.generalSavingsBalance,
+        dpsSavingsBalance: member.dpsSavingsBalance,
+        fdrSavingsBalance: member.fdrSavingsBalance,
+        activeLoanBalance: member.activeLoanBalance,
+        shareCount: newShareCount,
+        shareValue: newShareValue,
+        admissionFee: member.admissionFee,
+        monthlyIncome: member.monthlyIncome,
+        updatedAt: new Date().toISOString()
+      });
+      if (params.paymentMethod === 'bank' && params.bankAccountId) {
+        const targetBank = bankAccounts.find(b => b.id === params.bankAccountId);
+        if (targetBank) {
+          await safeSetDoc(doc(db, 'bankAccounts', targetBank.id), {
+            ...targetBank,
+            balance: targetBank.balance + totalAmount,
+            updatedAt: new Date().toISOString()
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Firestore share buy sync error:', e);
+    }
+
+    return { success: true };
   };
 
   // Add Deposit
@@ -1502,7 +1893,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (t.paymentMethod === 'cash' && t.status === 'completed') {
       if (['deposit', 'dps_deposit', 'fdr_deposit', 'loan_installment', 'admission_fee', 'share_purchase', 'fine', 'income'].includes(t.type)) {
         vaultIn += t.amount;
-      } else if (['withdraw', 'loan_disbursed', 'expense', 'profit_share'].includes(t.type)) {
+      } else if (['withdraw', 'loan_disbursed', 'expense', 'profit_share', 'share_surrender'].includes(t.type)) {
         vaultOut += t.amount;
       }
     }
@@ -1529,7 +1920,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (['deposit', 'dps_deposit', 'fdr_deposit', 'loan_installment', 'admission_fee', 'share_purchase', 'income'].includes(t.type)) {
         todayCollection += t.amount;
       }
-      if (t.type === 'loan_disbursed' || t.type === 'withdraw') {
+      if (t.type === 'loan_disbursed' || t.type === 'withdraw' || t.type === 'share_surrender') {
         todayDisbursement += t.amount;
       }
       if (t.type === 'expense') {
@@ -1592,6 +1983,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setMembers([]);
     setLoans([]);
     setSavingsSchemes([]);
+    setShareClosures([]);
     setTransactions([]);
     setVouchers([]);
     setUsers(initialUsers);
@@ -1611,7 +2003,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Clear localStorage
     const storageKeys = [
-      'bondhu_members', 'bondhu_loans', 'bondhu_savings', 'bondhu_transactions',
+      'bondhu_members', 'bondhu_loans', 'bondhu_savings', 'bondhu_share_closures', 'bondhu_transactions',
       'bondhu_vouchers', 'bondhu_bank_accounts', 'bondhu_users', 'bondhu_somiti_members',
       'bondhu_somiti_loans', 'bondhu_somiti_savings', 'bondhu_somiti_transactions',
       'bondhu_somiti_income_expense', 'bondhu_somiti_bank_accounts', 'bondhu_somiti_users'
@@ -1624,7 +2016,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Clear Firestore documents if connected
     try {
-      const collectionsToClear = ['members', 'loans', 'savings', 'transactions', 'vouchers', 'systemUsers'];
+      const collectionsToClear = ['members', 'loans', 'savings', 'shareClosures', 'transactions', 'vouchers', 'systemUsers'];
       for (const col of collectionsToClear) {
         const snap = await getDocs(collection(db, col));
         if (!snap.empty) {
@@ -1650,6 +2042,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setMembers(sampleDemoMembers);
     setLoans(sampleDemoLoans);
     setSavingsSchemes(sampleDemoSavingsSchemes);
+    setShareClosures([]);
     setTransactions(sampleDemoTransactions);
     setVouchers(sampleDemoVouchers);
     setBankAccounts(sampleDemoBankAccounts);
@@ -1667,6 +2060,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       members,
       loans,
       savingsSchemes,
+      shareClosures,
       transactions,
       vouchers,
       bankAccounts,
@@ -1689,6 +2083,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (data.members) setMembers(data.members);
       if (data.loans) setLoans(data.loans);
       if (data.savingsSchemes) setSavingsSchemes(data.savingsSchemes);
+      if (data.shareClosures) setShareClosures(data.shareClosures);
       if (data.transactions) setTransactions(data.transactions);
       if (data.vouchers) setVouchers(data.vouchers);
       if (data.bankAccounts) setBankAccounts(data.bankAccounts);
@@ -1821,6 +2216,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         members,
         loans,
         savingsSchemes,
+        shareClosures,
         transactions,
         vouchers,
         incomeExpenses: vouchers || [],
@@ -1831,6 +2227,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         updateMember,
         deleteMember,
         importMembersFromList,
+        closeMemberShares,
+        buyMemberShares,
 
         addDeposit,
         addWithdrawal,

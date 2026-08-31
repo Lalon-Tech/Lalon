@@ -185,6 +185,20 @@ export function getTransactionTypeName(type: string, isBengali = true): { label:
         badge: 'bg-amber-50 text-amber-700 border-amber-200', 
         isCredit: true 
       };
+    case 'share_surrender':
+      return { 
+        label: isBengali ? 'শেয়ার সমর্পণ/ক্লোজ' : 'Share Surrender/Close', 
+        color: 'text-rose-600', 
+        badge: 'bg-rose-50 text-rose-700 border-rose-200', 
+        isCredit: false 
+      };
+    case 'profit_share':
+      return { 
+        label: isBengali ? 'লভ্যাংশ প্রদান' : 'Profit / Dividend Share', 
+        color: 'text-teal-600', 
+        badge: 'bg-teal-50 text-teal-700 border-teal-200', 
+        isCredit: false 
+      };
     case 'fine':
       return { 
         label: isBengali ? 'জরিমানা' : 'Fine / Late Fee', 
@@ -214,4 +228,13 @@ export function getTransactionTypeName(type: string, isBengali = true): { label:
         isCredit: true 
       };
   }
+}
+
+export function formatBengaliNumber(n: number | string | undefined | null, useBengali = true): string {
+  if (n === undefined || n === null || n === '') return useBengali ? '০' : '0';
+  return useBengali ? toBengaliNumber(n) : String(n);
+}
+
+export function getTodayDateStr(): string {
+  return new Date().toISOString().split('T')[0];
 }

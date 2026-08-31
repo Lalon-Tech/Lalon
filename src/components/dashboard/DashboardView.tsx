@@ -388,14 +388,14 @@ export const DashboardView: React.FC = () => {
         </div>
       </div>
 
-      {/* Bottom Row: 3 Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Bottom Row: 2 Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Client Report */}
         <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-2xs">
           <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
             <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
               <Users className="w-4 h-4 text-blue-600" />
-              <span>{isBn ? 'গ্রাহক রিপোর্ট' : 'Client Statistics'}</span>
+              <span>{isBn ? 'গ্রাহক ও শেয়ার রিপোর্ট' : 'Client & Share Metrics'}</span>
             </h4>
             <span className="text-xs text-slate-400">
               {isBn ? 'সামগ্রিক পরিসংখ্যান' : 'Overall Metrics'}
@@ -408,9 +408,9 @@ export const DashboardView: React.FC = () => {
               <span className="font-bold text-slate-800">: {num(members.length)} {isBn ? 'জন' : ''}</span>
             </div>
             <div className="flex justify-between py-1 border-b border-slate-50">
-              <span className="text-slate-600">{isBn ? '📊 মোট শেয়ার' : '📊 Total Shares'}</span>
-              <span className="font-bold text-slate-800">
-                : {num(members.reduce((s, m) => s + m.shareCount, 0))} {isBn ? 'টি' : 'Units'}
+              <span className="text-slate-600">{isBn ? '📊 মোট সক্রিয় শেয়ার' : '📊 Total Active Shares'}</span>
+              <span className="font-bold text-amber-700">
+                : {num(members.reduce((s, m) => s + (m.shareCount || 0), 0))} {isBn ? 'টি' : 'Units'}
               </span>
             </div>
             <div className="flex justify-between py-1 border-b border-slate-50">
@@ -436,42 +436,6 @@ export const DashboardView: React.FC = () => {
               <span className="font-bold text-slate-800">
                 : {num(members.filter(m => (m.nominees || []).length > 0).length)} {isBn ? 'জন' : 'Members'}
               </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Package Report */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-2xs">
-          <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
-            <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-500" />
-              <span>{isBn ? 'প্যাকেজ রিপোর্ট' : 'Package & License'}</span>
-            </h4>
-            <span className="text-xs text-emerald-600 font-semibold">
-              {isBn ? 'সক্রিয়' : 'Active'}
-            </span>
-          </div>
-
-          <div className="space-y-2 text-xs">
-            <div className="flex justify-between py-1 border-b border-slate-50">
-              <span className="text-slate-600">{isBn ? '📦 প্যাকেজের নাম' : '📦 Package Tier'}</span>
-              <span className="font-bold text-blue-700">: {isBn ? 'স্বাধীন (Enterprise)' : 'Enterprise Plan'}</span>
-            </div>
-            <div className="flex justify-between py-1 border-b border-slate-50">
-              <span className="text-slate-600">{isBn ? '👤 গ্রাহক পারমিশন' : '👤 Client Capacity'}</span>
-              <span className="font-bold text-slate-800">: {num(500)} {isBn ? 'জন' : 'Max'}</span>
-            </div>
-            <div className="flex justify-between py-1 border-b border-slate-50">
-              <span className="text-slate-600">{isBn ? '📅 মেয়াদ শেষ হবে' : '📅 Valid Until'}</span>
-              <span className="font-bold text-slate-800">: {isBn ? '৩১ শে জানুয়ারি, ২০২৯' : '31 January, 2029'}</span>
-            </div>
-            <div className="flex justify-between py-1 border-b border-slate-50">
-              <span className="text-slate-600">{isBn ? '💬 SMS ক্রেডিট ব্যালেন্স' : '💬 SMS Balance'}</span>
-              <span className="font-bold text-sky-600">: {num(417)} {isBn ? 'টি' : 'Credits'}</span>
-            </div>
-            <div className="flex justify-between py-1">
-              <span className="text-slate-600">{isBn ? '🔒 ডাটা এনক্রিপশন ও ব্যাকআপ' : '🔒 Encryption & Backup'}</span>
-              <span className="font-bold text-emerald-600">: {isBn ? 'সক্রিয় ও নিরাপদ' : 'Active & Secured'}</span>
             </div>
           </div>
         </div>
