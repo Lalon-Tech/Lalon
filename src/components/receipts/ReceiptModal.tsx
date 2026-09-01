@@ -118,6 +118,20 @@ export const ReceiptModal: React.FC = () => {
                 {selectedReceiptTx.paymentMethod}
               </span>
             </div>
+            {selectedReceiptTx.selectedShares && selectedReceiptTx.selectedShares.length > 0 && (
+              <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-xs space-y-1">
+                <div className="flex items-center justify-between font-bold text-emerald-900">
+                  <span>পরিশোধিত শেয়ার ({toBengaliNumber(selectedReceiptTx.selectedShares.length)} টি):</span>
+                  <span>{selectedReceiptTx.selectedShares.map(s => `শেয়ার #${toBengaliNumber(s)}`).join(', ')}</span>
+                </div>
+                {selectedReceiptTx.unpaidShares && selectedReceiptTx.unpaidShares.length > 0 && (
+                  <div className="flex items-center justify-between text-amber-800 font-semibold text-[11px]">
+                    <span>পরবর্তীতে প্রদেয় বকেয়া শেয়ার ({toBengaliNumber(selectedReceiptTx.unpaidShares.length)} টি):</span>
+                    <span>{selectedReceiptTx.unpaidShares.map(s => `শেয়ার #${toBengaliNumber(s)}`).join(', ')}</span>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex justify-between items-center pt-2">
               <span className="text-slate-700 font-bold text-sm">আদায় / প্রদানের পরিমাণ:</span>
               <span className="font-extrabold text-emerald-800 text-lg">

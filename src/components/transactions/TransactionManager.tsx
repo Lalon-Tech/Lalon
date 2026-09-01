@@ -11,11 +11,14 @@ import {
   Eye, 
   Receipt,
   Calendar,
-  Layers
+  Layers,
+  Edit3
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { Transaction } from '../../types';
+import { EditTransactionModal } from './EditTransactionModal';
 import { 
   formatCurrency, 
   formatInteger, 
@@ -41,6 +44,7 @@ export const TransactionManager: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('');
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
   const displayCount = (num: number) => (isBn || useBengaliDigits ? toBengaliNumber(num) : num.toString());
 
@@ -250,6 +254,11 @@ export const TransactionManager: React.FC = () => {
                         <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${typeInfo.badge}`}>
                           {typeInfo.label}
                         </span>
+                        {tx.selectedShares && tx.selectedShares.length > 0 && (
+                          <span className="inline-block ml-1.5 px-2 py-0.2 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-300">
+                            শেয়ার: {tx.selectedShares.map(s => `#${toBengaliNumber(s)}`).join(', ')}
+                          </span>
+                        )}
                         {tx.notes && <span className="block text-[10px] text-slate-400 truncate max-w-xs mt-0.5">{tx.notes}</span>}
                       </td>
 
@@ -270,15 +279,30 @@ export const TransactionManager: React.FC = () => {
                       </td>
 
                       <td className="py-3 px-4 text-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openReceiptForTx(tx);
-                          }}
-                          className="px-2.5 py-1 text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-md transition-colors cursor-pointer"
-                        >
-                          {isBn ? 'রসিদ দেখুন' : 'View Receipt'}
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingTx(tx);
+                            }}
+                            className="px-2 py-1 text-xs font-bold bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-md transition-colors cursor-pointer flex items-center gap-1"
+                            title={isBn ? 'লেনদেন সংশোধন / এডিট' : 'Edit Transaction'}
+                          >
+                            <Edit3 className="w-3 h-3" />
+                            <span>{isBn ? 'সংশোধন' : 'Edit'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openReceiptForTx(tx);
+                            }}
+                            className="px-2.5 py-1 text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-md transition-colors cursor-pointer"
+                          >
+                            {isBn ? 'রসিদ' : 'Receipt'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -288,6 +312,12 @@ export const TransactionManager: React.FC = () => {
           </table>
         </div>
       </div>
+
+      <EditTransactionModal
+        isOpen={!!editingTx}
+        onClose={() => setEditingTx(null)}
+        transaction={editingTx}
+      />
     </div>
   );
 };

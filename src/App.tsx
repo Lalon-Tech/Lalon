@@ -199,6 +199,7 @@ const AppContent: React.FC = () => {
       <NewDepositModal
         isOpen={showQuickDepositModal}
         onClose={() => setShowQuickDepositModal(false)}
+        initialMemberId={selectedMemberId || undefined}
       />
 
       <NewWithdrawModal

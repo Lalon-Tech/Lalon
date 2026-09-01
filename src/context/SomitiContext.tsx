@@ -244,6 +244,10 @@ interface SomitiContextType {
     amount: number;
     paymentMethod: PaymentMethod;
     bankAccountId?: string;
+    selectedShares?: number[];
+    totalMemberShares?: number;
+    shareRate?: number;
+    unpaidShares?: number[];
     notes?: string;
   }) => Transaction;
   
@@ -254,6 +258,9 @@ interface SomitiContextType {
     bankAccountId?: string;
     notes?: string;
   }) => Transaction;
+
+  updateTransaction: (id: string, updates: Partial<Transaction>) => void;
+  deleteTransaction: (id: string) => void;
 
   addLoan: (params: {
     memberId: string;
@@ -1321,6 +1328,10 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     amount: number;
     paymentMethod: PaymentMethod;
     bankAccountId?: string;
+    selectedShares?: number[];
+    totalMemberShares?: number;
+    shareRate?: number;
+    unpaidShares?: number[];
     notes?: string;
   }): Transaction => {
     const member = members.find(m => m.id === params.memberId);
@@ -1342,6 +1353,10 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       collectedBy: currentUser.name,
       verifiedBy: currentUser.name,
       savingsSchemeId: params.schemeId,
+      selectedShares: params.selectedShares,
+      totalMemberShares: params.totalMemberShares,
+      shareRate: params.shareRate,
+      unpaidShares: params.unpaidShares,
       notes: params.notes || (params.schemeType === 'dps' ? 'ডিপিএস কিস্তি জমা' : params.schemeType === 'fdr' ? 'এফডিআর জমা' : 'সাধারণ সঞ্চয় জমা'),
       status: 'completed',
     };
@@ -1455,6 +1470,110 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setActiveReceipt(newTx);
     return newTx;
+  };
+
+  // Update / Edit Transaction (ভুল এন্ট্রি সংশোধন)
+  const updateTransaction = (id: string, updates: Partial<Transaction>) => {
+    const existingTx = transactions.find(t => t.id === id);
+    if (!existingTx) return;
+
+    // If amount changed for deposit, adjust member balance accordingly
+    if (existingTx.memberId && ['deposit', 'dps_deposit', 'fdr_deposit'].includes(existingTx.type) && updates.amount !== undefined) {
+      const amountDiff = updates.amount - existingTx.amount;
+      if (amountDiff !== 0) {
+        setMembers(prev => prev.map(m => {
+          if (m.id !== existingTx.memberId) return m;
+          let gen = m.generalSavingsBalance;
+          let dps = m.dpsSavingsBalance;
+          let fdr = m.fdrSavingsBalance;
+
+          if (existingTx.type === 'deposit') gen = Math.max(0, gen + amountDiff);
+          if (existingTx.type === 'dps_deposit') dps = Math.max(0, dps + amountDiff);
+          if (existingTx.type === 'fdr_deposit') fdr = Math.max(0, fdr + amountDiff);
+
+          const updated = {
+            ...m,
+            generalSavingsBalance: gen,
+            dpsSavingsBalance: dps,
+            fdrSavingsBalance: fdr,
+            totalSavings: gen + dps + fdr + (m.shareValue || 0),
+          };
+          safeSetDoc(doc(db, 'members', m.id), updated).catch(console.error);
+          return updated;
+        }));
+      }
+    }
+
+    const updatedTx: Transaction = {
+      ...existingTx,
+      ...updates,
+    };
+
+    setTransactions(prev => prev.map(t => t.id === id ? updatedTx : t));
+    safeSetDoc(doc(db, 'transactions', id), updatedTx).catch(console.error);
+
+    if (activeReceipt?.id === id) {
+      setActiveReceipt(updatedTx);
+    }
+  };
+
+  // Delete / Revert Transaction (ভুল এন্ট্রি বাতিল ও হিসাব সমন্বয়)
+  const deleteTransaction = (id: string) => {
+    const tx = transactions.find(t => t.id === id);
+    if (!tx) return;
+
+    // 1. Revert member balances if applicable
+    if (tx.memberId) {
+      setMembers(prev => prev.map(m => {
+        if (m.id !== tx.memberId) return m;
+        let gen = m.generalSavingsBalance;
+        let dps = m.dpsSavingsBalance;
+        let fdr = m.fdrSavingsBalance;
+        let activeLoan = m.activeLoanBalance;
+
+        if (tx.type === 'deposit') gen = Math.max(0, gen - tx.amount);
+        if (tx.type === 'dps_deposit') dps = Math.max(0, dps - tx.amount);
+        if (tx.type === 'fdr_deposit') fdr = Math.max(0, fdr - tx.amount);
+        if (tx.type === 'withdraw') gen += tx.amount;
+        if (tx.type === 'profit_share') gen = Math.max(0, gen - tx.amount);
+        if (tx.type === 'loan_installment') activeLoan += tx.amount;
+
+        const updated = {
+          ...m,
+          generalSavingsBalance: gen,
+          dpsSavingsBalance: dps,
+          fdrSavingsBalance: fdr,
+          activeLoanBalance: activeLoan,
+          totalSavings: gen + dps + fdr + (m.shareValue || 0),
+        };
+        safeSetDoc(doc(db, 'members', m.id), updated).catch(console.error);
+        return updated;
+      }));
+    }
+
+    // 2. Revert Bank Account if applicable
+    if (tx.paymentMethod === 'bank' && tx.bankAccountId) {
+      setBankAccounts(prev => prev.map(b => {
+        if (b.id !== tx.bankAccountId) return b;
+        let newBalance = b.balance;
+        if (['deposit', 'dps_deposit', 'fdr_deposit', 'share_purchase', 'loan_installment', 'admission_fee', 'income'].includes(tx.type)) {
+          newBalance = Math.max(0, b.balance - tx.amount);
+        } else if (['withdraw', 'loan_disbursed', 'expense', 'share_surrender'].includes(tx.type)) {
+          newBalance = b.balance + tx.amount;
+        }
+        const updated = { ...b, balance: newBalance };
+        safeSetDoc(doc(db, 'bankAccounts', b.id), updated).catch(console.error);
+        return updated;
+      }));
+    }
+
+    // 3. Remove transaction from list and Firestore
+    setTransactions(prev => prev.filter(t => t.id !== id));
+    deleteDoc(doc(db, 'transactions', id)).catch(console.error);
+
+    if (activeReceipt?.id === id) {
+      setActiveReceipt(null);
+    }
   };
 
   // Add Loan
@@ -2232,6 +2351,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         addDeposit,
         addWithdrawal,
+        updateTransaction,
+        deleteTransaction,
         addLoan,
         payLoanInstallment,
         addSavingsScheme,

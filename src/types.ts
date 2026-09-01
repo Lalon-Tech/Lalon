@@ -160,6 +160,10 @@ export interface Transaction {
   loanId?: string;
   installmentNo?: number;
   savingsSchemeId?: string;
+  selectedShares?: number[];      // e.g. [1, 2]
+  totalMemberShares?: number;   // e.g. 4
+  shareRate?: number;           // e.g. 500
+  unpaidShares?: number[];        // e.g. [3, 4]
   category?: string;
   notes?: string;
   status: 'completed' | 'pending' | 'cancelled';
