@@ -43,10 +43,15 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   const [collectedBy, setCollectedBy] = useState('');
   const [selectedShares, setSelectedShares] = useState<number[]>([]);
   const [shareRate, setShareRate] = useState<number>(1000);
+  const [purchasedShareCount, setPurchasedShareCount] = useState<number>(1);
+  const [purchasedUnitPrice, setPurchasedUnitPrice] = useState<number>(1000);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const { settings } = useSomiti();
 
   useEffect(() => {
     if (transaction) {
+      const defaultRate = transaction.unitPrice || settings.sharePricePerUnit || 100;
       setDate(transaction.date || '');
       setAmount(transaction.amount || 0);
       setPaymentMethod(transaction.paymentMethod || 'cash');
@@ -55,15 +60,24 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       setCollectedBy(transaction.collectedBy || currentUser.name);
       setSelectedShares(transaction.selectedShares || []);
       setShareRate(transaction.shareRate || 1000);
+      
+      const sCount = transaction.shareCount || (transaction.amount > 0 ? Math.max(1, Math.round(transaction.amount / defaultRate)) : 1);
+      setPurchasedShareCount(sCount);
+      setPurchasedUnitPrice(transaction.unitPrice || defaultRate);
+
       setShowDeleteConfirm(false);
     }
-  }, [transaction, currentUser.name, bankAccounts]);
+  }, [transaction, currentUser.name, bankAccounts, settings.sharePricePerUnit]);
 
   if (!isOpen || !transaction) return null;
 
   const member = members.find(m => m.id === transaction.memberId);
   const totalShares = transaction.totalMemberShares || member?.shareCount || 0;
   const allSharesList = Array.from({ length: totalShares }, (_, i) => i + 1);
+
+  const isSharePurchase = transaction.type === 'share_purchase';
+  const isShareSurrender = transaction.type === 'share_surrender';
+  const isDepositType = ['deposit', 'dps_deposit', 'fdr_deposit'].includes(transaction.type);
 
   const handleToggleShare = (shareNo: number) => {
     let next: number[];
@@ -84,6 +98,18 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
     }
   };
 
+  const handlePurchasedSharesChange = (count: number) => {
+    const validCount = Math.max(1, count);
+    setPurchasedShareCount(validCount);
+    setAmount(validCount * purchasedUnitPrice);
+  };
+
+  const handlePurchasedUnitPriceChange = (price: number) => {
+    const validPrice = Math.max(1, price);
+    setPurchasedUnitPrice(validPrice);
+    setAmount(purchasedShareCount * validPrice);
+  };
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (amount <= 0) {
@@ -100,9 +126,11 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       bankAccountId: paymentMethod === 'bank' ? bankAccountId : undefined,
       notes: notes.trim(),
       collectedBy: collectedBy.trim(),
-      selectedShares: selectedShares.length > 0 ? selectedShares : undefined,
-      shareRate: selectedShares.length > 0 ? shareRate : undefined,
-      unpaidShares: selectedShares.length > 0 ? unpaid : undefined,
+      shareCount: isSharePurchase || isShareSurrender ? purchasedShareCount : undefined,
+      unitPrice: isSharePurchase || isShareSurrender ? purchasedUnitPrice : undefined,
+      selectedShares: isDepositType && selectedShares.length > 0 ? selectedShares : undefined,
+      shareRate: isDepositType && selectedShares.length > 0 ? shareRate : undefined,
+      unpaidShares: isDepositType && selectedShares.length > 0 ? unpaid : undefined,
     });
 
     onClose();
@@ -124,7 +152,9 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
               <Edit3 className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h3 className="text-base font-bold">ভুল লেনদেন সংশোধন ও এডিট</h3>
+              <h3 className="text-base font-bold">
+                {isSharePurchase ? 'শেয়ার ক্রয় এন্ট্রি সংশোধন' : isShareSurrender ? 'শেয়ার সমর্পণ এন্ট্রি সংশোধন' : 'ভুল লেনদেন সংশোধন ও এডিট'}
+              </h3>
               <p className="text-xs text-blue-100">ভাউচার নং: {transaction.voucherNo}</p>
             </div>
           </div>
@@ -142,7 +172,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
           {/* Transaction Metadata */}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between text-xs">
             <div>
-              <span className="text-slate-500 block">সদস্য / গ্রাহক:</span>
+              <span className="text-slate-500 block">সদস্য / প্রাপক:</span>
               <strong className="text-slate-800 text-sm">{transaction.memberName || 'সমিতি ফান্ড'}</strong>
               {transaction.memberNo && (
                 <span className="text-[11px] text-slate-500 font-mono block">সদস্য নং: {transaction.memberNo}</span>
@@ -153,6 +183,46 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
               <span className="font-bold text-blue-700 uppercase">{transaction.type}</span>
             </div>
           </div>
+
+          {/* Share Purchase specific editor */}
+          {isSharePurchase && (
+            <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3.5 space-y-3">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
+                <Layers className="w-4 h-4 text-amber-600" />
+                <span>শেয়ার সংখ্যা ও মূল্য পরিবর্তন</span>
+              </div>
+              <p className="text-[11px] text-amber-700 leading-relaxed">
+                ভুলবশত বেশি বা কম শেয়ার দিলে এখানে সঠিক শেয়ার সংখ্যা লিখুন। সদস্যের মোট শেয়ার সংখ্যা ও হিসাব সমন্বয় হবে।
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    শেয়ার সংখ্যা (টি) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={purchasedShareCount}
+                    onChange={(e) => handlePurchasedSharesChange(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-white border border-amber-300 rounded-lg text-sm font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    প্রতি শেয়ারের দর (৳)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    step="any"
+                    value={purchasedUnitPrice}
+                    onChange={(e) => handlePurchasedUnitPriceChange(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-white border border-amber-300 rounded-lg text-sm font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Date & Time */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -182,13 +252,13 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
             </div>
           </div>
 
-          {/* Share selection if it had shares or member has shares */}
-          {totalShares > 0 && (
+          {/* Share selection for deposits if member has multiple shares */}
+          {isDepositType && totalShares > 0 && (
             <div className="bg-blue-50/60 border border-blue-200 rounded-xl p-3.5 space-y-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900">
                   <Layers className="w-4 h-4 text-blue-600" />
-                  <span>শেয়ার নির্বাচন ও কিস্তি সংশোধন</span>
+                  <span>শেয়ার নির্বাচন ও কিস্তি সমন্বয়</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <label className="text-[11px] text-blue-800 font-semibold">দর (৳):</label>
@@ -236,7 +306,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                টাকার পরিমাণ (৳) <span className="text-rose-500">*</span>
+                মোট টাকার পরিমাণ (৳) <span className="text-rose-500">*</span>
               </label>
               <input
                 type="number"
@@ -307,7 +377,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                 <span>আপনি কি নিশ্চিতভাবে এই লেনদেনটি মুছে ফেলতে চান?</span>
               </div>
               <p className="text-[11px] text-rose-700 leading-relaxed">
-                এটি মুছে ফেললে সদস্যের ব্যালেন্স এবং সমিতির ক্যাশ স্বয়ংক্রিয়ভাবে পূর্বের অবস্থায় সমন্বয় করা হবে।
+                এটি মুছে ফেললে সদস্যের শেয়ার/ব্যালেন্স এবং সমিতির ক্যাশ স্বয়ংক্রিয়ভাবে পূর্বের অবস্থায় সমন্বয় করা হবে।
               </p>
               <div className="flex items-center justify-end gap-2 pt-1">
                 <button

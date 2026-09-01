@@ -1477,31 +1477,87 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const existingTx = transactions.find(t => t.id === id);
     if (!existingTx) return;
 
-    // If amount changed for deposit, adjust member balance accordingly
-    if (existingTx.memberId && ['deposit', 'dps_deposit', 'fdr_deposit'].includes(existingTx.type) && updates.amount !== undefined) {
-      const amountDiff = updates.amount - existingTx.amount;
-      if (amountDiff !== 0) {
-        setMembers(prev => prev.map(m => {
-          if (m.id !== existingTx.memberId) return m;
-          let gen = m.generalSavingsBalance;
-          let dps = m.dpsSavingsBalance;
-          let fdr = m.fdrSavingsBalance;
+    const unitPrice = existingTx.unitPrice || settings.sharePricePerUnit || 100;
+    const oldAmount = existingTx.amount;
+    const newAmount = updates.amount !== undefined ? updates.amount : oldAmount;
+    const amountDiff = newAmount - oldAmount;
 
-          if (existingTx.type === 'deposit') gen = Math.max(0, gen + amountDiff);
-          if (existingTx.type === 'dps_deposit') dps = Math.max(0, dps + amountDiff);
-          if (existingTx.type === 'fdr_deposit') fdr = Math.max(0, fdr + amountDiff);
+    // 1. Member balances adjustment
+    if (existingTx.memberId) {
+      setMembers(prev => prev.map(m => {
+        if (m.id !== existingTx.memberId) return m;
+        let gen = m.generalSavingsBalance;
+        let dps = m.dpsSavingsBalance;
+        let fdr = m.fdrSavingsBalance;
+        let loanBal = m.activeLoanBalance;
+        let sCount = m.shareCount || 0;
+        let sVal = m.shareValue || 0;
 
-          const updated = {
-            ...m,
-            generalSavingsBalance: gen,
-            dpsSavingsBalance: dps,
-            fdrSavingsBalance: fdr,
-            totalSavings: gen + dps + fdr + (m.shareValue || 0),
-          };
-          safeSetDoc(doc(db, 'members', m.id), updated).catch(console.error);
+        if (existingTx.type === 'deposit') gen = Math.max(0, gen + amountDiff);
+        if (existingTx.type === 'dps_deposit') dps = Math.max(0, dps + amountDiff);
+        if (existingTx.type === 'fdr_deposit') fdr = Math.max(0, fdr + amountDiff);
+        if (existingTx.type === 'withdraw') gen = Math.max(0, gen - amountDiff);
+        if (existingTx.type === 'loan_installment') loanBal = Math.max(0, loanBal - amountDiff);
+
+        if (existingTx.type === 'share_purchase') {
+          const oldShares = existingTx.shareCount ?? Math.max(1, Math.round(oldAmount / unitPrice));
+          const newShares = updates.shareCount !== undefined ? updates.shareCount : Math.max(1, Math.round(newAmount / unitPrice));
+          const shareDiff = newShares - oldShares;
+
+          sCount = Math.max(0, sCount + shareDiff);
+          sVal = Math.max(0, sVal + amountDiff);
+        }
+
+        if (existingTx.type === 'share_surrender') {
+          const oldShares = existingTx.shareCount ?? Math.max(1, Math.round(oldAmount / unitPrice));
+          const newShares = updates.shareCount !== undefined ? updates.shareCount : Math.max(1, Math.round(newAmount / unitPrice));
+          const shareDiff = newShares - oldShares;
+
+          sCount = Math.max(0, sCount - shareDiff);
+          sVal = Math.max(0, sVal - amountDiff);
+        }
+
+        const updated: Member = {
+          ...m,
+          generalSavingsBalance: gen,
+          dpsSavingsBalance: dps,
+          fdrSavingsBalance: fdr,
+          activeLoanBalance: loanBal,
+          shareCount: sCount,
+          shareValue: sVal,
+          totalSavings: gen + dps + fdr + sVal,
+        };
+        safeSetDoc(doc(db, 'members', m.id), updated).catch(console.error);
+        return updated;
+      }));
+    }
+
+    // 2. Bank balance adjustment if bank method involved
+    const oldBankId = existingTx.paymentMethod === 'bank' ? existingTx.bankAccountId : undefined;
+    const newBankId = updates.paymentMethod === 'bank' ? (updates.bankAccountId || oldBankId) : undefined;
+
+    if (oldBankId || newBankId) {
+      setBankAccounts(prev => prev.map(b => {
+        let bal = b.balance;
+        const isCreditType = ['deposit', 'dps_deposit', 'fdr_deposit', 'share_purchase', 'loan_installment', 'admission_fee', 'income'].includes(existingTx.type);
+
+        // Revert old transaction on old bank
+        if (oldBankId && b.id === oldBankId) {
+          bal = isCreditType ? Math.max(0, bal - oldAmount) : bal + oldAmount;
+        }
+
+        // Apply new transaction on new bank
+        if (newBankId && b.id === newBankId) {
+          bal = isCreditType ? bal + newAmount : Math.max(0, bal - newAmount);
+        }
+
+        if (bal !== b.balance) {
+          const updated = { ...b, balance: bal };
+          safeSetDoc(doc(db, 'bankAccounts', b.id), updated).catch(console.error);
           return updated;
-        }));
-      }
+        }
+        return b;
+      }));
     }
 
     const updatedTx: Transaction = {
@@ -1522,6 +1578,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const tx = transactions.find(t => t.id === id);
     if (!tx) return;
 
+    const unitPrice = tx.unitPrice || settings.sharePricePerUnit || 100;
+
     // 1. Revert member balances if applicable
     if (tx.memberId) {
       setMembers(prev => prev.map(m => {
@@ -1530,6 +1588,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         let dps = m.dpsSavingsBalance;
         let fdr = m.fdrSavingsBalance;
         let activeLoan = m.activeLoanBalance;
+        let sCount = m.shareCount || 0;
+        let sVal = m.shareValue || 0;
 
         if (tx.type === 'deposit') gen = Math.max(0, gen - tx.amount);
         if (tx.type === 'dps_deposit') dps = Math.max(0, dps - tx.amount);
@@ -1538,13 +1598,27 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (tx.type === 'profit_share') gen = Math.max(0, gen - tx.amount);
         if (tx.type === 'loan_installment') activeLoan += tx.amount;
 
-        const updated = {
+        if (tx.type === 'share_purchase') {
+          const shares = tx.shareCount ?? Math.max(1, Math.round(tx.amount / unitPrice));
+          sCount = Math.max(0, sCount - shares);
+          sVal = Math.max(0, sVal - tx.amount);
+        }
+
+        if (tx.type === 'share_surrender') {
+          const shares = tx.shareCount ?? Math.max(1, Math.round(tx.amount / unitPrice));
+          sCount = sCount + shares;
+          sVal = sVal + tx.amount;
+        }
+
+        const updated: Member = {
           ...m,
           generalSavingsBalance: gen,
           dpsSavingsBalance: dps,
           fdrSavingsBalance: fdr,
           activeLoanBalance: activeLoan,
-          totalSavings: gen + dps + fdr + (m.shareValue || 0),
+          shareCount: sCount,
+          shareValue: sVal,
+          totalSavings: gen + dps + fdr + sVal,
         };
         safeSetDoc(doc(db, 'members', m.id), updated).catch(console.error);
         return updated;

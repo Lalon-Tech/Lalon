@@ -160,6 +160,8 @@ export interface Transaction {
   loanId?: string;
   installmentNo?: number;
   savingsSchemeId?: string;
+  shareCount?: number;          // e.g. 2 shares
+  unitPrice?: number;           // e.g. 1000 tk/share
   selectedShares?: number[];      // e.g. [1, 2]
   totalMemberShares?: number;   // e.g. 4
   shareRate?: number;           // e.g. 500

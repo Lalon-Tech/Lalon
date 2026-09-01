@@ -16,11 +16,14 @@ import {
   Eye,
   Trash2,
   Lock,
-  ShieldCheck
+  ShieldCheck,
+  Edit3
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { EditMemberModal } from './EditMemberModal';
+import { Member } from '../../types';
 import { 
   formatCurrency, 
   formatInteger, 
@@ -47,6 +50,7 @@ export const MemberList: React.FC = () => {
     canViewMemberFinancials
   } = useSomiti();
 
+  const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'has_loan'>(() => {
     if (activeTab === 'active_members' || activeTab === 'members_active') return 'active';
@@ -360,6 +364,13 @@ export const MemberList: React.FC = () => {
                         {isUserAdmin && (
                           <>
                             <button
+                              onClick={() => setEditingMember(member)}
+                              title={isBn ? "সদস্য তথ্য ও শেয়ার এডিট করুন" : "Edit Member Info & Shares"}
+                              className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                            <button
                               onClick={() => {
                                 setSelectedMemberId(member.id);
                                 setShowQuickDepositModal(true);
@@ -403,6 +414,13 @@ export const MemberList: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Edit Member Modal */}
+      <EditMemberModal
+        isOpen={!!editingMember}
+        onClose={() => setEditingMember(null)}
+        member={editingMember}
+      />
     </div>
   );
 };

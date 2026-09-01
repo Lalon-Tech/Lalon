@@ -26,7 +26,8 @@ import {
   UserPlus,
   Archive,
   TrendingUp,
-  PieChart
+  PieChart,
+  Edit3
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -34,6 +35,9 @@ import { PhotoUploadField } from '../common/PhotoUploadField';
 import { ShareClosureModal } from './ShareClosureModal';
 import { BuyShareModal } from './BuyShareModal';
 import { ShareClosuresList } from './ShareClosuresList';
+import { EditMemberModal } from './EditMemberModal';
+import { EditTransactionModal } from '../transactions/EditTransactionModal';
+import { Transaction } from '../../types';
 import { 
   formatCurrency, 
   formatInteger, 
@@ -72,6 +76,8 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
   const [newPhotoUrl, setNewPhotoUrl] = useState('');
   const [showShareClosureModal, setShowShareClosureModal] = useState(false);
   const [showBuyShareModal, setShowBuyShareModal] = useState(false);
+  const [showEditMemberModal, setShowEditMemberModal] = useState(false);
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
   const displayCount = (num: number) => (isBn || useBengaliDigits ? toBengaliNumber(num) : num.toString());
 
@@ -182,6 +188,14 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
           )}
           {isUserAdmin && (
             <>
+              <button
+                onClick={() => setShowEditMemberModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer border border-slate-600"
+                title="সদস্যের তথ্য, শেয়ার সংখ্যা বা ভুল হিসাব সংশোধন করুন"
+              >
+                <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                <span>{isBn ? 'সদস্য তথ্য ও শেয়ার এডিট' : 'Edit Member & Shares'}</span>
+              </button>
               <button
                 onClick={() => setShowQuickDepositModal(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
@@ -447,12 +461,24 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                               {tx.collectedBy}
                             </td>
                             <td className="py-2.5 px-3 text-center">
-                              <button
-                                onClick={() => openReceiptForTx(tx)}
-                                className="px-2 py-1 text-[11px] font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded transition-colors cursor-pointer"
-                              >
-                                {isBn ? 'রসিদ' : 'Receipt'}
-                              </button>
+                              <div className="flex items-center justify-center gap-1">
+                                <button
+                                  onClick={() => openReceiptForTx(tx)}
+                                  className="px-2 py-1 text-[11px] font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded transition-colors cursor-pointer"
+                                >
+                                  {isBn ? 'রসিদ' : 'Receipt'}
+                                </button>
+                                {isUserAdmin && (
+                                  <button
+                                    onClick={() => setEditingTx(tx)}
+                                    title={isBn ? 'ভুল লেনদেন বা শেয়ার এন্ট্রি সংশোধন করুন' : 'Edit or correct this transaction'}
+                                    className="px-2 py-1 text-[11px] font-bold bg-amber-50 text-amber-700 hover:bg-amber-100 rounded transition-colors cursor-pointer flex items-center gap-0.5"
+                                  >
+                                    <Edit3 className="w-3 h-3" />
+                                    <span>{isBn ? 'সংশোধন' : 'Edit'}</span>
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -998,6 +1024,20 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
         isOpen={showBuyShareModal}
         onClose={() => setShowBuyShareModal(false)}
         preselectedMemberId={member.id}
+      />
+
+      {/* Edit Member Modal */}
+      <EditMemberModal
+        isOpen={showEditMemberModal}
+        onClose={() => setShowEditMemberModal(false)}
+        member={member}
+      />
+
+      {/* Edit Transaction Modal */}
+      <EditTransactionModal
+        isOpen={!!editingTx}
+        onClose={() => setEditingTx(null)}
+        transaction={editingTx}
       />
     </div>
   );

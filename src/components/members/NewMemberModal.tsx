@@ -30,7 +30,7 @@ export const NewMemberModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
   );
 
   // Step 2: Somiti & Share
-  const [shareCount, setShareCount] = useState(50);
+  const [shareCount, setShareCount] = useState(1);
   const [admissionFee, setAdmissionFee] = useState(settings.defaultAdmissionFee || 500);
   const [monthlyDps, setMonthlyDps] = useState(2000);
 
