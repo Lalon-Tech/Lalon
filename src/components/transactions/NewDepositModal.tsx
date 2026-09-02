@@ -11,10 +11,15 @@ import {
   Coins, 
   Sparkles,
   Calculator,
-  UserCheck
+  UserCheck,
+  Calendar,
+  Settings2,
+  Plus,
+  RefreshCw
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useSomiti } from '../../context/SomitiContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { PaymentMethod } from '../../types';
 import { formatCurrency, formatBengaliNumber, toBengaliNumber } from '../../utils/bengaliUtils';
 
@@ -24,33 +29,109 @@ interface NewDepositModalProps {
   initialMemberId?: string;
 }
 
+const BENGALI_MONTHS = [
+  { value: '01', nameBn: 'জানুয়ারি', nameEn: 'January' },
+  { value: '02', nameBn: 'ফেব্রুয়ারি', nameEn: 'February' },
+  { value: '03', nameBn: 'মার্চ', nameEn: 'March' },
+  { value: '04', nameBn: 'এপ্রিল', nameEn: 'April' },
+  { value: '05', nameBn: 'মে', nameEn: 'May' },
+  { value: '06', nameBn: 'জুন', nameEn: 'June' },
+  { value: '07', nameBn: 'জুলাই', nameEn: 'July' },
+  { value: '08', nameBn: 'আগস্ট', nameEn: 'August' },
+  { value: '09', nameBn: 'সেপ্টেম্বর', nameEn: 'September' },
+  { value: '10', nameBn: 'অক্টোবর', nameEn: 'October' },
+  { value: '11', nameBn: 'নভেম্বর', nameEn: 'November' },
+  { value: '12', nameBn: 'ডিসেম্বর', nameEn: 'December' },
+];
+
+const GENERATED_YEARS = Array.from({ length: 51 }, (_, i) => 2000 + i); // 2000 to 2050
+
 export const NewDepositModal: React.FC<NewDepositModalProps> = ({ 
   isOpen, 
   onClose,
   initialMemberId 
 }) => {
+  const { language } = useLanguage();
+  const isBn = language === 'bn';
+
   const { 
     members, 
     bankAccounts, 
     addDeposit, 
+    updateMember,
     savingsSchemes,
     settings,
     useBengaliDigits 
   } = useSomiti();
 
+  const getTodayDate = () => new Date().toISOString().split('T')[0];
+  const getCurrentMonthStr = () => String(new Date().getMonth() + 1).padStart(2, '0');
+  const getCurrentYearNum = () => new Date().getFullYear();
+
   const [memberId, setMemberId] = useState(initialMemberId || members[0]?.id || '');
   const [schemeType, setSchemeType] = useState<'general' | 'dps' | 'fdr'>('general');
   const [schemeId, setSchemeId] = useState('');
   const [depositMode, setDepositMode] = useState<'share_wise' | 'custom'>('share_wise');
-  const [shareRate, setShareRate] = useState<number>(1000);
+
+  // Date, Month & Year Selection
+  const [depositDate, setDepositDate] = useState<string>(getTodayDate());
+  const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentMonthStr());
+  const [selectedYear, setSelectedYear] = useState<number>(getCurrentYearNum());
+
+  // Share Rate and Per-Share amounts
+  const [bulkRate, setBulkRate] = useState<number>(1000);
+  const [shareAmounts, setShareAmounts] = useState<{ [shareNo: number]: number }>({});
   const [selectedShares, setSelectedShares] = useState<number[]>([]);
   const [amount, setAmount] = useState<number>(1000);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [bankAccountId, setBankAccountId] = useState(bankAccounts[0]?.id || '');
   const [notes, setNotes] = useState('');
 
+  // Quick share count adjuster state for members with 0 or custom shares
+  const [showShareEditor, setShowShareEditor] = useState(false);
+  const [customShareCountInput, setCustomShareCountInput] = useState<number>(4);
+
   const currentMember = members.find(m => m.id === memberId);
   const memberTotalShares = currentMember?.shareCount || 0;
+
+  const displayCount = (num: number) => (isBn || useBengaliDigits ? toBengaliNumber(num) : num.toString());
+
+  // Get Month Name
+  const getMonthName = (monthVal: string) => {
+    const m = BENGALI_MONTHS.find(b => b.value === monthVal);
+    if (!m) return monthVal;
+    return isBn ? m.nameBn : m.nameEn;
+  };
+
+  const getBillingPeriodStr = () => {
+    const mName = getMonthName(selectedMonth);
+    const yStr = displayCount(selectedYear);
+    return isBn ? `${mName} ${yStr}` : `${mName} ${yStr}`;
+  };
+
+  // Sync Month/Year when Date changes
+  const handleDateChange = (newDate: string) => {
+    setDepositDate(newDate);
+    if (newDate) {
+      const parts = newDate.split('-');
+      if (parts.length === 3) {
+        setSelectedYear(Number(parts[0]));
+        setSelectedMonth(parts[1]);
+      }
+    }
+  };
+
+  const handleSetToday = () => {
+    const today = getTodayDate();
+    handleDateChange(today);
+  };
+
+  const handleSetYesterday = () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const yest = d.toISOString().split('T')[0];
+    handleDateChange(yest);
+  };
 
   // Initialize or update state when member or modal opens
   useEffect(() => {
@@ -59,35 +140,84 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
     }
   }, [initialMemberId]);
 
+  // When member changes, initialize share amounts and selections
   useEffect(() => {
     if (currentMember) {
       const sharesCount = currentMember.shareCount || 0;
+      setCustomShareCountInput(sharesCount > 0 ? sharesCount : 4);
+
       if (sharesCount > 0) {
         setDepositMode('share_wise');
-        // By default select all or first 2 shares if available
-        const defaultSelected = sharesCount >= 2 ? [1, 2] : [1];
-        setSelectedShares(defaultSelected);
-        const calculatedAmount = defaultSelected.length * shareRate;
-        setAmount(calculatedAmount);
-        
-        const unpaid = Array.from({ length: sharesCount }, (_, i) => i + 1).filter(s => !defaultSelected.includes(s));
-        const selectedStr = defaultSelected.map(s => `#${toBengaliNumber(s)}`).join(', ');
-        const unpaidStr = unpaid.map(s => `#${toBengaliNumber(s)}`).join(', ');
-        
-        if (unpaid.length > 0) {
-          setNotes(`শেয়ার ভিত্তিক জমা: শেয়ার ${selectedStr} (মোট ${toBengaliNumber(defaultSelected.length)}টি বাবদ ৳${calculatedAmount})। পরবর্তীতে প্রদেয়: শেয়ার ${unpaidStr}।`);
-        } else {
-          setNotes(`সকল শেয়ারের (${toBengaliNumber(sharesCount)}টি) জমা সম্পন্ন`);
+        // Initialize share amounts map
+        const initialAmountsMap: { [shareNo: number]: number } = {};
+        for (let i = 1; i <= sharesCount; i++) {
+          initialAmountsMap[i] = bulkRate;
         }
+        setShareAmounts(initialAmountsMap);
+
+        // By default select all shares
+        const defaultSelected = Array.from({ length: sharesCount }, (_, i) => i + 1);
+        setSelectedShares(defaultSelected);
+
+        const totalCalculated = defaultSelected.reduce((sum, s) => sum + (initialAmountsMap[s] || bulkRate), 0);
+        setAmount(totalCalculated);
+
+        generateAutoNotes(defaultSelected, initialAmountsMap, sharesCount, selectedMonth, selectedYear);
       } else {
         setDepositMode('custom');
         setSelectedShares([]);
+        setShareAmounts({});
         setAmount(1000);
       }
     }
-  }, [memberId, currentMember?.shareCount]);
+  }, [memberId, currentMember?.shareCount, isBn]);
 
-  // When selected shares or share rate changes, recalculate amount & notes
+  // Generate automated descriptive notes
+  const generateAutoNotes = (
+    selected: number[],
+    amountsMap: { [shareNo: number]: number },
+    totalShares: number,
+    month: string,
+    year: number
+  ) => {
+    const period = isBn 
+      ? `${getMonthName(month)} ${toBengaliNumber(year)}` 
+      : `${getMonthName(month)} ${year}`;
+
+    if (selected.length === 0) {
+      setNotes(isBn ? `${period}: কোনো শেয়ার নির্বাচিত নেই` : `${period}: No shares selected`);
+      return;
+    }
+
+    const allShares = Array.from({ length: totalShares }, (_, i) => i + 1);
+    const unpaid = allShares.filter(s => !selected.includes(s));
+    
+    const selectedBreakdown = selected.map(s => {
+      const sAmt = amountsMap[s] || bulkRate;
+      return isBn 
+        ? `শেয়ার #${toBengaliNumber(s)} (৳${toBengaliNumber(sAmt)})` 
+        : `Share #${s} (৳${sAmt})`;
+    }).join(' + ');
+
+    const totalAmt = selected.reduce((sum, s) => sum + (amountsMap[s] || bulkRate), 0);
+
+    if (unpaid.length > 0) {
+      const unpaidStr = unpaid.map(s => isBn ? `#${toBengaliNumber(s)}` : `#${s}`).join(', ');
+      if (isBn) {
+        setNotes(`${period} কিস্তি: ${selectedBreakdown} = মোট ৳${toBengaliNumber(totalAmt)}। পরবর্তীতে প্রদেয়: শেয়ার ${unpaidStr}।`);
+      } else {
+        setNotes(`${period} Installment: ${selectedBreakdown} = Total ৳${totalAmt}. Due later: Shares ${unpaidStr}.`);
+      }
+    } else {
+      if (isBn) {
+        setNotes(`${period} কিস্তি: সকল শেয়ারের (${toBengaliNumber(totalShares)}টি) সম্পূর্ণ জমা [${selectedBreakdown}] = ৳${toBengaliNumber(totalAmt)}`);
+      } else {
+        setNotes(`${period} Installment: All ${totalShares} shares full deposit [${selectedBreakdown}] = ৳${totalAmt}`);
+      }
+    }
+  };
+
+  // Toggle individual share
   const handleToggleShare = (shareIndex: number) => {
     let nextSelected: number[];
     if (selectedShares.includes(shareIndex)) {
@@ -97,72 +227,90 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
     }
     setSelectedShares(nextSelected);
 
-    const calculatedAmount = nextSelected.length * shareRate;
+    const calculatedAmount = nextSelected.reduce((sum, s) => sum + (shareAmounts[s] || bulkRate), 0);
     setAmount(calculatedAmount);
 
-    const allShares = Array.from({ length: memberTotalShares }, (_, i) => i + 1);
-    const unpaid = allShares.filter(s => !nextSelected.includes(s));
+    generateAutoNotes(nextSelected, shareAmounts, memberTotalShares, selectedMonth, selectedYear);
+  };
+
+  // Change amount for a SPECIFIC individual share
+  const handleIndividualShareAmountChange = (shareIndex: number, newAmt: number) => {
+    const validAmt = Math.max(0, newAmt);
+    const nextAmounts = {
+      ...shareAmounts,
+      [shareIndex]: validAmt
+    };
+    setShareAmounts(nextAmounts);
+
+    const calculatedAmount = selectedShares.reduce((sum, s) => sum + (nextAmounts[s] || 0), 0);
+    setAmount(calculatedAmount);
+
+    generateAutoNotes(selectedShares, nextAmounts, memberTotalShares, selectedMonth, selectedYear);
+  };
+
+  // Bulk rate apply across all shares
+  const handleApplyBulkRate = (newRate: number) => {
+    const validRate = Math.max(1, newRate);
+    setBulkRate(validRate);
     
-    if (nextSelected.length > 0) {
-      const selectedStr = nextSelected.map(s => `#${toBengaliNumber(s)}`).join(', ');
-      const unpaidStr = unpaid.length > 0 ? unpaid.map(s => `#${toBengaliNumber(s)}`).join(', ') : 'নাই';
-      
-      if (unpaid.length > 0) {
-        setNotes(`শেয়ার ভিত্তিক জমা: শেয়ার ${selectedStr} (মোট ${toBengaliNumber(nextSelected.length)}টি বাবদ ৳${calculatedAmount})। পরবর্তীতে প্রদেয়: শেয়ার ${unpaidStr}।`);
-      } else {
-        setNotes(`সকল শেয়ারের (${toBengaliNumber(memberTotalShares)}টি) সম্পূর্ণ জমা (৳${calculatedAmount})`);
-      }
-    } else {
-      setNotes('কোনো শেয়ার নির্বাচিত নেই');
+    const updatedAmounts: { [shareNo: number]: number } = {};
+    for (let i = 1; i <= memberTotalShares; i++) {
+      updatedAmounts[i] = validRate;
     }
+    setShareAmounts(updatedAmounts);
+
+    const calculatedAmount = selectedShares.length * validRate;
+    setAmount(calculatedAmount);
+
+    generateAutoNotes(selectedShares, updatedAmounts, memberTotalShares, selectedMonth, selectedYear);
   };
 
   const handleSelectAllShares = () => {
     const all = Array.from({ length: memberTotalShares }, (_, i) => i + 1);
     setSelectedShares(all);
-    const calculatedAmount = all.length * shareRate;
+    const calculatedAmount = all.reduce((sum, s) => sum + (shareAmounts[s] || bulkRate), 0);
     setAmount(calculatedAmount);
-    setNotes(`সকল শেয়ারের (${toBengaliNumber(memberTotalShares)}টি) সম্পূর্ণ জমা বাবদ`);
+    generateAutoNotes(all, shareAmounts, memberTotalShares, selectedMonth, selectedYear);
   };
 
   const handleSelectFirstN = (count: number) => {
     const subset = Array.from({ length: Math.min(count, memberTotalShares) }, (_, i) => i + 1);
     setSelectedShares(subset);
-    const calculatedAmount = subset.length * shareRate;
+    const calculatedAmount = subset.reduce((sum, s) => sum + (shareAmounts[s] || bulkRate), 0);
     setAmount(calculatedAmount);
-
-    const allShares = Array.from({ length: memberTotalShares }, (_, i) => i + 1);
-    const unpaid = allShares.filter(s => !subset.includes(s));
-    const selectedStr = subset.map(s => `#${toBengaliNumber(s)}`).join(', ');
-    const unpaidStr = unpaid.map(s => `#${toBengaliNumber(s)}`).join(', ');
-    setNotes(`শেয়ার ভিত্তিক জমা: শেয়ার ${selectedStr} (মোট ${toBengaliNumber(subset.length)}টি বাবদ ৳${calculatedAmount})। পরবর্তীতে প্রদেয়: শেয়ার ${unpaidStr}।`);
+    generateAutoNotes(subset, shareAmounts, memberTotalShares, selectedMonth, selectedYear);
   };
 
   const handleClearSelection = () => {
     setSelectedShares([]);
     setAmount(0);
-    setNotes('');
+    setNotes(isBn ? 'কোনো শেয়ার নির্বাচিত নেই' : 'No shares selected');
   };
 
-  const handleShareRateChange = (newRate: number) => {
-    setShareRate(newRate);
-    if (depositMode === 'share_wise') {
-      const calculatedAmount = selectedShares.length * newRate;
-      setAmount(calculatedAmount);
-      
-      const allShares = Array.from({ length: memberTotalShares }, (_, i) => i + 1);
-      const unpaid = allShares.filter(s => !selectedShares.includes(s));
-      const selectedStr = selectedShares.map(s => `#${toBengaliNumber(s)}`).join(', ');
-      const unpaidStr = unpaid.length > 0 ? unpaid.map(s => `#${toBengaliNumber(s)}`).join(', ') : 'নাই';
-      
-      if (selectedShares.length > 0) {
-        if (unpaid.length > 0) {
-          setNotes(`শেয়ার ভিত্তিক জমা: শেয়ার ${selectedStr} (মোট ${toBengaliNumber(selectedShares.length)}টি বাবদ ৳${calculatedAmount})। পরবর্তীতে প্রদেয়: শেয়ার ${unpaidStr}।`);
-        } else {
-          setNotes(`সকল শেয়ারের (${toBengaliNumber(memberTotalShares)}টি) সম্পূর্ণ জমা বাবদ`);
-        }
-      }
+  // Quick Share Count update for members with 0 or missing shares (e.g. Lalon)
+  const handleQuickSetShareCount = (newCount: number) => {
+    if (!currentMember || newCount <= 0) return;
+    const shareVal = newCount * (settings.sharePricePerUnit || 100);
+    updateMember(currentMember.id, {
+      shareCount: newCount,
+      shareValue: shareVal,
+      totalSavings: (currentMember.generalSavingsBalance || 0) + 
+                    (currentMember.dpsSavingsBalance || 0) + 
+                    (currentMember.fdrSavingsBalance || 0) + 
+                    shareVal
+    });
+
+    const newAmountsMap: { [shareNo: number]: number } = {};
+    for (let i = 1; i <= newCount; i++) {
+      newAmountsMap[i] = bulkRate;
     }
+    setShareAmounts(newAmountsMap);
+    const all = Array.from({ length: newCount }, (_, i) => i + 1);
+    setSelectedShares(all);
+    setAmount(all.length * bulkRate);
+    setDepositMode('share_wise');
+    setShowShareEditor(false);
+    generateAutoNotes(all, newAmountsMap, newCount, selectedMonth, selectedYear);
   };
 
   if (!isOpen) return null;
@@ -174,12 +322,16 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!memberId || amount <= 0) {
-      alert('অনুগ্রহ করে সদস্য ও সঠিক জমার পরিমাণ নিশ্চিত করুন। (কমপক্ষে ১টি শেয়ার নির্বাচন করুন)');
+      alert(isBn 
+        ? 'অনুগ্রহ করে সদস্য ও সঠিক জমার পরিমাণ নিশ্চিত করুন। (কমপক্ষে ১টি শেয়ার নির্বাচন করুন)' 
+        : 'Please select a member and valid deposit amount (select at least 1 share).');
       return;
     }
 
     if (depositMode === 'share_wise' && memberTotalShares > 0 && selectedShares.length === 0) {
-      alert('অনুগ্রহ করে কমপক্ষে ১টি শেয়ার নির্বাচন করুন অথবা কাস্টম মোডে যান।');
+      alert(isBn 
+        ? 'অনুগ্রহ করে কমপক্ষে ১টি শেয়ার নির্বাচন করুন অথবা সরাসরি এন্ট্রি মোডে যান।' 
+        : 'Please select at least 1 share or switch to direct entry mode.');
       return;
     }
 
@@ -192,9 +344,14 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
       bankAccountId: paymentMethod === 'bank' ? bankAccountId : undefined,
       selectedShares: depositMode === 'share_wise' && memberTotalShares > 0 ? selectedShares : undefined,
       totalMemberShares: depositMode === 'share_wise' && memberTotalShares > 0 ? memberTotalShares : undefined,
-      shareRate: depositMode === 'share_wise' && memberTotalShares > 0 ? shareRate : undefined,
+      shareRate: bulkRate,
+      shareAmounts: depositMode === 'share_wise' && memberTotalShares > 0 ? shareAmounts : undefined,
       unpaidShares: depositMode === 'share_wise' && memberTotalShares > 0 ? unpaidSharesList : undefined,
       notes: notes.trim(),
+      date: depositDate,
+      depositMonth: selectedMonth,
+      depositYear: selectedYear,
+      billingPeriod: getBillingPeriodStr(),
     });
 
     try {
@@ -214,8 +371,12 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
               <ArrowDownRight className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h3 className="text-base font-bold">টাকা জমা ও শেয়ার ভিত্তিক কালেকশন</h3>
-              <p className="text-xs text-emerald-100">শেয়ার সিলেক্টর ও কিস্তি আদায় ভাউচার</p>
+              <h3 className="text-base font-bold">
+                {isBn ? 'টাকা জমা ও শেয়ার ভিত্তিক কালেকশন' : 'Deposit Money & Share Collection'}
+              </h3>
+              <p className="text-xs text-emerald-100">
+                {isBn ? 'তারিখ, মাস ও শেয়ার প্রতি নির্ধারিত কিস্তি আদায়' : 'Date, Month & Per-Share Installment Entry'}
+              </p>
             </div>
           </div>
           <button 
@@ -232,7 +393,7 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
           {/* Member Selection */}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
-              সদস্য নির্বাচন করুন <span className="text-rose-500">*</span>
+              {isBn ? 'সদস্য নির্বাচন করুন' : 'Select Member'} <span className="text-rose-500">*</span>
             </label>
             <select
               required
@@ -242,7 +403,7 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
             >
               {members.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.memberNo} - {m.name} (মোট শেয়ার: {formatBengaliNumber(m.shareCount || 0)} টি) • {m.phone}
+                  {m.memberNo} - {m.name} ({isBn ? 'শেয়ার:' : 'Shares:'} {displayCount(m.shareCount || 0)} {isBn ? 'টি' : ''}) • {m.phone}
                 </option>
               ))}
             </select>
@@ -250,28 +411,198 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
 
           {/* Member Share Overview Header */}
           {currentMember && (
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2">
-                <img 
-                  src={currentMember.photoUrl} 
-                  alt={currentMember.name} 
-                  className="w-9 h-9 rounded-full object-cover border border-slate-200" 
-                />
-                <div>
-                  <span className="font-bold text-slate-800 text-sm block">{currentMember.name}</span>
-                  <span className="text-slate-500">
-                    বর্তমান মোট শেয়ার: <strong className="text-blue-700 font-bold">{formatBengaliNumber(memberTotalShares)} টি</strong> (মূলধন: {formatCurrency(currentMember.shareValue || 0, useBengaliDigits)})
-                  </span>
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <img 
+                    src={currentMember.photoUrl} 
+                    alt={currentMember.name} 
+                    className="w-9 h-9 rounded-full object-cover border border-slate-200" 
+                  />
+                  <div>
+                    <span className="font-bold text-slate-800 text-sm block">{currentMember.name}</span>
+                    <span className="text-slate-500">
+                      {isBn ? 'নিবন্ধিত শেয়ার:' : 'Registered Shares:'}{' '}
+                      <strong className="text-blue-700 font-bold">{displayCount(memberTotalShares)} {isBn ? 'টি' : 'Shares'}</strong>
+                      {' '}(মোট মূল্য: <strong className="text-emerald-700 font-bold">{formatCurrency(currentMember.shareValue || (memberTotalShares * (settings.sharePricePerUnit || 100)), isBn && useBengaliDigits)}</strong>)
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right flex flex-col items-end">
+                  <span className="text-[11px] text-slate-500 block">{isBn ? 'সঞ্চয় ব্যালেন্স' : 'Savings Balance'}</span>
+                  <span className="font-bold text-emerald-700">{formatCurrency(currentMember.totalSavings || 0, isBn && useBengaliDigits)}</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowShareEditor(!showShareEditor)}
+                    className="text-[11px] text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer mt-0.5"
+                  >
+                    {isBn ? 'শেয়ার সংখ্যা পরিবর্তন' : 'Edit Shares'}
+                  </button>
                 </div>
               </div>
-              <div className="text-right">
-                <span className="text-[11px] text-slate-500 block">সঞ্চয় ব্যালেন্স</span>
-                <span className="font-bold text-emerald-700">{formatCurrency(currentMember.totalSavings || 0, useBengaliDigits)}</span>
-              </div>
+
+              {/* Zero Share Warning / Share Count Quick Fixer */}
+              {(memberTotalShares === 0 || showShareEditor) && (
+                <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 text-xs space-y-2 animate-in fade-in">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                    <Sparkles className="w-4 h-4 text-amber-600" />
+                    <span>
+                      {memberTotalShares === 0 
+                        ? (isBn ? 'সদস্যের শেয়ার সংখ্যা ০ দেখাচ্ছে। কয়টি শেয়ার নির্ধারণ করতে চান?' : 'Member currently has 0 shares. Set share count:')
+                        : (isBn ? 'সদস্যের মোট শেয়ার সংখ্যা পরিবর্তন করুন:' : 'Change member total registered shares:')}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {[1, 2, 3, 4, 5, 10, 20].map((count) => (
+                      <button
+                        key={count}
+                        type="button"
+                        onClick={() => handleQuickSetShareCount(count)}
+                        className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                          customShareCountInput === count 
+                            ? 'bg-amber-600 text-white shadow-xs' 
+                            : 'bg-white text-amber-900 border border-amber-300 hover:bg-amber-100'
+                        }`}
+                      >
+                        {displayCount(count)} {isBn ? 'টি' : 'Shares'}
+                      </button>
+                    ))}
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min={1}
+                        value={customShareCountInput}
+                        onChange={(e) => setCustomShareCountInput(Number(e.target.value))}
+                        className="w-16 px-2 py-1 bg-white border border-amber-300 rounded text-xs font-bold text-slate-800"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleQuickSetShareCount(customShareCountInput)}
+                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold cursor-pointer"
+                      >
+                        {isBn ? 'সেট করুন' : 'Set'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Share Selector (चेकबক্স ভিত্তিক শেয়ার সিলেক্টর) */}
+          {/* Date, Month & Year Selection Box (তারিখ, মাস ও বছর নির্বাচন) */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                <Calendar className="w-4 h-4 text-emerald-600" />
+                <span>{isBn ? 'জমার তারিখ ও কিস্তির মাস/বছর' : 'Deposit Date & Installment Period'}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={handleSetToday}
+                  className="px-2 py-0.5 bg-emerald-100 text-emerald-800 hover:bg-emerald-200 rounded text-[11px] font-bold cursor-pointer transition-colors"
+                >
+                  {isBn ? 'আজ' : 'Today'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSetYesterday}
+                  className="px-2 py-0.5 bg-slate-200 text-slate-700 hover:bg-slate-300 rounded text-[11px] font-bold cursor-pointer transition-colors"
+                >
+                  {isBn ? 'গতকাল' : 'Yesterday'}
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              {/* Actual Deposit Date */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  {isBn ? 'জমার প্রকৃত তারিখ' : 'Deposit Date'} <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={depositDate}
+                  onChange={(e) => handleDateChange(e.target.value)}
+                  className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 bg-white"
+                />
+              </div>
+
+              {/* Month Selector */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  {isBn ? 'কিস্তির মাস (Month)' : 'Installment Month'}
+                </label>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => {
+                    setSelectedMonth(e.target.value);
+                    generateAutoNotes(selectedShares, shareAmounts, memberTotalShares, e.target.value, selectedYear);
+                  }}
+                  className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 bg-white cursor-pointer"
+                >
+                  {BENGALI_MONTHS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {isBn ? m.nameBn : m.nameEn}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Year Selector */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-bold text-slate-600">
+                    {isBn ? 'কিস্তির বছর (Year)' : 'Installment Year'}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cy = new Date().getFullYear();
+                      setSelectedYear(cy);
+                      generateAutoNotes(selectedShares, shareAmounts, memberTotalShares, selectedMonth, cy);
+                    }}
+                    className="text-[10px] text-emerald-700 hover:underline font-bold cursor-pointer"
+                  >
+                    {isBn ? 'চলতি বছর' : 'Current'}
+                  </button>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min={1990}
+                    max={2100}
+                    value={selectedYear}
+                    onChange={(e) => {
+                      const yr = Number(e.target.value);
+                      setSelectedYear(yr);
+                      generateAutoNotes(selectedShares, shareAmounts, memberTotalShares, selectedMonth, yr);
+                    }}
+                    className="w-20 px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 bg-white text-center"
+                    placeholder="YYYY"
+                  />
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => {
+                      const yr = Number(e.target.value);
+                      setSelectedYear(yr);
+                      generateAutoNotes(selectedShares, shareAmounts, memberTotalShares, selectedMonth, yr);
+                    }}
+                    className="flex-1 min-w-0 px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 bg-white cursor-pointer truncate"
+                  >
+                    {GENERATED_YEARS.map((y) => (
+                      <option key={y} value={y}>
+                        {displayCount(y)} {y === new Date().getFullYear() ? `(${isBn ? 'চলতি' : 'Current'})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Share Selector (চেকবক্স ভিত্তিক শেয়ার সিলেক্টর ও শেয়ার প্রতি টাকার ঘর) */}
           {memberTotalShares > 0 && (
             <div className="bg-emerald-50/70 border-2 border-emerald-200 rounded-xl p-4 space-y-3.5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-200/80 pb-2.5">
@@ -281,10 +612,10 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-emerald-950 uppercase tracking-wider">
-                      শেয়ার সিলেক্টর (চেকবক্স)
+                      {isBn ? 'শেয়ার সিলেক্টর ও শেয়ার প্রতি কিস্তি' : 'Share Selector & Per-Share Rate'}
                     </h4>
                     <p className="text-[11px] text-emerald-700">
-                      কোন কোন শেয়ারের কিস্তি জমা হচ্ছে তা টিক চিহ্ন দিন
+                      {isBn ? 'যে যে শেয়ারের টাকা জমা হচ্ছে সিলেক্ট করুন এবং দর নির্ধারণ করুন' : 'Select shares and set custom amounts per share'}
                     </p>
                   </div>
                 </div>
@@ -300,7 +631,7 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    শেয়ার ভিত্তিক
+                    {isBn ? 'শেয়ার ভিত্তিক' : 'Share Based'}
                   </button>
                   <button
                     type="button"
@@ -311,7 +642,7 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    সরাসরি এন্ট্রি
+                    {isBn ? 'সরাসরি এন্ট্রি' : 'Direct Entry'}
                   </button>
                 </div>
               </div>
@@ -319,91 +650,136 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
               {depositMode === 'share_wise' ? (
                 <div className="space-y-3">
                   {/* Share Rate Configuration & Quick Buttons */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs font-bold text-emerald-900 whitespace-nowrap">
-                        প্রতি শেয়ারের কিস্তি (৳):
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        step="any"
-                        value={shareRate}
-                        onChange={(e) => handleShareRateChange(Number(e.target.value))}
-                        className="w-28 px-2.5 py-1 bg-white border border-emerald-300 rounded-md text-xs font-bold text-emerald-900 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
-                      />
+                  <div className="bg-white/90 p-3 rounded-lg border border-emerald-200 space-y-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-bold text-emerald-900 whitespace-nowrap">
+                          {isBn ? 'সকল শেয়ারে একসাথে দর বসান (৳):' : 'Bulk Rate for All Shares (৳):'}
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          step="any"
+                          value={bulkRate}
+                          onChange={(e) => handleApplyBulkRate(Number(e.target.value))}
+                          className="w-24 px-2.5 py-1 bg-emerald-50 border border-emerald-300 rounded-md text-xs font-bold text-emerald-900 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                        />
+                      </div>
+
+                      {/* Quick Presets */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] text-slate-500 font-bold">{isBn ? 'দ্রুত দর:' : 'Presets:'}</span>
+                        {[500, 1000, 1500, 2000].map((rate) => (
+                          <button
+                            key={rate}
+                            type="button"
+                            onClick={() => handleApplyBulkRate(rate)}
+                            className="px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded text-[11px] font-bold cursor-pointer transition-colors"
+                          >
+                            {formatCurrency(rate, isBn && useBengaliDigits)}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     {/* Quick Selection Helpers */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={handleSelectAllShares}
-                        className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[11px] font-semibold transition-colors cursor-pointer"
-                      >
-                        সবগুলো ({formatBengaliNumber(memberTotalShares)}টি)
-                      </button>
-                      {memberTotalShares >= 2 && (
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                      <span className="text-[11px] text-slate-600 font-semibold">{isBn ? 'শেয়ার নির্বাচন:' : 'Quick Select:'}</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <button
                           type="button"
-                          onClick={() => handleSelectFirstN(2)}
-                          className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-[11px] font-semibold transition-colors cursor-pointer"
+                          onClick={handleSelectAllShares}
+                          className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[11px] font-semibold transition-colors cursor-pointer"
                         >
-                          ২টি শেয়ার
+                          {isBn ? `সবগুলো (${displayCount(memberTotalShares)}টি)` : `All (${memberTotalShares})`}
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={handleClearSelection}
-                        className="px-2 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md text-[11px] font-semibold transition-colors cursor-pointer"
-                      >
-                        মুছুন
-                      </button>
+                        {memberTotalShares >= 2 && (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectFirstN(2)}
+                            className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-[11px] font-semibold transition-colors cursor-pointer"
+                          >
+                            {isBn ? '২টি শেয়ার' : '2 Shares'}
+                          </button>
+                        )}
+                        {memberTotalShares >= 4 && (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectFirstN(4)}
+                            className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-[11px] font-semibold transition-colors cursor-pointer"
+                          >
+                            {isBn ? '৪টি শেয়ার' : '4 Shares'}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleClearSelection}
+                          className="px-2 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md text-[11px] font-semibold transition-colors cursor-pointer"
+                        >
+                          {isBn ? 'মুছুন' : 'Clear'}
+                        </button>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Checkbox Grid for Individual Shares */}
+                  {/* Checkbox & Individual Amount Grid for Individual Shares */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
                     {allSharesList.map((shareNo) => {
                       const isSelected = selectedShares.includes(shareNo);
+                      const currentShareAmt = shareAmounts[shareNo] !== undefined ? shareAmounts[shareNo] : bulkRate;
+
                       return (
                         <div
                           key={shareNo}
-                          onClick={() => handleToggleShare(shareNo)}
-                          className={`p-3 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between gap-2.5 select-none ${
+                          className={`p-3 rounded-xl border-2 transition-all flex flex-col justify-between gap-2 select-none ${
                             isSelected 
                               ? 'bg-emerald-600/10 border-emerald-500 shadow-xs ring-1 ring-emerald-400' 
                               : 'bg-white/80 border-slate-300 hover:border-slate-400 opacity-80'
                           }`}
                         >
-                          <div className="flex items-center gap-2.5">
-                            <div className={`p-1 rounded-md ${isSelected ? 'text-emerald-700 bg-emerald-100' : 'text-slate-400'}`}>
-                              {isSelected ? (
-                                <CheckSquare className="w-5 h-5 text-emerald-600" />
-                              ) : (
-                                <Square className="w-5 h-5 text-slate-400" />
-                              )}
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-bold text-xs text-slate-900">
-                                  শেয়ার #{formatBengaliNumber(shareNo)}
-                                </span>
-                                <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold ${
-                                  isSelected ? 'bg-emerald-600 text-white' : 'bg-amber-100 text-amber-800'
-                                }`}>
-                                  {isSelected ? '✓ জমা হচ্ছে' : '⏳ পরে প্রদেয়'}
+                          <div 
+                            className="flex items-center justify-between cursor-pointer"
+                            onClick={() => handleToggleShare(shareNo)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className={`p-1 rounded-md ${isSelected ? 'text-emerald-700 bg-emerald-100' : 'text-slate-400'}`}>
+                                {isSelected ? (
+                                  <CheckSquare className="w-5 h-5 text-emerald-600" />
+                                ) : (
+                                  <Square className="w-5 h-5 text-slate-400" />
+                                )}
+                              </div>
+                              <div>
+                                <span className="font-bold text-xs text-slate-900 block">
+                                  {isBn ? `শেয়ার #${displayCount(shareNo)}` : `Share #${shareNo}`}
                                 </span>
                               </div>
-                              <span className="text-[11px] text-slate-500 block">
-                                কিস্তি: <strong>৳{formatBengaliNumber(shareRate)}</strong>
-                              </span>
                             </div>
+
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                              isSelected ? 'bg-emerald-600 text-white' : 'bg-amber-100 text-amber-800'
+                            }`}>
+                              {isSelected ? (isBn ? '✓ জমা হচ্ছে' : '✓ Depositing') : (isBn ? '⏳ পরে প্রদেয়' : '⏳ Pay Later')}
+                            </span>
                           </div>
 
-                          <span className={`text-xs font-black font-mono ${isSelected ? 'text-emerald-700' : 'text-slate-400'}`}>
-                            {formatCurrency(shareRate, useBengaliDigits)}
-                          </span>
+                          {/* Individual Share Amount Field */}
+                          <div className="pt-1.5 border-t border-slate-200/80 flex items-center justify-between gap-2">
+                            <label className="text-[11px] font-bold text-slate-600 whitespace-nowrap">
+                              {isBn ? 'এই শেয়ারের কিস্তি:' : 'This Share Rate:'}
+                            </label>
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs font-bold text-slate-500">৳</span>
+                              <input
+                                type="number"
+                                min={0}
+                                step="any"
+                                value={currentShareAmt}
+                                onChange={(e) => handleIndividualShareAmountChange(shareNo, Number(e.target.value))}
+                                className="w-24 px-2 py-1 bg-white border border-slate-300 rounded text-xs font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 text-right"
+                              />
+                            </div>
+                          </div>
                         </div>
                       );
                     })}
@@ -412,23 +788,35 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
                   {/* Live Share Calculation Breakdown */}
                   <div className="bg-white p-3 rounded-xl border border-emerald-200 text-xs space-y-1.5">
                     <div className="flex items-center justify-between text-slate-700">
-                      <span>নির্বাচিত শেয়ার সংখ্যা:</span>
+                      <span>{isBn ? 'নির্বাচিত শেয়ার সংখ্যা:' : 'Selected Shares:'}</span>
                       <strong className="text-emerald-700 font-bold">
-                        {formatBengaliNumber(selectedShares.length)} টি (মোট {formatBengaliNumber(memberTotalShares)} টির মধ্যে)
+                        {displayCount(selectedShares.length)} {isBn ? `টি (মোট ${displayCount(memberTotalShares)} টির মধ্যে)` : `of ${memberTotalShares}`}
                       </strong>
                     </div>
+
+                    {/* Individual Breakdowns */}
+                    {selectedShares.length > 0 && (
+                      <div className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-200 flex flex-wrap gap-2">
+                        {selectedShares.map((s) => (
+                          <span key={s} className="bg-white px-2 py-0.5 rounded border border-slate-200 font-medium">
+                            {isBn ? `শেয়ার #${displayCount(s)}: ৳${toBengaliNumber(shareAmounts[s] || bulkRate)}` : `Share #${s}: ৳${shareAmounts[s] || bulkRate}`}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
                     {unpaidSharesList.length > 0 && (
                       <div className="flex items-center justify-between text-amber-700">
-                        <span>বকেয়া / পরবর্তীতে প্রদেয় শেয়ার:</span>
+                        <span>{isBn ? 'বকেয়া / পরবর্তীতে প্রদেয় শেয়ার:' : 'Due / Remaining Shares:'}</span>
                         <strong className="font-bold">
-                          {unpaidSharesList.map(s => `শেয়ার #${formatBengaliNumber(s)}`).join(', ')} ({formatBengaliNumber(unpaidSharesList.length)} টি)
+                          {unpaidSharesList.map(s => isBn ? `শেয়ার #${displayCount(s)}` : `Share #${s}`).join(', ')} ({displayCount(unpaidSharesList.length)} {isBn ? 'টি' : ''})
                         </strong>
                       </div>
                     )}
                     <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-slate-900">
-                      <span className="font-bold">হিসাবকৃত জমার পরিমাণ:</span>
+                      <span className="font-bold">{isBn ? 'হিসাবকৃত মোট জমার পরিমাণ:' : 'Calculated Deposit Total:'}</span>
                       <span className="text-base font-black text-emerald-800">
-                        {formatCurrency(selectedShares.length * shareRate, useBengaliDigits)}
+                        {formatCurrency(amount, isBn && useBengaliDigits)}
                       </span>
                     </div>
                   </div>
@@ -436,13 +824,17 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
                   <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2 text-[11px] text-blue-900 leading-relaxed">
                     <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                     <span>
-                      <strong>সুবিধা:</strong> আপনি এখন যেকোনো সংখ্যক (যেমন ২টি) শেয়ারের টাকা জমা দিতে পারছেন। বাকি ২টি শেয়ার সদস্য পরবর্তীতে সুবিধাজনক সময়ে দিতে পারবেন এবং রসিদে এর পূর্ণ বিবরণ থাকবে।
+                      <strong>{isBn ? 'সুবিধা:' : 'Feature:'}</strong> {isBn 
+                        ? 'আপনি প্রতিটি শেয়ারের জন্য আলাদা আলাদা টাকার পরিমাণ নির্ধারণ করতে পারেন (যেমন কোনো শেয়ারে ১০০০, কোনোটিতে ৫০০)। নির্বাচিত শেয়ারগুলোর টাকা যোগ হয়ে নিচে মোট জমায় স্বয়ংক্রিয়ভাবে বসে যাবে।'
+                        : 'You can set different amounts for each individual share (e.g. ৳1000 for one share, ৳500 for another). The total is automatically summed up.'}
                     </span>
                   </div>
                 </div>
               ) : (
                 <div className="p-3 bg-white rounded-lg border border-emerald-200 text-xs text-slate-600">
-                  সরাসরি এন্ট্রি মোড সক্রিয়। আপনি নিচে সরাসরি কাঙ্ক্ষিত টাকার পরিমাণ লিখে জমা করতে পারবেন।
+                  {isBn 
+                    ? 'সরাসরি এন্ট্রি মোড সক্রিয়। আপনি নিচে সরাসরি কাঙ্ক্ষিত টাকার পরিমাণ লিখে জমা করতে পারবেন।'
+                    : 'Direct Entry mode active. You can enter any custom deposit amount directly below.'}
                 </div>
               )}
             </div>
@@ -452,22 +844,22 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                জমার খাত / স্কিম
+                {isBn ? 'জমার খাত / স্কিম' : 'Deposit Head / Scheme'}
               </label>
               <select
                 value={schemeType}
                 onChange={(e) => setSchemeType(e.target.value as 'general' | 'dps' | 'fdr')}
-                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-hidden cursor-pointer"
               >
-                <option value="general">সাধারণ সঞ্চয় (General Savings)</option>
-                <option value="dps">মাসিক ডিপিএস (DPS)</option>
-                <option value="fdr">স্থায়ী আমানত (FDR)</option>
+                <option value="general">{isBn ? 'সাধারণ সঞ্চয় ও শেয়ার কিস্তি (General Savings)' : 'General Savings & Shares'}</option>
+                <option value="dps">{isBn ? 'মাসিক ডিপিএস (DPS)' : 'Monthly DPS'}</option>
+                <option value="fdr">{isBn ? 'স্থায়ী আমানত (FDR)' : 'Fixed Deposit (FDR)'}</option>
               </select>
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                মোট জমার পরিমাণ (৳) <span className="text-rose-500">*</span>
+                {isBn ? 'মোট জমার পরিমাণ (৳)' : 'Total Deposit Amount (৳)'} <span className="text-rose-500">*</span>
               </label>
               <input
                 type="number"
@@ -484,14 +876,14 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
           {schemeType !== 'general' && memberSchemes.length > 0 && (
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                নির্দিষ্ট স্কিম অ্যাকাউন্ট
+                {isBn ? 'নির্দিষ্ট স্কিম অ্যাকাউন্ট' : 'Specific Scheme Account'}
               </label>
               <select
                 value={schemeId}
                 onChange={(e) => setSchemeId(e.target.value)}
-                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-hidden cursor-pointer"
               >
-                <option value="">স্বয়ংক্রিয় স্কিম নির্বাচন</option>
+                <option value="">{isBn ? 'স্বয়ংক্রিয় স্কিম নির্বাচন' : 'Auto Scheme Selection'}</option>
                 {memberSchemes.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.accountNo} - {s.schemeName}
@@ -505,29 +897,29 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                লেনদেনের মাধ্যম
+                {isBn ? 'লেনদেনের মাধ্যম' : 'Payment Method'}
               </label>
               <select
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-hidden cursor-pointer"
               >
-                <option value="cash">নগদ ক্যাশ (Cash)</option>
-                <option value="bank">ব্যাংক ট্রান্সফার (Bank)</option>
-                <option value="bkash">বিকাশ (bKash)</option>
-                <option value="nagad">নগদ (Nagad)</option>
+                <option value="cash">{isBn ? 'নগদ ক্যাশ (Cash)' : 'Cash'}</option>
+                <option value="bank">{isBn ? 'ব্যাংক ট্রান্সফার (Bank)' : 'Bank Transfer'}</option>
+                <option value="bkash">{isBn ? 'বিকাশ (bKash)' : 'bKash'}</option>
+                <option value="nagad">{isBn ? 'নগদ (Nagad)' : 'Nagad'}</option>
               </select>
             </div>
 
             {paymentMethod === 'bank' && (
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  সমিতির ব্যাংক হিসাব
+                  {isBn ? 'সমিতির ব্যাংক হিসাব' : 'Society Bank Account'}
                 </label>
                 <select
                   value={bankAccountId}
                   onChange={(e) => setBankAccountId(e.target.value)}
-                  className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-hidden cursor-pointer"
                 >
                   {bankAccounts.map((b) => (
                     <option key={b.id} value={b.id}>
@@ -542,11 +934,11 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
           {/* Notes */}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
-              মন্তব্য / রসিদ বিবরণ
+              {isBn ? 'মন্তব্য / রসিদ বিবরণ' : 'Notes / Receipt Narration'}
             </label>
             <input
               type="text"
-              placeholder="যেমন: শেয়ার #১, #২ কিস্তি জমা"
+              placeholder={isBn ? "যেমন: মার্চ ২০২৬ কিস্তি জমা" : "e.g., March 2026 installment"}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden text-slate-700"
@@ -560,14 +952,14 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
               onClick={onClose}
               className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors cursor-pointer"
             >
-              বাতিল
+              {isBn ? 'বাতিল' : 'Cancel'}
             </button>
             <button
               type="submit"
               className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>জমা নিশ্চিত করুন ও রসিদ তৈরি করুন ✓</span>
+              <span>{isBn ? 'জমা নিশ্চিত করুন ও রসিদ তৈরি করুন ✓' : 'Confirm Deposit & Generate Receipt ✓'}</span>
             </button>
           </div>
         </form>

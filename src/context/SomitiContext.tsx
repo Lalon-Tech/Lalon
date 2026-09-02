@@ -51,7 +51,10 @@ const sanitizeMember = (m: any): Member => {
   const shareCount = Number(m.shareCount) || 0;
   const activeLoan = Number(m.activeLoanBalance) || 0;
   const admissionFee = Number(m.admissionFee) || 0;
-  const totalSavings = Number(m.totalSavings) || (general + dps + fdr + shareValue);
+  // Total savings represents accumulated member deposits (general + dps + fdr), share value is fixed equity
+  const totalSavings = Number(m.totalSavings) !== undefined && !isNaN(Number(m.totalSavings)) 
+    ? Number(m.totalSavings) 
+    : (general + dps + fdr);
 
   return {
     ...m,
@@ -247,8 +250,13 @@ interface SomitiContextType {
     selectedShares?: number[];
     totalMemberShares?: number;
     shareRate?: number;
+    shareAmounts?: { [shareNo: number]: number };
     unpaidShares?: number[];
     notes?: string;
+    date?: string;
+    depositMonth?: string;
+    depositYear?: number;
+    billingPeriod?: string;
   }) => Transaction;
   
   addWithdrawal: (params: {
@@ -994,7 +1002,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       generalSavingsBalance: 0,
       dpsSavingsBalance: 0,
       fdrSavingsBalance: 0,
-      totalSavings: (memberData.shareCount || 0) * (settings.sharePricePerUnit || 100),
+      totalSavings: 0,
       activeLoanBalance: 0,
     };
 
@@ -1002,7 +1010,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Save to Firestore
     safeSetDoc(doc(db, 'members', newMember.id), newMember).catch(console.error);
 
-    // Record admission fee & share purchase transaction if amount > 0
+    // Record admission fee transaction only if amount > 0
     if (newMember.admissionFee > 0) {
       const txId = `tx-${Date.now()}`;
       const tx: Transaction = {
@@ -1019,27 +1027,6 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         collectedBy: currentUser.name,
         verifiedBy: currentUser.name,
         notes: 'নতুন সদস্য ভর্তি ফি',
-        status: 'completed',
-      };
-      setTransactions(prev => [tx, ...prev]);
-      safeSetDoc(doc(db, 'transactions', tx.id), tx).catch(console.error);
-    }
-
-    if (newMember.shareValue > 0) {
-      const tx: Transaction = {
-        id: `tx-${Date.now() + 1}`,
-        voucherNo: `V-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-        memberId: newMember.id,
-        memberName: newMember.name,
-        memberNo: newMember.memberNo,
-        type: 'share_purchase',
-        amount: newMember.shareValue,
-        date: getTodayDateStr(),
-        time: getCurrentTimeStr(),
-        paymentMethod: 'cash',
-        collectedBy: currentUser.name,
-        verifiedBy: currentUser.name,
-        notes: `${newMember.shareCount} টি শেয়ার ক্রয় বাবদ`,
         status: 'completed',
       };
       setTransactions(prev => [tx, ...prev]);
@@ -1102,7 +1089,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const totalRefundAmount = principalAmount + profitAmount;
     const remainingShares = Math.max(0, currentShares - sharesToClose);
     const remainingShareValue = Math.max(0, (member.shareValue || 0) - principalAmount);
-    const remainingTotalSavings = (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0) + remainingShareValue;
+    const remainingTotalSavings = (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0);
 
     const voucherNo = `SCV-${Date.now().toString().slice(-6)}`;
     const txId = `tx-sc-${Date.now()}`;
@@ -1235,7 +1222,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const totalAmount = sharesToBuy * unitPrice;
     const newShareCount = (member.shareCount || 0) + sharesToBuy;
     const newShareValue = (member.shareValue || 0) + totalAmount;
-    const newTotalSavings = (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0) + newShareValue;
+    const newTotalSavings = (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0);
 
     const voucherNo = `SPV-${Date.now().toString().slice(-6)}`;
     const txId = `tx-sp-${Date.now()}`;
@@ -1331,8 +1318,13 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     selectedShares?: number[];
     totalMemberShares?: number;
     shareRate?: number;
+    shareAmounts?: { [shareNo: number]: number };
     unpaidShares?: number[];
     notes?: string;
+    date?: string;
+    depositMonth?: string;
+    depositYear?: number;
+    billingPeriod?: string;
   }): Transaction => {
     const member = members.find(m => m.id === params.memberId);
     const voucherNo = `V-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -1346,7 +1338,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       memberNo: member?.memberNo || '',
       type: txType,
       amount: params.amount,
-      date: getTodayDateStr(),
+      date: params.date || getTodayDateStr(),
       time: getCurrentTimeStr(),
       paymentMethod: params.paymentMethod,
       bankAccountId: params.bankAccountId,
@@ -1356,7 +1348,11 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       selectedShares: params.selectedShares,
       totalMemberShares: params.totalMemberShares,
       shareRate: params.shareRate,
+      shareAmounts: params.shareAmounts,
       unpaidShares: params.unpaidShares,
+      depositMonth: params.depositMonth,
+      depositYear: params.depositYear,
+      billingPeriod: params.billingPeriod,
       notes: params.notes || (params.schemeType === 'dps' ? 'ডিপিএস কিস্তি জমা' : params.schemeType === 'fdr' ? 'এফডিআর জমা' : 'সাধারণ সঞ্চয় জমা'),
       status: 'completed',
     };

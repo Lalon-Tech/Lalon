@@ -87,17 +87,17 @@ export const Sidebar: React.FC<{
   const menuItems: MenuItem[] = [
     {
       id: 'dashboard',
-      label: language === 'bn' ? 'ড্যাশবোর্ড' : 'Dashboard',
+      label: t('dashboard'),
       icon: LayoutDashboard,
     },
     {
       id: 'members',
-      label: language === 'bn' ? 'সদস্য ও গ্রাহক' : 'Members & Clients',
+      label: t('members'),
       icon: Users,
       subItems: [
         { 
           id: 'all_members', 
-          label: language === 'bn' ? 'সকল সদস্য' : 'All Members',
+          label: t('all_members'),
           action: () => {
             setSelectedMemberId(null);
             setActiveTab('all_members');
@@ -105,14 +105,14 @@ export const Sidebar: React.FC<{
         },
         { 
           id: 'new_member', 
-          label: language === 'bn' ? 'নতুন সদস্য ভর্তি' : 'New Member Registration', 
+          label: t('new_member'), 
           action: () => {
             setShowNewMemberModal(true);
           }
         },
         { 
           id: 'active_members', 
-          label: language === 'bn' ? 'সক্রিয় সদস্য' : 'Active Members',
+          label: t('active_members'),
           action: () => {
             setSelectedMemberId(null);
             setActiveTab('active_members');
@@ -120,7 +120,7 @@ export const Sidebar: React.FC<{
         },
         { 
           id: 'member_profile', 
-          label: language === 'bn' ? 'সদস্যের প্রোফাইল' : 'Member Profile',
+          label: t('member_profile'),
           action: () => {
             if (!selectedMemberId && members.length > 0) {
               setSelectedMemberId(members[0].id);
@@ -132,23 +132,23 @@ export const Sidebar: React.FC<{
     },
     {
       id: 'transactions',
-      label: language === 'bn' ? 'লেনদেন ও কিস্তি' : 'Transactions & Kisti',
+      label: t('transactions'),
       icon: BadgePercent,
       subItems: [
-        { id: 'tx_deposit', label: language === 'bn' ? 'টাকা জমা' : 'Deposit Money', action: () => { setShowQuickDepositModal(true); setActiveTab('transactions'); } },
-        { id: 'tx_withdraw', label: language === 'bn' ? 'টাকা উত্তোলন' : 'Withdraw Money', action: () => { setShowQuickWithdrawModal(true); setActiveTab('transactions'); } },
-        { id: 'tx_loan', label: language === 'bn' ? 'ঋণ বিতরণ' : 'Disburse Loan', action: () => { setShowQuickLoanModal(true); setActiveTab('loans'); } },
-        { id: 'tx_kisti', label: language === 'bn' ? 'ঋণের কিস্তি জমা' : 'Collect Loan Installment', action: () => { setShowQuickKistiModal(true); setActiveTab('loans'); } },
+        { id: 'tx_deposit', label: t('tx_deposit'), action: () => { setShowQuickDepositModal(true); setActiveTab('transactions'); } },
+        { id: 'tx_withdraw', label: t('tx_withdraw'), action: () => { setShowQuickWithdrawModal(true); setActiveTab('transactions'); } },
+        { id: 'tx_loan', label: t('tx_loan'), action: () => { setShowQuickLoanModal(true); setActiveTab('loans'); } },
+        { id: 'tx_kisti', label: t('tx_kisti'), action: () => { setShowQuickKistiModal(true); setActiveTab('loans'); } },
         { id: 'tx_history', label: language === 'bn' ? 'লেনদেন হিস্ট্রি' : 'Transaction History', action: () => setActiveTab('transactions') },
       ],
     },
     {
       id: 'savings',
-      label: language === 'bn' ? 'সঞ্চয় স্কিম' : 'Savings Scheme',
+      label: t('savings'),
       icon: PiggyBank,
       subItems: [
-        { id: 'savings_dps', label: language === 'bn' ? 'মাসিক সঞ্চয় (DPS)' : 'Monthly Savings (DPS)', action: () => setActiveTab('savings') },
-        { id: 'savings_fdr', label: language === 'bn' ? 'স্থায়ী আমানত (FDR)' : 'Fixed Deposit (FDR)', action: () => setActiveTab('savings') },
+        { id: 'savings_dps', label: t('savings_dps'), action: () => setActiveTab('savings') },
+        { id: 'savings_fdr', label: t('savings_fdr'), action: () => setActiveTab('savings') },
         { id: 'savings_ledger', label: language === 'bn' ? 'সদস্য সঞ্চয় লেজার' : 'Member Savings Ledger', action: () => setActiveTab('savings') },
       ],
     },
@@ -164,34 +164,34 @@ export const Sidebar: React.FC<{
     },
     {
       id: 'reports',
-      label: language === 'bn' ? 'রিপোর্টস ও অডিট' : 'Reports & Audit',
+      label: t('reports'),
       icon: TrendingUp,
       subItems: [
-        { id: 'report_daily', label: language === 'bn' ? 'দৈনিক রিপোর্ট' : 'Daily Report', action: () => setActiveTab('reports_daily') },
-        { id: 'report_monthly', label: language === 'bn' ? 'মাসিক রিপোর্ট' : 'Monthly Report', action: () => setActiveTab('reports_monthly') },
-        { id: 'report_members', label: language === 'bn' ? 'সদস্য তালিকা রিপোর্ট' : 'Member List Report', action: () => setActiveTab('reports_member') },
-        { id: 'report_income_expense', label: language === 'bn' ? 'আয়-ব্যয় স্টেটমেন্ট' : 'Income-Expense Statement', action: () => setActiveTab('reports_income_expense') },
-        { id: 'report_yearly', label: language === 'bn' ? 'বাৎসরিক অডিট' : 'Yearly Audit', action: () => setActiveTab('reports_yearly') },
+        { id: 'report_daily', label: t('daily_report'), action: () => setActiveTab('reports_daily') },
+        { id: 'report_monthly', label: t('monthly_report'), action: () => setActiveTab('reports_monthly') },
+        { id: 'report_members', label: t('member_report'), action: () => setActiveTab('reports_member') },
+        { id: 'report_income_expense', label: t('income_expense_report'), action: () => setActiveTab('reports_income_expense') },
+        { id: 'report_yearly', label: t('yearly_report'), action: () => setActiveTab('reports_yearly') },
       ],
     },
     {
       id: 'accounts',
-      label: language === 'bn' ? 'আয়-ব্যয় ও ভাউচার' : 'Income & Expense',
+      label: t('accounts'),
       icon: FileText,
     },
     {
       id: 'banking',
-      label: language === 'bn' ? 'ব্যাংক ও ক্যাশ ভল্ট' : 'Bank & Cash Vault',
+      label: t('bank'),
       icon: Building2,
     },
     {
       id: 'users',
-      label: language === 'bn' ? 'ইউজার ও কর্মচারী' : 'Users & Staff',
+      label: t('users_roles'),
       icon: ShieldCheck,
     },
     {
       id: 'excel',
-      label: language === 'bn' ? 'এক্সেল ব্যাকআপ/ইমপোর্ট' : 'Excel Import/Export',
+      label: t('excel'),
       icon: FolderDown,
     },
     {
@@ -201,7 +201,7 @@ export const Sidebar: React.FC<{
     },
     {
       id: 'settings',
-      label: language === 'bn' ? 'সমিতি সেটিংস' : 'Settings',
+      label: t('settings'),
       icon: SettingsIcon,
     },
   ];

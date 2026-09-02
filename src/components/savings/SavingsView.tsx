@@ -51,11 +51,19 @@ export const SavingsView: React.FC = () => {
   // New Scheme Form State
   const [memberId, setMemberId] = useState(members[0]?.id || '');
   const [type, setType] = useState<'dps' | 'fdr'>('dps');
-  const [schemeName, setSchemeName] = useState('৫ বছর মেয়াদি বিশেষ ডিপিএস');
+  const [schemeName, setSchemeName] = useState(() => isBn ? '৫ বছর মেয়াদি বিশেষ ডিপিএস' : '5-Year Special DPS Scheme');
   const [monthlyInstallment, setMonthlyInstallment] = useState(2000);
   const [principalAmount, setPrincipalAmount] = useState(100000);
   const [interestRate, setInterestRate] = useState(10);
   const [durationMonths, setDurationMonths] = useState(60);
+
+  useEffect(() => {
+    if (type === 'dps') {
+      setSchemeName(isBn ? '৫ বছর মেয়াদি বিশেষ ডিপিএস' : '5-Year Special DPS Scheme');
+    } else {
+      setSchemeName(isBn ? '৫ বছর মেয়াদি বিশেষ এফডিআর' : '5-Year Fixed Deposit (FDR)');
+    }
+  }, [type, isBn]);
 
   const displayCount = (num: number) => (isBn || useBengaliDigits ? toBengaliNumber(num) : num.toString());
 

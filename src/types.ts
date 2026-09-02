@@ -165,7 +165,11 @@ export interface Transaction {
   selectedShares?: number[];      // e.g. [1, 2]
   totalMemberShares?: number;   // e.g. 4
   shareRate?: number;           // e.g. 500
+  shareAmounts?: { [shareNo: number]: number }; // e.g. { 1: 1000, 2: 500 }
   unpaidShares?: number[];        // e.g. [3, 4]
+  depositMonth?: string;        // e.g. "মার্চ" or "03"
+  depositYear?: number;         // e.g. 2026
+  billingPeriod?: string;       // e.g. "মার্চ ২০২৬" / "March 2026"
   category?: string;
   notes?: string;
   status: 'completed' | 'pending' | 'cancelled';

@@ -108,7 +108,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
           <div className="hidden sm:block">
             <h2 className="text-sm font-bold text-slate-800 leading-tight group-hover:text-blue-600 transition-colors">{currentUser.name}</h2>
             <p className="text-[11px] text-slate-500">
-              {language === 'bn' ? `${currentUser.roleTitle} • আপনার প্রোফাইল` : `${currentUser.role === 'admin' ? 'Admin & CEO' : currentUser.roleTitle} • Your Profile`}
+              {language === 'bn' ? `${currentUser.roleTitle} • ${t('your_profile')}` : `${currentUser.role === 'admin' ? 'Admin & CEO' : currentUser.roleTitle} • ${t('your_profile')}`}
             </p>
           </div>
         </div>
@@ -120,7 +120,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder={language === 'bn' ? "গ্রাহক অনুসন্ধান (নাম, সদস্য নং বা মোবাইল)..." : "Search client (Name, Member No or Phone)..."}
+            placeholder={t('search_placeholder')}
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -135,7 +135,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
         {showSearchResults && filteredMembers.length > 0 && (
           <div className="absolute top-full mt-1.5 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden py-1">
             <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 border-b border-slate-100">
-              {language === 'bn' ? `অনুসন্ধানের ফলাফল (${filteredMembers.length})` : `Search Results (${filteredMembers.length})`}
+              {t('search_results')} ({filteredMembers.length})
             </div>
             {filteredMembers.map((m) => (
               <div
@@ -157,7 +157,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
                 </div>
                 <div className="text-right">
                   <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                    {m.status === 'active' ? (language === 'bn' ? 'সক্রিয়' : 'Active') : (language === 'bn' ? 'নিষ্ক্রিয়' : 'Inactive')}
+                    {m.status === 'active' ? t('active') : t('inactive')}
                   </span>
                 </div>
               </div>
@@ -174,14 +174,14 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
             <Flame className="w-4 h-4 text-amber-500 shrink-0" />
             <button
               onClick={onOpenAuthModal}
-              title={language === 'bn' ? "প্রোফাইল ও নিরাপত্তা" : "Profile & Security"}
+              title={t('profile_security')}
               className="max-w-[110px] sm:max-w-[150px] truncate hover:underline text-left cursor-pointer"
             >
               {firebaseUser.displayName || firebaseUser.email?.split('@')[0]}
             </button>
             <button
               onClick={logOut}
-              title={language === 'bn' ? "লগআউট করুন" : "Logout"}
+              title={t('logout')}
               className="p-1 hover:bg-rose-100 hover:text-rose-700 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer ml-1"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -200,14 +200,14 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
             className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-sm font-medium shadow-xs hover:shadow-md transition-all active:scale-95 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>{language === 'bn' ? 'যোগ করুন' : 'Add New'}</span>
+            <span>{t('add_new')}</span>
             <ChevronDown className="w-3.5 h-3.5 ml-0.5 opacity-80" />
           </button>
 
           {showAddMenu && (
             <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 text-slate-700 animate-in fade-in-50 zoom-in-95">
               <div className="px-3 py-1 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                {language === 'bn' ? 'দ্রুত অ্যাকশন' : 'Quick Actions'}
+                {t('quick_actions')}
               </div>
               <button
                 onClick={() => {
@@ -217,7 +217,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
                 className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
               >
                 <UserPlus className="w-4 h-4 text-blue-600" />
-                <span>{language === 'bn' ? 'নতুন সদস্য ভর্তি' : 'New Member Registration'}</span>
+                <span>{t('new_member_admission')}</span>
               </button>
               <button
                 onClick={() => {
@@ -227,7 +227,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
                 className="w-full px-3 py-2 text-left text-sm hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2.5 transition-colors cursor-pointer"
               >
                 <ArrowDownRight className="w-4 h-4 text-emerald-600" />
-                <span>{language === 'bn' ? 'টাকা জমা (সঞ্চয় / ডিপিএস)' : 'Deposit Money (DPS / Savings)'}</span>
+                <span>{t('deposit_money_voucher')}</span>
               </button>
               <button
                 onClick={() => {
@@ -237,7 +237,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
                 className="w-full px-3 py-2 text-left text-sm hover:bg-rose-50 hover:text-rose-700 flex items-center gap-2.5 transition-colors cursor-pointer"
               >
                 <ArrowUpRight className="w-4 h-4 text-rose-600" />
-                <span>{language === 'bn' ? 'টাকা উত্তোলন ভাউচার' : 'Withdraw Money Voucher'}</span>
+                <span>{t('withdraw_money_voucher')}</span>
               </button>
               <button
                 onClick={() => {
@@ -247,7 +247,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
                 className="w-full px-3 py-2 text-left text-sm hover:bg-teal-50 hover:text-teal-700 flex items-center gap-2.5 transition-colors cursor-pointer"
               >
                 <Coins className="w-4 h-4 text-teal-600" />
-                <span>{language === 'bn' ? 'ঋণের কিস্তি আদায় (Kisti)' : 'Collect Loan Installment'}</span>
+                <span>{t('collect_kisti_voucher')}</span>
               </button>
               <button
                 onClick={() => {
@@ -257,7 +257,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
                 className="w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2.5 transition-colors cursor-pointer"
               >
                 <CreditCard className="w-4 h-4 text-indigo-600" />
-                <span>{language === 'bn' ? 'নতুন ঋণ অনুমোদন' : 'New Loan Approval'}</span>
+                <span>{t('approve_new_loan')}</span>
               </button>
               <div className="border-t border-slate-100 my-1"></div>
               <button
@@ -268,7 +268,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
                 className="w-full px-3 py-2 text-left text-sm hover:bg-slate-100 flex items-center gap-2.5 transition-colors cursor-pointer"
               >
                 <FileText className="w-4 h-4 text-slate-600" />
-                <span>{language === 'bn' ? 'নতুন আয়-ব্যয় ভাউচার' : 'New Income/Expense Voucher'}</span>
+                <span>{t('new_voucher_entry')}</span>
               </button>
             </div>
           )}

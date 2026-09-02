@@ -368,47 +368,64 @@ export const NewMemberModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
           {activeStep === 2 && (
             <div className="space-y-5">
               <div className="p-4 bg-blue-50/70 border border-blue-100 rounded-xl">
-                <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider mb-2">
-                  সমিতির শেয়ার ও ভর্তি পলিসি
+                <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider mb-1">
+                  সমিতির শেয়ার ও ভর্তি তথ্য
                 </h4>
                 <p className="text-xs text-blue-800">
-                  প্রতি শেয়ারের অভিহিত মূল্য ৳ {settings.sharePricePerUnit || 100} টাকা। প্রত্যেক সদস্যকে ন্যূনতম ১০টি শেয়ার ক্রয় করতে হবে।
+                  প্রতি শেয়ারের অভিহিত মূল্য ৳ {settings.sharePricePerUnit || 100} টাকা। সদস্য কতটি শেয়ারের অংশীদার হবেন তা এখানে নির্ধারণ করুন।
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    শেয়ার সংখ্যা
+                    শেয়ার সংখ্যা (Share Count)
                   </label>
                   <input
                     type="number"
-                    min={10}
+                    min={0}
                     value={shareCount}
-                    onChange={(e) => setShareCount(Number(e.target.value))}
-                    className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                    onChange={(e) => setShareCount(Math.max(0, Number(e.target.value)))}
+                    className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
-                  <span className="text-xs text-slate-500 mt-1 block">
-                    মোট শেয়ার মূল্য: ৳ {((shareCount || 0) * (settings.sharePricePerUnit || 100)).toLocaleString()}
-                  </span>
+                  <div className="mt-1.5 p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs font-semibold text-emerald-900 flex items-center justify-between">
+                    <span>শেয়ারের মোট মূল্য:</span>
+                    <span className="font-bold text-emerald-800">
+                      ৳ {((shareCount || 0) * (settings.sharePricePerUnit || 100)).toLocaleString()}
+                    </span>
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    ভর্তি ফি (৳)
+                    ভর্তি ফি (যদি থাকে, ৳)
                   </label>
                   <input
                     type="number"
+                    min={0}
                     value={admissionFee}
-                    onChange={(e) => setAdmissionFee(Number(e.target.value))}
+                    onChange={(e) => setAdmissionFee(Math.max(0, Number(e.target.value)))}
                     className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
+                  <span className="text-[11px] text-slate-500 mt-1 block">
+                    নতুন সদস্য অন্তর্ভুক্তি ফি (অফেরতযোগ্য)
+                  </span>
                 </div>
+              </div>
+
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 space-y-1">
+                <div className="font-bold text-slate-700 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-blue-600" />
+                  <span>আর্থিক জমার নিয়ম:</span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  সদস্যভুক্তির সময় শুধুমাত্র শেয়ার সংখ্যা ও নির্ধারিত মূল্য সিস্টেমে নথিভুক্ত হবে। কোনো টাকা তাৎক্ষণিকভাবে জমার লেজারে যোগ হবে না। পরবর্তীতে যখন সদস্য জমার কিস্তি দিবেন, তখন ডিপোজিট অপশন থেকে টাকা জমা এন্ট্রি করা হবে।
+                </p>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  মাসিক ডিপিএস / সঞ্চয় অঙ্গীকার (৳)
+                  মাসিক ডিপিএস / সঞ্চয় অঙ্গীকার (ঐচ্ছিক, ৳)
                 </label>
                 <input
                   type="number"

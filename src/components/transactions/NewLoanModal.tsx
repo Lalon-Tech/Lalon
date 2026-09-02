@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import { X, CreditCard, Calculator, FileSignature, CheckCircle } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { PaymentMethod } from '../../types';
 import { formatCurrency, toBengaliNumber } from '../../utils/bengaliUtils';
 
 export const NewLoanModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+  const { language } = useLanguage();
+  const isBn = language === 'bn';
+
   const { 
     members, 
     bankAccounts, 
@@ -18,14 +22,16 @@ export const NewLoanModal: React.FC<{ isOpen: boolean; onClose: () => void }> = 
   const [interestRate, setInterestRate] = useState<number>(settings.defaultLoanInterestRate || 12);
   const [termMonths, setTermMonths] = useState<number>(12);
   const [installmentFrequency, setInstallmentFrequency] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
-  const [purpose, setPurpose] = useState('ব্যবসায়িক চলতি মূলধন');
+  const [purpose, setPurpose] = useState(isBn ? 'ব্যবসায়িক চলতি মূলধন' : 'Working Capital Investment');
   const [guarantorMemberId, setGuarantorMemberId] = useState(members[1]?.id || '');
   const [guarantorName, setGuarantorName] = useState('');
   const [guarantorPhone, setGuarantorPhone] = useState('');
-  const [guarantorRelation, setGuarantorRelation] = useState('সমিতি সদস্য');
+  const [guarantorRelation, setGuarantorRelation] = useState(isBn ? 'সমিতি সদস্য' : 'Society Member');
   const [disbursementMethod, setDisbursementMethod] = useState<PaymentMethod>('cash');
   const [bankAccountId, setBankAccountId] = useState(bankAccounts[0]?.id || '');
   const [processingFee, setProcessingFee] = useState<number>(500);
+
+  const displayCount = (num: number) => (isBn || useBengaliDigits ? toBengaliNumber(num) : num.toString());
 
   if (!isOpen) return null;
 
@@ -42,7 +48,7 @@ export const NewLoanModal: React.FC<{ isOpen: boolean; onClose: () => void }> = 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!memberId || principalAmount <= 0) {
-      alert('সদস্য ও সঠিক ঋণের পরিমাণ পূরণ করুন।');
+      alert(isBn ? 'সদস্য ও সঠিক ঋণের পরিমাণ পূরণ করুন।' : 'Please select member and enter valid loan amount.');
       return;
     }
 
@@ -75,11 +81,19 @@ export const NewLoanModal: React.FC<{ isOpen: boolean; onClose: () => void }> = 
               <CreditCard className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h3 className="text-base font-bold">নতুন ঋণ অনুমোদন ও বিতরণ</h3>
-              <p className="text-xs text-indigo-200">ঋণ হিসাব ও কিস্তি শিডিউল তৈরি</p>
+              <h3 className="text-base font-bold">
+                {isBn ? 'নতুন ঋণ অনুমোদন ও বিতরণ' : 'New Loan Approval & Disbursement'}
+              </h3>
+              <p className="text-xs text-indigo-200">
+                {isBn ? 'ঋণ হিসাব ও কিস্তি শিডিউল তৈরি' : 'Loan Account & Installment Schedule Creation'}
+              </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg text-indigo-300 hover:text-white transition-colors">
+          <button 
+            type="button" 
+            onClick={onClose} 
+            className="p-1 rounded-lg text-indigo-300 hover:text-white transition-colors cursor-pointer"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -88,13 +102,13 @@ export const NewLoanModal: React.FC<{ isOpen: boolean; onClose: () => void }> = 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                ঋণগ্রহীতা সদস্য <span className="text-rose-500">*</span>
+                {isBn ? 'ঋণগ্রহীতা সদস্য' : 'Borrower Member'} <span className="text-rose-500">*</span>
               </label>
               <select
                 required
                 value={memberId}
                 onChange={(e) => setMemberId(e.target.value)}
-                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden cursor-pointer"
               >
                 {members.map((m) => (
                   <option key={m.id} value={m.id}>
@@ -106,12 +120,12 @@ export const NewLoanModal: React.FC<{ isOpen: boolean; onClose: () => void }> = 
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                ঋণের উদ্দেশ্য
+                {isBn ? 'ঋণের উদ্দেশ্য' : 'Loan Purpose'}
               </label>
               <input
                 type="text"
                 required
-                placeholder="যেমন: ব্যবসা সম্প্রসারণ"
+                placeholder={isBn ? "যেমন: ব্যবসা সম্প্রসারণ" : "e.g., Business Expansion"}
                 value={purpose}
                 onChange={(e) => setPurpose(e.target.value)}
                 className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
@@ -122,7 +136,7 @@ export const NewLoanModal: React.FC<{ isOpen: boolean; onClose: () => void }> = 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                মূল ঋণের পরিমাণ (৳) <span className="text-rose-500">*</span>
+                {isBn ? 'মূল ঋণের পরিমাণ (৳)' : 'Principal Amount (৳)'} <span className="text-rose-500">*</span>
               </label>
               <input
                 type="number"
@@ -136,7 +150,7 @@ export const NewLoanModal: React.FC<{ isOpen: boolean; onClose: () => void }> = 
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                বার্ষিক লাভ / মুনাফার হার (%)
+                {isBn ? 'বার্ষিক লাভ / মুনাফার হার (%)' : 'Interest Rate (%)'}
               </label>
               <input
                 type="number"
@@ -149,7 +163,7 @@ export const NewLoanModal: React.FC<{ isOpen: boolean; onClose: () => void }> = 
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                মেয়াদ (মাস)
+                {isBn ? 'মেয়াদ (মাস)' : 'Term (Months)'}
               </label>
               <input
                 type="number"
@@ -165,25 +179,26 @@ export const NewLoanModal: React.FC<{ isOpen: boolean; onClose: () => void }> = 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                কিস্তির ধরন
+                {isBn ? 'কিস্তির ধরন / ফ্রিকোয়েন্সি' : 'Installment Frequency'}
               </label>
               <select
                 value={installmentFrequency}
-                onChange={(e) => setInstallmentFrequency(e.target.value as 'daily' | 'weekly' | 'monthly')}
-                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                onChange={(e) => setInstallmentFrequency(e.target.value as any)}
+                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden cursor-pointer"
               >
-                <option value="monthly">মাসিক কিস্তি (Monthly)</option>
-                <option value="weekly">সাপ্তাহিক কিস্তি (Weekly)</option>
-                <option value="daily">দৈনিক কিস্তি (Daily)</option>
+                <option value="monthly">{isBn ? 'মাসিক কিস্তি (Monthly)' : 'Monthly'}</option>
+                <option value="weekly">{isBn ? 'সাপ্তাহিক কিস্তি (Weekly)' : 'Weekly'}</option>
+                <option value="daily">{isBn ? 'দৈনিক কিস্তি (Daily)' : 'Daily'}</option>
               </select>
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                ফরম ও প্রসেসিং ফি (৳)
+                {isBn ? 'ঋণ বিতরণ ফি (Processing Fee ৳)' : 'Processing Fee (৳)'}
               </label>
               <input
                 type="number"
+                min={0}
                 value={processingFee}
                 onChange={(e) => setProcessingFee(Number(e.target.value))}
                 className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
@@ -191,48 +206,49 @@ export const NewLoanModal: React.FC<{ isOpen: boolean; onClose: () => void }> = 
             </div>
           </div>
 
-          {/* Real-time Calculation Summary Box */}
-          <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 space-y-2">
-            <div className="flex items-center gap-2 text-xs font-bold text-indigo-900 uppercase">
-              <Calculator className="w-4 h-4" />
-              <span>স্বয়ংক্রিয় কিস্তি ও মুনাফা হিসাব</span>
+          {/* Real-time Calculation Summary Card */}
+          <div className="bg-indigo-50/80 border border-indigo-200 rounded-xl p-4 text-xs space-y-2">
+            <div className="flex items-center gap-1.5 font-bold text-indigo-950 pb-1 border-b border-indigo-200">
+              <Calculator className="w-4 h-4 text-indigo-700" />
+              <span>{isBn ? 'ঋণ ও কিস্তি হিসাব বিবরণী' : 'Loan & Installment Calculation Breakdown'}</span>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-slate-700 pt-1">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
               <div>
-                <span className="text-slate-500 block">মোট মুনাফা:</span>
-                <span className="font-bold text-emerald-700">{formatCurrency(totalInterest, useBengaliDigits)}</span>
+                <span className="text-slate-500 block">{isBn ? 'মোট লাভ / মুনাফা:' : 'Total Interest:'}</span>
+                <span className="font-bold text-slate-800">{formatCurrency(totalInterest, isBn && useBengaliDigits)}</span>
               </div>
               <div>
-                <span className="text-slate-500 block">মোট পরিশোধযোগ্য:</span>
-                <span className="font-bold text-indigo-900">{formatCurrency(totalPayable, useBengaliDigits)}</span>
+                <span className="text-slate-500 block">{isBn ? 'সর্বমোট প্রদেয়:' : 'Total Payable:'}</span>
+                <span className="font-bold text-indigo-900">{formatCurrency(totalPayable, isBn && useBengaliDigits)}</span>
               </div>
               <div>
-                <span className="text-slate-500 block">মোট কিস্তি সংখ্যা:</span>
-                <span className="font-bold">{toBengaliNumber(totalInstallments)} টি</span>
+                <span className="text-slate-500 block">{isBn ? 'মোট কিস্তি সংখ্যা:' : 'Total Installments:'}</span>
+                <span className="font-bold text-slate-800">{displayCount(totalInstallments)} {isBn ? 'টি' : ''}</span>
               </div>
               <div>
-                <span className="text-slate-500 block">প্রতি কিস্তি প্রদেয়:</span>
-                <span className="font-bold text-indigo-700 text-sm">{formatCurrency(perInstallment, useBengaliDigits)}</span>
+                <span className="text-slate-500 block">{isBn ? 'প্রতি কিস্তির পরিমাণ:' : 'Per Installment:'}</span>
+                <span className="font-extrabold text-indigo-700 text-sm">{formatCurrency(perInstallment, isBn && useBengaliDigits)}</span>
               </div>
             </div>
           </div>
 
-          {/* Guarantor Section */}
-          <div className="pt-2 border-t border-slate-200">
-            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-              জামিনদারের তথ্য (Guarantor)
+          {/* Guarantor Info */}
+          <div className="border-t border-slate-200 pt-3 space-y-3">
+            <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              <FileSignature className="w-4 h-4 text-indigo-600" />
+              <span>{isBn ? 'জামিনদার / গ্যারান্টার তথ্য' : 'Guarantor Information'}</span>
             </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  সমিতির জামিনদার সদস্য নির্বাচন
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  {isBn ? 'সমিতির সদস্য জামিনদার' : 'Member Guarantor'}
                 </label>
                 <select
                   value={guarantorMemberId}
                   onChange={(e) => setGuarantorMemberId(e.target.value)}
-                  className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden cursor-pointer"
                 >
-                  <option value="">বহিরাগত জামিনদার</option>
+                  <option value="">{isBn ? 'বহিরাগত জামিনদার' : 'External Guarantor'}</option>
                   {members.filter(m => m.id !== memberId).map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.memberNo} - {m.name}
@@ -241,50 +257,84 @@ export const NewLoanModal: React.FC<{ isOpen: boolean; onClose: () => void }> = 
                 </select>
               </div>
 
-              {!guarantorMemberId && (
-                <>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      বহিরাগত জামিনদারের নাম
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="জামিনদারের নাম"
-                      value={guarantorName}
-                      onChange={(e) => setGuarantorName(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      মোবাইল নম্বর
-                    </label>
-                    <input
-                      type="tel"
-                      placeholder="01XXXXXXXXX"
-                      value={guarantorPhone}
-                      onChange={(e) => setGuarantorPhone(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
-                    />
-                  </div>
-                </>
-              )}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  {isBn ? 'জামিনদারের নাম' : "Guarantor's Name"}
+                </label>
+                <input
+                  type="text"
+                  placeholder={isBn ? "যেমন: মোহাম্মদ রহিম" : "e.g., John Doe"}
+                  value={guarantorName}
+                  onChange={(e) => setGuarantorName(e.target.value)}
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  {isBn ? 'জামিনদারের মোবাইল' : "Guarantor's Phone"}
+                </label>
+                <input
+                  type="tel"
+                  placeholder={isBn ? "০১৭XXXXXXXX" : "+88017XXXXXXXX"}
+                  value={guarantorPhone}
+                  onChange={(e) => setGuarantorPhone(e.target.value)}
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                />
+              </div>
             </div>
           </div>
 
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+          {/* Disbursement Method */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-200 pt-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                {isBn ? 'বিতরণের মাধ্যম' : 'Disbursement Method'}
+              </label>
+              <select
+                value={disbursementMethod}
+                onChange={(e) => setDisbursementMethod(e.target.value as PaymentMethod)}
+                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden cursor-pointer"
+              >
+                <option value="cash">{isBn ? 'নগদ ক্যাশ (Cash)' : 'Cash'}</option>
+                <option value="bank">{isBn ? 'ব্যাংক ট্রান্সফার / চেক (Bank)' : 'Bank Transfer / Cheque'}</option>
+              </select>
+            </div>
+
+            {disbursementMethod === 'bank' && (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {isBn ? 'সমিতির প্রদানকারী ব্যাংক' : 'Society Bank Account'}
+                </label>
+                <select
+                  value={bankAccountId}
+                  onChange={(e) => setBankAccountId(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden cursor-pointer"
+                >
+                  {bankAccounts.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.bankName} - {b.accountNumber}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors"
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors cursor-pointer"
             >
-              বাতিল
+              {isBn ? 'বাতিল' : 'Cancel'}
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg text-xs font-bold shadow-md hover:shadow-lg transition-all"
+              className="px-5 py-2.5 bg-indigo-900 hover:bg-indigo-950 text-white rounded-lg text-xs font-bold shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2"
             >
-              ঋণ বিতরণ নিশ্চিত করুন ও শিডিউল তৈরি করুন ✓
+              <CheckCircle className="w-4 h-4" />
+              <span>{isBn ? 'ঋণ অনুমোদন ও বিতরণ সম্পন্ন করুন ✓' : 'Approve & Disburse Loan ✓'}</span>
             </button>
           </div>
         </form>

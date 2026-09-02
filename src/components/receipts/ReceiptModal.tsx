@@ -112,6 +112,14 @@ export const ReceiptModal: React.FC = () => {
                 {typeInfo.label} {selectedReceiptTx.notes ? `(${selectedReceiptTx.notes})` : ''}
               </span>
             </div>
+            {selectedReceiptTx.billingPeriod && (
+              <div className="flex justify-between items-center py-1 border-b border-slate-200">
+                <span className="text-slate-500">কিস্তির মাস ও বছর:</span>
+                <span className="font-bold text-emerald-800">
+                  {selectedReceiptTx.billingPeriod}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between items-center py-1 border-b border-slate-200">
               <span className="text-slate-500">পরিশোধের মাধ্যম:</span>
               <span className="font-semibold uppercase text-slate-800">
@@ -119,13 +127,18 @@ export const ReceiptModal: React.FC = () => {
               </span>
             </div>
             {selectedReceiptTx.selectedShares && selectedReceiptTx.selectedShares.length > 0 && (
-              <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-xs space-y-1">
+              <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-xs space-y-1.5">
                 <div className="flex items-center justify-between font-bold text-emerald-900">
                   <span>পরিশোধিত শেয়ার ({toBengaliNumber(selectedReceiptTx.selectedShares.length)} টি):</span>
-                  <span>{selectedReceiptTx.selectedShares.map(s => `শেয়ার #${toBengaliNumber(s)}`).join(', ')}</span>
+                  <span className="font-semibold">
+                    {selectedReceiptTx.selectedShares.map(s => {
+                      const sAmt = selectedReceiptTx.shareAmounts?.[s] || selectedReceiptTx.shareRate;
+                      return sAmt ? `শেয়ার #${toBengaliNumber(s)} (৳${toBengaliNumber(sAmt)})` : `শেয়ার #${toBengaliNumber(s)}`;
+                    }).join(', ')}
+                  </span>
                 </div>
                 {selectedReceiptTx.unpaidShares && selectedReceiptTx.unpaidShares.length > 0 && (
-                  <div className="flex items-center justify-between text-amber-800 font-semibold text-[11px]">
+                  <div className="flex items-center justify-between text-amber-800 font-semibold text-[11px] pt-1 border-t border-emerald-200/50">
                     <span>পরবর্তীতে প্রদেয় বকেয়া শেয়ার ({toBengaliNumber(selectedReceiptTx.unpaidShares.length)} টি):</span>
                     <span>{selectedReceiptTx.unpaidShares.map(s => `শেয়ার #${toBengaliNumber(s)}`).join(', ')}</span>
                   </div>

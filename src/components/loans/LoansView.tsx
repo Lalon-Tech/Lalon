@@ -230,7 +230,7 @@ export const LoansView: React.FC = () => {
                       </span>
                       <div className="font-bold text-slate-800 mt-1">{loan.purpose}</div>
                       <span className="text-[10px] text-slate-400 block">
-                        {isBn ? `বিতরণ: ${formatBengaliDate(loan.disbursedDate, isBn)}` : `Disbursed: ${formatBengaliDate(loan.disbursedDate, isBn)}`}
+                        {isBn ? `বিতরণ: ${formatBengaliDate(loan.disbursedDate, false, isBn)}` : `Disbursed: ${formatBengaliDate(loan.disbursedDate, false, isBn)}`}
                       </span>
                     </td>
 
