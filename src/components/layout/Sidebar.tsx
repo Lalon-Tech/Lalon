@@ -23,7 +23,8 @@ import {
   Flame,
   FolderDown,
   Calculator,
-  UserPlus
+  UserPlus,
+  Briefcase
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useAuth } from '../../context/AuthContext';
@@ -151,6 +152,11 @@ export const Sidebar: React.FC<{
         { id: 'savings_fdr', label: t('savings_fdr'), action: () => setActiveTab('savings') },
         { id: 'savings_ledger', label: language === 'bn' ? 'সদস্য সঞ্চয় লেজার' : 'Member Savings Ledger', action: () => setActiveTab('savings') },
       ],
+    },
+    {
+      id: 'business_funding',
+      label: language === 'bn' ? 'ব্যবসা ফান্ডিং ও লাভ' : 'Business Funding & Profit',
+      icon: Briefcase,
     },
     {
       id: 'nominees',

@@ -25,6 +25,7 @@ import { ExcelImportView } from './components/excel/ExcelImportView';
 import { SettingsView } from './components/settings/SettingsView';
 import { NomineesView } from './components/nominees/NomineesView';
 import { ReceiptsView } from './components/receipts/ReceiptsView';
+import { BusinessFundingView } from './components/business/BusinessFundingView';
 import { ReceiptModal } from './components/receipts/ReceiptModal';
 import { AuthModal } from './components/auth/AuthModal';
 import { Loader2 } from 'lucide-react';
@@ -122,6 +123,11 @@ const AppContent: React.FC = () => {
       case 'transactions_loan':
       case 'transactions_kisti':
         return <LoansView />;
+
+      case 'business_funding':
+      case 'business':
+      case 'profit_distribution':
+        return <BusinessFundingView />;
 
       case 'agreements':
         return <AgreementsView />;

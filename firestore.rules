@@ -57,6 +57,21 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // 12. Business Fundings & Applications
+    match /businessFundings/{fundingId} {
+      allow read, write: if true;
+    }
+
+    // 13. Business Profit Records
+    match /businessProfitRecords/{recordId} {
+      allow read, write: if true;
+    }
+
+    // 14. Monthly Profit Distributions
+    match /profitDistributions/{distId} {
+      allow read, write: if true;
+    }
+
     // Default fallback
     match /{document=**} {
       allow read, write: if true;

@@ -290,14 +290,13 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
   // Quick Share Count update for members with 0 or missing shares (e.g. Lalon)
   const handleQuickSetShareCount = (newCount: number) => {
     if (!currentMember || newCount <= 0) return;
-    const shareVal = newCount * (settings.sharePricePerUnit || 100);
+    const shareVal = newCount * (settings.sharePricePerUnit || 1000);
     updateMember(currentMember.id, {
       shareCount: newCount,
       shareValue: shareVal,
       totalSavings: (currentMember.generalSavingsBalance || 0) + 
                     (currentMember.dpsSavingsBalance || 0) + 
-                    (currentMember.fdrSavingsBalance || 0) + 
-                    shareVal
+                    (currentMember.fdrSavingsBalance || 0)
     });
 
     const newAmountsMap: { [shareNo: number]: number } = {};
@@ -321,18 +320,37 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!memberId || amount <= 0) {
-      alert(isBn 
-        ? 'অনুগ্রহ করে সদস্য ও সঠিক জমার পরিমাণ নিশ্চিত করুন। (কমপক্ষে ১টি শেয়ার নির্বাচন করুন)' 
-        : 'Please select a member and valid deposit amount (select at least 1 share).');
+    if (!memberId) {
+      alert(isBn ? 'অনুগ্রহ করে সদস্য নির্বাচন করুন।' : 'Please select a member.');
       return;
     }
 
-    if (depositMode === 'share_wise' && memberTotalShares > 0 && selectedShares.length === 0) {
+    if (Number(amount) < 1000) {
       alert(isBn 
-        ? 'অনুগ্রহ করে কমপক্ষে ১টি শেয়ার নির্বাচন করুন অথবা সরাসরি এন্ট্রি মোডে যান।' 
-        : 'Please select at least 1 share or switch to direct entry mode.');
+        ? 'সর্বনিম্ন জমার পরিমাণ ১,০০০ টাকা। ১,০০০ টাকার নিচে কোনো জমা দেওয়া যাবে না।' 
+        : 'Minimum deposit amount is ৳ 1,000. Deposits below ৳ 1,000 are not allowed.');
       return;
+    }
+
+    if (depositMode === 'share_wise' && memberTotalShares > 0) {
+      if (selectedShares.length === 0) {
+        alert(isBn 
+          ? 'অনুগ্রহ করে কমপক্ষে ১টি শেয়ার নির্বাচন করুন অথবা সরাসরি এন্ট্রি মোডে যান।' 
+          : 'Please select at least 1 share or switch to direct entry mode.');
+        return;
+      }
+
+      const invalidShare = selectedShares.find(s => {
+        const amt = shareAmounts[s] !== undefined ? shareAmounts[s] : bulkRate;
+        return amt < 1000;
+      });
+
+      if (invalidShare !== undefined) {
+        alert(isBn 
+          ? `শেয়ার #${displayCount(invalidShare)} এর জন্য সর্বনিম্ন ১,০০০ টাকা জমা আবশ্যক। ১,০০০ টাকার নিচে জমা দেওয়া যাবে না।` 
+          : `Share #${invalidShare} must have a minimum deposit of ৳ 1,000.`);
+        return;
+      }
     }
 
     addDeposit({
@@ -421,10 +439,11 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
                   />
                   <div>
                     <span className="font-bold text-slate-800 text-sm block">{currentMember.name}</span>
-                    <span className="text-slate-500">
-                      {isBn ? 'নিবন্ধিত শেয়ার:' : 'Registered Shares:'}{' '}
-                      <strong className="text-blue-700 font-bold">{displayCount(memberTotalShares)} {isBn ? 'টি' : 'Shares'}</strong>
-                      {' '}(মোট মূল্য: <strong className="text-emerald-700 font-bold">{formatCurrency(currentMember.shareValue || (memberTotalShares * (settings.sharePricePerUnit || 100)), isBn && useBengaliDigits)}</strong>)
+                    <span className="text-slate-600 font-medium text-xs">
+                      {isBn ? 'সক্রিয় শেয়ার:' : 'Active Shares:'}{' '}
+                      <strong className="text-blue-700 font-bold bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-md ml-1">
+                        {displayCount(memberTotalShares)} {isBn ? 'টি' : 'Shares'}
+                      </strong>
                     </span>
                   </div>
                 </div>
@@ -658,7 +677,7 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
                         </label>
                         <input
                           type="number"
-                          min={1}
+                          min={1000}
                           step="any"
                           value={bulkRate}
                           onChange={(e) => handleApplyBulkRate(Number(e.target.value))}
@@ -669,7 +688,7 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
                       {/* Quick Presets */}
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-[10px] text-slate-500 font-bold">{isBn ? 'দ্রুত দর:' : 'Presets:'}</span>
-                        {[500, 1000, 1500, 2000].map((rate) => (
+                        {[1000, 1500, 2000, 3000, 5000].map((rate) => (
                           <button
                             key={rate}
                             type="button"
@@ -765,18 +784,29 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
 
                           {/* Individual Share Amount Field */}
                           <div className="pt-1.5 border-t border-slate-200/80 flex items-center justify-between gap-2">
-                            <label className="text-[11px] font-bold text-slate-600 whitespace-nowrap">
-                              {isBn ? 'এই শেয়ারের কিস্তি:' : 'This Share Rate:'}
-                            </label>
+                            <div className="flex flex-col items-start">
+                              <label className="text-[11px] font-bold text-slate-600 whitespace-nowrap">
+                                {isBn ? 'এই শেয়ারের কিস্তি:' : 'This Share Rate:'}
+                              </label>
+                              {currentShareAmt < 1000 && isSelected && (
+                                <span className="text-[10px] text-rose-600 font-bold">
+                                  {isBn ? 'সর্বনিম্ন ১,০০০ ৳' : 'Min ৳ 1,000'}
+                                </span>
+                              )}
+                            </div>
                             <div className="flex items-center gap-1">
                               <span className="text-xs font-bold text-slate-500">৳</span>
                               <input
                                 type="number"
-                                min={0}
+                                min={1000}
                                 step="any"
                                 value={currentShareAmt}
                                 onChange={(e) => handleIndividualShareAmountChange(shareNo, Number(e.target.value))}
-                                className="w-24 px-2 py-1 bg-white border border-slate-300 rounded text-xs font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 text-right"
+                                className={`w-24 px-2 py-1 bg-white border rounded text-xs font-bold text-right focus:ring-2 focus:outline-hidden ${
+                                  currentShareAmt < 1000 && isSelected
+                                    ? 'border-rose-400 text-rose-700 bg-rose-50 focus:ring-rose-500'
+                                    : 'border-slate-300 text-slate-900 focus:ring-emerald-500'
+                                }`}
                               />
                             </div>
                           </div>
@@ -858,18 +888,50 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                {isBn ? 'মোট জমার পরিমাণ (৳)' : 'Total Deposit Amount (৳)'} <span className="text-rose-500">*</span>
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-700">
+                  {isBn ? 'মোট জমার পরিমাণ (৳)' : 'Total Deposit Amount (৳)'} <span className="text-rose-500">*</span>
+                </label>
+                <span className="text-[11px] font-bold text-emerald-800">
+                  {isBn ? '(সর্বনিম্ন ১,০০০ ৳)' : '(Min ৳1,000)'}
+                </span>
+              </div>
               <input
                 type="number"
                 required
-                min={1}
+                min={1000}
                 step="any"
                 value={amount}
                 onChange={(e) => setAmount(Number(e.target.value))}
-                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden font-bold text-emerald-800 text-lg bg-emerald-50/50"
+                className={`w-full px-3.5 py-2 border rounded-lg text-sm focus:ring-2 focus:outline-hidden font-bold text-lg ${
+                  amount < 1000 
+                    ? 'border-rose-400 text-rose-800 bg-rose-50/60 focus:ring-rose-500' 
+                    : 'border-slate-300 text-emerald-800 bg-emerald-50/50 focus:ring-emerald-500'
+                }`}
               />
+              {/* Amount Quick Presets */}
+              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                <span className="text-[10px] text-slate-500 font-bold">{isBn ? 'কুইক অ্যামাউন্ট:' : 'Quick:'}</span>
+                {[1000, 2000, 3000, 4000, 5000].map((presetAmt) => (
+                  <button
+                    key={presetAmt}
+                    type="button"
+                    onClick={() => setAmount(presetAmt)}
+                    className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer transition-colors ${
+                      amount === presetAmt
+                        ? 'bg-emerald-700 text-white'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    ৳ {presetAmt.toLocaleString()}
+                  </button>
+                ))}
+              </div>
+              {amount < 1000 && (
+                <span className="text-xs font-bold text-rose-600 mt-1 block">
+                  ⚠️ {isBn ? 'সর্বনিম্ন জমার পরিমাণ ১,০০০ টাকা। ১,০০০ টাকার নিচে কোনো জমা গ্রহণযোগ্য নয়।' : 'Minimum deposit amount is ৳ 1,000. Deposits below ৳ 1,000 are not allowed.'}
+                </span>
+              )}
             </div>
           </div>
 

@@ -13,7 +13,8 @@ import {
   CheckCircle2,
   Calendar,
   Layers,
-  Sparkles
+  Sparkles,
+  Building
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -35,8 +36,11 @@ export const DashboardView: React.FC = () => {
     savingsSchemes, 
     transactions, 
     users, 
+    currentUser,
     totalAvailableBalance, 
     totalCapital, 
+    totalSavingsInSomiti,
+    totalActiveLoanBalance,
     todayStats, 
     useBengaliDigits,
     setActiveTab,
@@ -95,39 +99,86 @@ export const DashboardView: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Section: Balances & Active Members (5 cols on xl, 12 on lg) */}
         <div className="lg:col-span-12 xl:col-span-5 space-y-6 min-w-0">
-          {/* Balances side by side */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Available Balance (Dark Blue Card) */}
-            <div className="bg-gradient-to-br from-blue-700 to-indigo-800 text-white p-5 rounded-xl shadow-md relative overflow-hidden">
+          {/* Balances side by side: 4 Key Financial Pillars */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            {/* 1. Total Member Savings (Emerald Card) */}
+            <div className="bg-white p-4.5 rounded-xl border border-emerald-200/80 shadow-2xs hover:border-emerald-300 transition-all">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-emerald-700 block">
+                  {isBn ? 'মোট সঞ্চয় আমানত' : 'Total Member Savings'}
+                </span>
+                <span className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
+                  <Wallet className="w-4 h-4" />
+                </span>
+              </div>
+              <div className="text-xl font-extrabold text-slate-800 tracking-tight">
+                {formatCurrency(totalSavingsInSomiti, isBengaliNum)}
+              </div>
+              <div className="mt-2.5 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+                <span className="truncate">{isBn ? 'সাধারণ + ডিপিএস + এফডিআর' : 'General + DPS + FDR'}</span>
+                <span className="font-semibold text-emerald-600 shrink-0 ml-1">
+                  {isBn ? 'মোট জমা' : 'Net Deposit'}
+                </span>
+              </div>
+            </div>
+
+            {/* 2. Total Active Loans (Amber Card) */}
+            <div className="bg-white p-4.5 rounded-xl border border-amber-200/80 shadow-2xs hover:border-amber-300 transition-all">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-amber-700 block">
+                  {isBn ? 'মোট চলতি ঋণ' : 'Active Loans Out'}
+                </span>
+                <span className="p-1.5 bg-amber-50 text-amber-600 rounded-lg">
+                  <TrendingUp className="w-4 h-4" />
+                </span>
+              </div>
+              <div className="text-xl font-extrabold text-slate-800 tracking-tight">
+                {formatCurrency(totalActiveLoanBalance, isBengaliNum)}
+              </div>
+              <div className="mt-2.5 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+                <span className="truncate">{isBn ? 'মাঠে বকেয়া ঋণ স্থিতি' : 'Remaining Principal'}</span>
+                <span className="font-semibold text-amber-600 shrink-0 ml-1">
+                  {isBn ? 'সক্রিয় ঋণ' : 'Active Loan'}
+                </span>
+              </div>
+            </div>
+
+            {/* 3. Available Balance (Dark Blue Card) */}
+            <div className="bg-gradient-to-br from-blue-700 to-indigo-800 text-white p-4.5 rounded-xl shadow-md relative overflow-hidden">
               <div className="relative z-10">
                 <span className="text-xs font-medium text-blue-200 block mb-1">
                   {isBn ? 'উপলব্ধ ব্যালেন্স (ক্যাশ + ব্যাংক)' : 'Available Balance (Cash + Bank)'}
                 </span>
-                <div className="text-2xl font-extrabold tracking-tight">
+                <div className="text-xl font-extrabold tracking-tight">
                   {formatCurrency(totalAvailableBalance, isBengaliNum)}
                 </div>
-                <div className="mt-3 flex items-center justify-between text-xs text-blue-200 pt-2 border-t border-blue-600/60">
+                <div className="mt-2.5 flex items-center justify-between text-xs text-blue-200 pt-2 border-t border-blue-600/60">
                   <span>{isBn ? 'ভল্ট ও ব্যাংক ফান্ড' : 'Vault & Bank Funds'}</span>
                   <span className="font-semibold text-emerald-300">
-                    {isBn ? 'সক্রিয় স্থিতি' : 'Active Status'}
+                    {isBn ? 'নগদ স্থিতি' : 'Liquid Cash'}
                   </span>
                 </div>
               </div>
               <div className="absolute -right-4 -bottom-4 w-20 h-20 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
             </div>
 
-            {/* Total Capital (Clean Light Card) */}
-            <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-2xs">
-              <span className="text-xs font-medium text-slate-500 block mb-1">
-                {isBn ? 'সমিতির ব্যবসার মোট মূলধন' : 'Total Business Capital'}
-              </span>
-              <div className="text-2xl font-extrabold text-slate-800 tracking-tight">
+            {/* 4. Total Capital (Clean Light Card) */}
+            <div className="bg-white p-4.5 rounded-xl border border-slate-200/80 shadow-2xs">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-slate-500 block">
+                  {isBn ? 'সমিতির ব্যবসার মোট মূলধন' : 'Total Business Capital'}
+                </span>
+                <span className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+                  <Building className="w-4 h-4" />
+                </span>
+              </div>
+              <div className="text-xl font-extrabold text-slate-800 tracking-tight">
                 {formatCurrency(totalCapital, isBengaliNum)}
               </div>
-              <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-                <span>{isBn ? 'সঞ্চয় + চলতি ঋণ' : 'Savings + Active Loans'}</span>
-                <span className="font-semibold text-blue-600">
-                  {isBn ? 'নিরাপদ হিসাব' : 'Secured Ledger'}
+              <div className="mt-2.5 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+                <span className="truncate">{isBn ? 'ব্যবসায় দেওয়া মোট অর্থ' : 'Capital Given to Business'}</span>
+                <span className="font-semibold text-blue-600 shrink-0 ml-1">
+                  {isBn ? 'ব্যবসা ফান্ডিং' : 'Business Funding'}
                 </span>
               </div>
             </div>
@@ -200,46 +251,59 @@ export const DashboardView: React.FC = () => {
           </div>
 
           <div className="space-y-3 flex-1 overflow-y-auto max-h-[360px] pr-1 scrollbar-thin">
-            {users.map((u) => {
-              const todayStr = new Date().toISOString().split('T')[0];
-              const collected = transactions
-                .filter(t => t.collectedBy?.includes(u.name) && t.date === todayStr && t.status === 'completed')
-                .reduce((s, t) => s + t.amount, 0);
+            {(() => {
+              const staffList = currentUser && !users.some(u => u.name === currentUser.name || u.id === currentUser.id)
+                ? [currentUser, ...users]
+                : users;
 
-              return (
-                <div
-                  key={u.id}
-                  className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0"
-                >
-                  <div className="flex items-center gap-2.5 overflow-hidden">
-                    <img
-                      src={u.avatarUrl}
-                      alt={u.name}
-                      className="w-8 h-8 rounded-full object-cover border border-slate-200 shrink-0"
-                    />
-                    <div className="overflow-hidden">
-                      <h5 className="text-xs font-bold text-slate-800 leading-tight truncate">{u.name}</h5>
-                      <span className="text-[11px] text-slate-500 truncate block">
-                        {isBn ? u.roleTitle : (
-                          u.role === 'admin' ? 'Admin & CEO' :
-                          u.role === 'manager' ? 'Branch Manager' :
-                          u.role === 'cashier' ? 'Cashier' : 'Field Officer'
-                        )}
+              const d = new Date();
+              const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+              return staffList.map((u) => {
+                const collected = transactions
+                  .filter(t => {
+                    if (t.status !== 'completed' || t.date !== todayStr) return false;
+                    const col = (t.collectedBy || '').toLowerCase();
+                    const un = (u.name || '').toLowerCase();
+                    return col.includes(un) || un.includes(col);
+                  })
+                  .reduce((s, t) => s + (Number(t.amount) || 0), 0);
+
+                return (
+                  <div
+                    key={u.id}
+                    className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0"
+                  >
+                    <div className="flex items-center gap-2.5 overflow-hidden">
+                      <img
+                        src={u.avatarUrl}
+                        alt={u.name}
+                        className="w-8 h-8 rounded-full object-cover border border-slate-200 shrink-0"
+                      />
+                      <div className="overflow-hidden">
+                        <h5 className="text-xs font-bold text-slate-800 leading-tight truncate">{u.name}</h5>
+                        <span className="text-[11px] text-slate-500 truncate block">
+                          {isBn ? u.roleTitle : (
+                            u.role === 'admin' ? 'Admin & CEO' :
+                            u.role === 'manager' ? 'Branch Manager' :
+                            u.role === 'cashier' ? 'Cashier' : 'Field Officer'
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span className="text-xs font-bold text-slate-700">
+                        : {formatCurrency(collected, isBengaliNum)}
+                      </span>
+                      <span className="block text-[10px] text-emerald-600 font-medium">
+                        {isBn ? 'আদায়' : 'Collected'}
                       </span>
                     </div>
                   </div>
-
-                  <div className="text-right shrink-0">
-                    <span className="text-xs font-bold text-slate-700">
-                      : {formatCurrency(collected, isBengaliNum)}
-                    </span>
-                    <span className="block text-[10px] text-emerald-600 font-medium">
-                      {isBn ? 'আদায়' : 'Collected'}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-100">
@@ -406,6 +470,10 @@ export const DashboardView: React.FC = () => {
             <div className="flex justify-between py-1 border-b border-slate-50">
               <span className="text-slate-600">{isBn ? '👥 মোট গ্রাহক' : '👥 Total Clients'}</span>
               <span className="font-bold text-slate-800">: {num(members.length)} {isBn ? 'জন' : ''}</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-50">
+              <span className="text-slate-600">{isBn ? '💵 মোট সঞ্চয় আমানত' : '💵 Total Savings Deposit'}</span>
+              <span className="font-bold text-emerald-700">: {formatCurrency(totalSavingsInSomiti, isBengaliNum)}</span>
             </div>
             <div className="flex justify-between py-1 border-b border-slate-50">
               <span className="text-slate-600">{isBn ? '📊 মোট সক্রিয় শেয়ার' : '📊 Total Active Shares'}</span>

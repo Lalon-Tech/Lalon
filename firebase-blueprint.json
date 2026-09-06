@@ -126,6 +126,54 @@
         "shareValue": { "type": "number" }
       },
       "required": ["memberId"]
+    },
+    "businessFundings": {
+      "title": "Business Fundings",
+      "description": "Business investment funding applications and active businesses",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "applicationNo": { "type": "string" },
+        "memberId": { "type": "string" },
+        "amountRequested": { "type": "number" },
+        "durationMonths": { "type": "number" },
+        "businessName": { "type": "string" },
+        "businessPurpose": { "type": "string" },
+        "memberProfitSharePercent": { "type": "number" },
+        "somitiProfitSharePercent": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["memberId", "amountRequested", "businessName"]
+    },
+    "businessProfitRecords": {
+      "title": "Business Profit Records",
+      "description": "Monthly profit records from funded businesses",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "businessFundingId": { "type": "string" },
+        "memberId": { "type": "string" },
+        "month": { "type": "string" },
+        "totalBusinessProfit": { "type": "number" },
+        "memberProfitAmount": { "type": "number" },
+        "somitiProfitAmount": { "type": "number" }
+      },
+      "required": ["businessFundingId", "month", "totalBusinessProfit"]
+    },
+    "profitDistributions": {
+      "title": "Monthly Profit Distributions",
+      "description": "Monthly Somiti business profit distributions to members based on daily weighted deposits",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "distributionNo": { "type": "string" },
+        "year": { "type": "number" },
+        "month": { "type": "number" },
+        "totalSomitiProfitPool": { "type": "number" },
+        "totalWeightedDeposit": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["distributionNo", "year", "month", "totalSomitiProfitPool"]
     }
   },
   "firestore": {
@@ -164,6 +212,18 @@
     "settings/{docId}": {
       "schema": "settings",
       "description": "System settings"
+    },
+    "businessFundings/{fundingId}": {
+      "schema": "businessFundings",
+      "description": "Business funding documents"
+    },
+    "businessProfitRecords/{recordId}": {
+      "schema": "businessProfitRecords",
+      "description": "Business profit records"
+    },
+    "profitDistributions/{distId}": {
+      "schema": "profitDistributions",
+      "description": "Profit distribution records"
     }
   }
 }

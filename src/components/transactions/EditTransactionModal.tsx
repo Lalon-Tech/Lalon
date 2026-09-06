@@ -104,7 +104,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
 
   useEffect(() => {
     if (transaction) {
-      const defaultRate = transaction.unitPrice || settings.sharePricePerUnit || 100;
+      const defaultRate = transaction.unitPrice || settings.sharePricePerUnit || 1000;
       const txDate = transaction.date || new Date().toISOString().split('T')[0];
       setDate(txDate);
       
@@ -186,7 +186,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   };
 
   const handleShareRateChange = (newRate: number) => {
-    const validRate = Math.max(1, newRate);
+    const validRate = Math.max(0, newRate);
     setShareRate(validRate);
     const updated: { [shareNo: number]: number } = {};
     for (let i = 1; i <= totalShares; i++) {
@@ -199,21 +199,21 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   };
 
   const handlePurchasedSharesChange = (count: number) => {
-    const validCount = Math.max(1, count);
+    const validCount = Math.max(0, count);
     setPurchasedShareCount(validCount);
     setAmount(validCount * purchasedUnitPrice);
   };
 
   const handlePurchasedUnitPriceChange = (price: number) => {
-    const validPrice = Math.max(1, price);
+    const validPrice = Math.max(0, price);
     setPurchasedUnitPrice(validPrice);
     setAmount(purchasedShareCount * validPrice);
   };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (amount <= 0) {
-      alert(isBn ? 'সঠিক টাকার পরিমাণ দিন।' : 'Please enter a valid amount.');
+    if (amount < 0 || isNaN(amount)) {
+      alert(isBn ? 'টাকার পরিমাণ ০ বা তার বেশি হতে হবে।' : 'Please enter a valid amount (0 or more).');
       return;
     }
 
@@ -313,7 +313,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                   </label>
                   <input
                     type="number"
-                    min={1}
+                    min={0}
                     value={purchasedShareCount}
                     onChange={(e) => handlePurchasedSharesChange(Number(e.target.value))}
                     className="w-full px-3 py-2 bg-white border border-amber-300 rounded-lg text-sm font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
@@ -325,7 +325,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                   </label>
                   <input
                     type="number"
-                    min={1}
+                    min={0}
                     step="any"
                     value={purchasedUnitPrice}
                     onChange={(e) => handlePurchasedUnitPriceChange(Number(e.target.value))}
@@ -424,7 +424,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                   <label className="text-[11px] text-blue-800 font-semibold">{isBn ? 'দর (৳):' : 'Rate (৳):'}</label>
                   <input
                     type="number"
-                    min={1}
+                    min={0}
                     step="any"
                     value={shareRate}
                     onChange={(e) => handleShareRateChange(Number(e.target.value))}
@@ -496,7 +496,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
               <input
                 type="number"
                 required
-                min={1}
+                min={0}
                 step="any"
                 value={amount}
                 onChange={(e) => setAmount(Number(e.target.value))}

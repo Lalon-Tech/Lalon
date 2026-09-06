@@ -31,7 +31,7 @@ export const NewMemberModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
 
   // Step 2: Somiti & Share
   const [shareCount, setShareCount] = useState(1);
-  const [admissionFee, setAdmissionFee] = useState(settings.defaultAdmissionFee || 500);
+  const [admissionFee, setAdmissionFee] = useState<number>(settings.defaultAdmissionFee !== undefined ? settings.defaultAdmissionFee : 0);
   const [monthlyDps, setMonthlyDps] = useState(2000);
 
   // Step 3: Nominee
@@ -63,7 +63,7 @@ export const NewMemberModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
       return;
     }
 
-    const shareVal = (shareCount || 0) * (settings.sharePricePerUnit || 100);
+    const shareVal = (shareCount || 0) * (settings.sharePricePerUnit || 1000);
 
     const newMember = addMember({
       name: name.trim(),
@@ -367,12 +367,12 @@ export const NewMemberModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
           {/* Step 2: Membership & Shares */}
           {activeStep === 2 && (
             <div className="space-y-5">
-              <div className="p-4 bg-blue-50/70 border border-blue-100 rounded-xl">
+              <div className="p-4 bg-blue-50/80 border border-blue-200 rounded-xl">
                 <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider mb-1">
                   সমিতির শেয়ার ও ভর্তি তথ্য
                 </h4>
-                <p className="text-xs text-blue-800">
-                  প্রতি শেয়ারের অভিহিত মূল্য ৳ {settings.sharePricePerUnit || 100} টাকা। সদস্য কতটি শেয়ারের অংশীদার হবেন তা এখানে নির্ধারণ করুন।
+                <p className="text-xs text-blue-800 leading-relaxed">
+                  প্রতি শেয়ারের অভিহিত মূল্য <strong className="font-bold text-blue-950">৳ {settings.sharePricePerUnit || 1000}</strong> টাকা। সদস্য কতটি শেয়ারের অংশীদার হবেন তা এখানে নির্ধারণ করুন। এটি সদস্যের মূলধন তথ্য হিসেবে সংরক্ষিত থাকবে, কিন্তু <strong className="text-rose-800">সদস্যের জমার ব্যালেন্সে যোগ হবে না</strong>।
                 </p>
               </div>
 
@@ -388,28 +388,82 @@ export const NewMemberModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
                     onChange={(e) => setShareCount(Math.max(0, Number(e.target.value)))}
                     className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
-                  <div className="mt-1.5 p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs font-semibold text-emerald-900 flex items-center justify-between">
-                    <span>শেয়ারের মোট মূল্য:</span>
-                    <span className="font-bold text-emerald-800">
-                      ৳ {((shareCount || 0) * (settings.sharePricePerUnit || 100)).toLocaleString()}
+                  <div className="mt-1.5 p-2 bg-blue-50 border border-blue-200 rounded-lg text-xs font-semibold text-blue-900 flex items-center justify-between">
+                    <span>সক্রিয় শেয়ার সংখ্যা:</span>
+                    <span className="font-bold text-blue-800 font-mono text-sm">
+                      {shareCount || 0} টি
                     </span>
                   </div>
+                  <span className="text-[11px] text-slate-500 mt-1 block">
+                    (সদস্য যখন সঞ্চয় জমা করবেন, কেবলমাত্র তখনই মোট জমা স্থিতি বৃদ্ধি পাবে)
+                  </span>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    ভর্তি ফি (যদি থাকে, ৳)
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">
+                      ভর্তি ফি (Admission Fee, ৳)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setAdmissionFee(0)}
+                      className="text-[11px] text-emerald-700 hover:text-emerald-800 font-bold underline cursor-pointer"
+                    >
+                      ফি ছাড়া (৳০)
+                    </button>
+                  </div>
                   <input
                     type="number"
                     min={0}
                     value={admissionFee}
-                    onChange={(e) => setAdmissionFee(Math.max(0, Number(e.target.value)))}
-                    className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setAdmissionFee(val === '' ? 0 : Math.max(0, Number(val)));
+                    }}
+                    placeholder="০"
+                    className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
-                  <span className="text-[11px] text-slate-500 mt-1 block">
-                    নতুন সদস্য অন্তর্ভুক্তি ফি (অফেরতযোগ্য)
-                  </span>
+                  
+                  {/* Quick Preset Buttons */}
+                  <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                    <span className="text-[11px] text-slate-500 font-medium">কুইক সিলেক্ট:</span>
+                    <button
+                      type="button"
+                      onClick={() => setAdmissionFee(0)}
+                      className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer transition-colors ${
+                        admissionFee === 0 
+                          ? 'bg-emerald-600 text-white' 
+                          : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800'
+                      }`}
+                    >
+                      ৳ ০ (ফ্রি)
+                    </button>
+                    {[100, 200, 500, 1000].map((fee) => (
+                      <button
+                        key={fee}
+                        type="button"
+                        onClick={() => setAdmissionFee(fee)}
+                        className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer transition-colors ${
+                          admissionFee === fee 
+                            ? 'bg-blue-600 text-white' 
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                        }`}
+                      >
+                        ৳ {fee}
+                      </button>
+                    ))}
+                  </div>
+
+                  {admissionFee === 0 ? (
+                    <span className="text-[11px] text-emerald-700 font-bold mt-1.5 flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      কোনো ভর্তি ফি ছাড়াই নতুন সদস্য হিসেবে যুক্ত হবেন (ভর্তি ফি ৳ ০)।
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-slate-500 mt-1 block">
+                      নতুন সদস্য অন্তর্ভুক্তি ফি (অফেরতযোগ্য)
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -418,8 +472,8 @@ export const NewMemberModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
                   <ShieldCheck className="w-4 h-4 text-blue-600" />
                   <span>আর্থিক জমার নিয়ম:</span>
                 </div>
-                <p className="text-[11px] text-slate-500">
-                  সদস্যভুক্তির সময় শুধুমাত্র শেয়ার সংখ্যা ও নির্ধারিত মূল্য সিস্টেমে নথিভুক্ত হবে। কোনো টাকা তাৎক্ষণিকভাবে জমার লেজারে যোগ হবে না। পরবর্তীতে যখন সদস্য জমার কিস্তি দিবেন, তখন ডিপোজিট অপশন থেকে টাকা জমা এন্ট্রি করা হবে।
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  সদস্যভুক্তির সময় শুধুমাত্র শেয়ার সংখ্যা ও ১,০০০ টাকা মূল্যের হিসাব সিস্টেমে নথিভুক্ত হবে। কোনো টাকা তাৎক্ষণিকভাবে জমার ব্যালেন্সে যোগ হবে না। পরবর্তীতে যখন সদস্য জমার কিস্তি দিবেন (সর্বনিম্ন ১,০০০ টাকা), তখন ডিপোজিট অপশন থেকে টাকা সঞ্চয়ে জমা এন্ট্রি করা হবে।
                 </p>
               </div>
 

@@ -194,10 +194,10 @@ export function getTransactionTypeName(type: string, isBengali = true): { label:
       };
     case 'profit_share':
       return { 
-        label: isBengali ? 'লভ্যাংশ প্রদান' : 'Profit / Dividend Share', 
+        label: isBengali ? 'লভ্যাংশ জমা' : 'Profit / Dividend Share', 
         color: 'text-teal-600', 
         badge: 'bg-teal-50 text-teal-700 border-teal-200', 
-        isCredit: false 
+        isCredit: true 
       };
     case 'fine':
       return { 

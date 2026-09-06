@@ -38,6 +38,7 @@ import { ShareClosuresList } from './ShareClosuresList';
 import { EditMemberModal } from './EditMemberModal';
 import { EditTransactionModal } from '../transactions/EditTransactionModal';
 import { Transaction } from '../../types';
+import { MemberBusinessFundingTab } from '../business/MemberBusinessFundingTab';
 import { 
   formatCurrency, 
   formatInteger, 
@@ -55,6 +56,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
     loans, 
     savingsSchemes, 
     shareClosures,
+    businessFundings,
     transactions, 
     useBengaliDigits,
     setSelectedMemberId,
@@ -68,10 +70,12 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
     updateMember,
     settings,
     isUserAdmin,
-    canViewMemberFinancials
+    canViewMemberFinancials,
+    businessProfitRecords,
+    profitDistributions
   } = useSomiti();
 
-  const [activeTab, setActiveTab] = useState<'passbook' | 'savings' | 'shares' | 'loans' | 'nominee' | 'agreement'>('passbook');
+  const [activeTab, setActiveTab] = useState<'passbook' | 'savings' | 'shares' | 'loans' | 'business' | 'nominee' | 'agreement'>('passbook');
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [newPhotoUrl, setNewPhotoUrl] = useState('');
   const [showShareClosureModal, setShowShareClosureModal] = useState(false);
@@ -124,6 +128,25 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
   const memberLoans = loans.filter(l => l.memberId === member.id);
   const memberSavings = savingsSchemes.filter(s => s.memberId === member.id);
   const memberShareClosures = shareClosures.filter(c => c.memberId === member.id);
+  const memberBusinessFundings = businessFundings.filter(f => f.memberId === member.id);
+
+  // Profit calculations for this member:
+  // Only the Somiti profit pool distribution (divided among members based on deposits)
+  // is credited to the member's profile and savings. Entrepreneur personal profit is NOT calculated or added anywhere in Somiti.
+  const totalMemberProfitFromPool = profitDistributions.reduce((sum, dist) => {
+    const share = dist.memberDistributions?.find(m => m.memberId === member.id);
+    return sum + (Number(share?.allocatedProfit) || 0);
+  }, 0);
+
+  const memberProfitTxs = memberTransactions.filter(
+    t => t.type === 'profit_share' && t.category !== 'business_profit_member_share'
+  );
+  const totalProfitFromTxs = memberProfitTxs.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+  const totalMemberProfitEarned = Math.max(
+    totalMemberProfitFromPool,
+    totalProfitFromTxs
+  );
 
   const printPassbook = () => {
     window.print();
@@ -295,16 +318,25 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
             {/* Quick Balance Header Badges */}
             <div className="shrink-0">
               {hasFinancialAccess ? (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-white/10 backdrop-blur-xs p-3 rounded-xl border border-white/10 text-center">
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div className="bg-white/10 backdrop-blur-xs p-2.5 sm:p-3 rounded-xl border border-white/10 text-center min-w-[95px]">
                     <span className="text-[11px] text-blue-200 block">{isBn ? 'মোট সঞ্চয় স্থিতি' : 'Total Savings'}</span>
-                    <span className="text-base font-bold text-emerald-300">
+                    <span className="text-sm sm:text-base font-bold text-emerald-300">
                       {formatCurrency(member.totalSavings, isBn && useBengaliDigits)}
                     </span>
                   </div>
-                  <div className="bg-white/10 backdrop-blur-xs p-3 rounded-xl border border-white/10 text-center">
+                  <div className="bg-white/10 backdrop-blur-xs p-2.5 sm:p-3 rounded-xl border border-white/10 text-center min-w-[95px]">
+                    <span className="text-[11px] text-amber-200 block flex items-center justify-center gap-1">
+                      <TrendingUp className="w-3 h-3 text-amber-300 inline" />
+                      <span>{isBn ? 'অর্জিত মোট লাভ' : 'Total Profit'}</span>
+                    </span>
+                    <span className="text-sm sm:text-base font-bold text-amber-300">
+                      {formatCurrency(totalMemberProfitEarned, isBn && useBengaliDigits)}
+                    </span>
+                  </div>
+                  <div className="bg-white/10 backdrop-blur-xs p-2.5 sm:p-3 rounded-xl border border-white/10 text-center min-w-[95px]">
                     <span className="text-[11px] text-blue-200 block">{isBn ? 'চলতি বকেয়া ঋণ' : 'Active Loan Due'}</span>
-                    <span className="text-base font-bold text-amber-300">
+                    <span className="text-sm sm:text-base font-bold text-rose-300">
                       {formatCurrency(member.activeLoanBalance, isBn && useBengaliDigits)}
                     </span>
                   </div>
@@ -369,6 +401,17 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
           >
             <CreditCard className="w-4 h-4" />
             <span>{isBn ? `ঋণ ও কিস্তি শিডিউল (${displayCount(memberLoans.length)})` : `Loans & Schedules (${displayCount(memberLoans.length)})`}</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('business')}
+            className={`px-5 py-3 text-xs font-bold border-b-2 flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
+              activeTab === 'business'
+                ? 'border-blue-600 text-blue-700 bg-white'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Briefcase className="w-4 h-4 text-emerald-600" />
+            <span>{isBn ? `ব্যবসা ফান্ডিং ও লাভ (${displayCount(memberBusinessFundings.length)})` : `Business Funding (${displayCount(memberBusinessFundings.length)})`}</span>
           </button>
           <button
             onClick={() => setActiveTab('nominee')}
@@ -497,25 +540,25 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
             renderPrivacyProtectedNotice()
           ) : (
             <div className="p-6 space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl relative overflow-hidden">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5">
+                <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl relative overflow-hidden">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-semibold text-amber-900 block">
                       {isBn ? 'সক্রিয় শেয়ার মূলধন' : 'Active Share Capital'}
                     </span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900 font-mono">
-                      {displayCount(member.shareCount || 0)} টি শেয়ার
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900 font-mono">
+                      {displayCount(member.shareCount || 0)} {isBn ? 'টি' : ''}
                     </span>
                   </div>
-                  <div className="text-xl font-bold text-amber-950">
+                  <div className="text-lg font-bold text-amber-950">
                     {formatCurrency(member.shareValue || 0, isBn && useBengaliDigits)}
                   </div>
-                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-amber-200/60">
+                  <div className="flex items-center gap-2 mt-2 pt-1.5 border-t border-amber-200/60">
                     <button
                       onClick={() => setShowShareClosureModal(true)}
                       className="text-[11px] font-bold text-rose-700 hover:underline cursor-pointer"
                     >
-                      {isBn ? 'সমর্পণ / ক্লোজ' : 'Surrender'}
+                      {isBn ? 'সমর্পণ' : 'Surrender'}
                     </button>
                     <span className="text-amber-300">•</span>
                     <button
@@ -526,37 +569,55 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                     </button>
                   </div>
                 </div>
-                <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl">
+
+                <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-xl">
                   <span className="text-xs font-semibold text-emerald-800 block mb-1">
-                    {isBn ? 'সাধারণ সঞ্চয় স্থিতি' : 'General Savings Balance'}
+                    {isBn ? 'সাধারণ সঞ্চয় স্থিতি' : 'General Savings'}
                   </span>
-                  <div className="text-xl font-bold text-emerald-900">
+                  <div className="text-lg font-bold text-emerald-900">
                     {formatCurrency(member.generalSavingsBalance, isBn && useBengaliDigits)}
                   </div>
-                  <span className="text-[11px] text-emerald-700 mt-1 block">
-                    {isBn ? 'যেকোনো সময় উত্তোলনযোগ্য' : 'Withdrawable anytime'}
+                  <span className="text-[10px] text-emerald-700 mt-1 block">
+                    {isBn ? 'উত্তোলনযোগ্য স্থিতি' : 'Withdrawable'}
                   </span>
                 </div>
-                <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl">
+
+                <div className="bg-teal-50 border border-teal-200 p-3.5 rounded-xl">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-semibold text-teal-900 block">
+                      {isBn ? 'অর্জিত মোট লভ্যাংশ' : 'Total Profit Earned'}
+                    </span>
+                    <TrendingUp className="w-3.5 h-3.5 text-teal-600" />
+                  </div>
+                  <div className="text-lg font-bold text-teal-950">
+                    {formatCurrency(totalMemberProfitEarned, isBn && useBengaliDigits)}
+                  </div>
+                  <span className="text-[10px] text-teal-700 mt-1 block truncate">
+                    {isBn ? 'ব্যবসা ও সমিতির মুনাফা' : 'Business & dividend pool'}
+                  </span>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 p-3.5 rounded-xl">
                   <span className="text-xs font-semibold text-blue-800 block mb-1">
                     {isBn ? 'মাসিক ডিপিএস স্থিতি' : 'Monthly DPS Balance'}
                   </span>
-                  <div className="text-xl font-bold text-blue-900">
+                  <div className="text-lg font-bold text-blue-900">
                     {formatCurrency(member.dpsSavingsBalance, isBn && useBengaliDigits)}
                   </div>
-                  <span className="text-[11px] text-blue-700 mt-1 block">
+                  <span className="text-[10px] text-blue-700 mt-1 block">
                     {isBn ? 'মেয়াদি সঞ্চয় আমানত' : 'Term savings deposit'}
                   </span>
                 </div>
-                <div className="bg-purple-50 border border-purple-200 p-4 rounded-xl">
+
+                <div className="bg-purple-50 border border-purple-200 p-3.5 rounded-xl">
                   <span className="text-xs font-semibold text-purple-800 block mb-1">
                     {isBn ? 'স্থায়ী আমানত (FDR)' : 'Fixed Deposit (FDR)'}
                   </span>
-                  <div className="text-xl font-bold text-purple-900">
+                  <div className="text-lg font-bold text-purple-900">
                     {formatCurrency(member.fdrSavingsBalance, isBn && useBengaliDigits)}
                   </div>
-                  <span className="text-[11px] text-purple-700 mt-1 block">
-                    {isBn ? 'নির্দিষ্ট মেয়াদে লাভজনক' : 'Fixed term profit deposit'}
+                  <span className="text-[10px] text-purple-700 mt-1 block">
+                    {isBn ? 'নির্দিষ্ট মেয়াদে লাভজনক' : 'Fixed term deposit'}
                   </span>
                 </div>
               </div>
@@ -603,6 +664,130 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Member Profit & Dividend Ledger */}
+              <div className="space-y-4 pt-4 border-t border-slate-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-teal-600" />
+                      <span>{isBn ? 'সদস্যের অর্জিত সমিতির লভ্যাংশ বিবরণী' : 'Earned Somiti Profit & Dividend Ledger'}</span>
+                    </h4>
+                    <p className="text-xs text-slate-500">
+                      {isBn 
+                        ? 'মাসিক জমার স্থিতি ও অনুপাত অনুযায়ী সমিতি বণ্টন হতে অর্জিত মুনাফা (যা প্রোফাইলে লভ্যাংশ হিসেবে জমা হয়েছে)' 
+                        : 'Dividends earned from Somiti profit pool distribution based on monthly deposit ratio'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="px-2.5 py-1 bg-teal-50 text-teal-800 border border-teal-200 rounded-lg font-bold">
+                      {isBn ? 'প্রোফাইলে অর্জিত মোট লাভ: ' : 'Total Profit Earned: '} 
+                      {formatCurrency(totalMemberProfitEarned, isBn && useBengaliDigits)}
+                    </span>
+                  </div>
+                </div>
+
+                {profitDistributions.filter(dist => dist.memberDistributions?.some(m => m.memberId === member.id && m.allocatedProfit > 0)).length === 0 && memberProfitTxs.length === 0 ? (
+                  <div className="p-6 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50 text-slate-400 text-xs">
+                    {isBn ? 'এখনো কোনো ব্যবসায়িক লভ্যাংশের রেকর্ড নেই।' : 'No business profit or dividend records yet.'}
+                  </div>
+                ) : (
+                  <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs text-slate-600">
+                        <thead className="bg-slate-50 font-bold text-slate-700 border-b border-slate-200">
+                          <tr>
+                            <th className="py-2.5 px-3">{isBn ? 'তারিখ / মাস' : 'Date / Month'}</th>
+                            <th className="py-2.5 px-3">{isBn ? 'উৎস ও বিবরণ' : 'Source & Description'}</th>
+                            <th className="py-2.5 px-3 text-center">{isBn ? 'বণ্টন অনুপাত' : 'Share %'}</th>
+                            <th className="py-2.5 px-3 text-right">{isBn ? 'সমিতি লাভ তহবিল' : 'Somiti Profit'}</th>
+                            <th className="py-2.5 px-3 text-right">{isBn ? 'প্রোফাইলে যুক্ত লাভ' : 'Profit Credited (৳)'}</th>
+                            <th className="py-2.5 px-3 text-center">{isBn ? 'অবস্থা' : 'Status'}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {/* Monthly Pool Profit Distributions based on member deposits */}
+                          {profitDistributions
+                            .filter(dist => dist.memberDistributions?.some(m => m.memberId === member.id && m.allocatedProfit > 0))
+                            .map((dist) => {
+                              const myShare = dist.memberDistributions?.find(m => m.memberId === member.id);
+                              if (!myShare) return null;
+                              return (
+                                <tr key={dist.id} className="hover:bg-slate-50 transition-colors">
+                                  <td className="py-2.5 px-3 font-medium">
+                                    {dist.monthName}
+                                    <span className="block text-[10px] text-slate-400">{formatBengaliDate(dist.distributionDate, isBn)}</span>
+                                  </td>
+                                  <td className="py-2.5 px-3">
+                                    <span className="font-bold text-slate-800 block">
+                                      {dist.notes || (isBn ? 'সমিতির ব্যবসায়িক লভ্যাংশ বণ্টন' : 'Somiti Business Profit Dividend')}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400">
+                                      {isBn ? `সদস্য জমার অনুপাত অনুযায়ী বণ্টন (${formatCurrency(myShare.dailyWeightedDeposit, isBn && useBengaliDigits)} স্থিতি)` : 'Distributed based on monthly deposit ratio'}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-3 text-center">
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                                      {isBn && useBengaliDigits ? toBengaliNumber((myShare.weightPercentage || 0).toFixed(2)) : (myShare.weightPercentage || 0).toFixed(2)}%
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right font-medium text-slate-600">
+                                    {formatCurrency(dist.totalSomitiProfitPool, isBn && useBengaliDigits)}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right font-bold text-teal-700">
+                                    +{formatCurrency(myShare.allocatedProfit, isBn && useBengaliDigits)}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-center">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200">
+                                      <CheckCircle2 className="w-3 h-3 text-teal-600" />
+                                      <span>{dist.creditToSavings ? (isBn ? 'সঞ্চয়ে যুক্ত' : 'Credited') : (isBn ? 'নগদে প্রদত্ত' : 'Paid in cash')}</span>
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+
+                          {/* Non-distribution profit share transactions (e.g. earlier dividends) */}
+                          {memberProfitTxs
+                            .filter(t => !profitDistributions.some(d => d.memberDistributions?.some(m => m.transactionId === t.id)))
+                            .map((tx) => (
+                              <tr key={tx.id} className="hover:bg-slate-50 transition-colors">
+                                <td className="py-2.5 px-3 font-medium">
+                                  {formatBengaliDate(tx.date, isBn)}
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <span className="font-bold text-slate-800 block">
+                                    {tx.notes || (isBn ? 'সঞ্চিত জমার লভ্যাংশ' : 'Profit Dividend')}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 font-mono">
+                                    #{tx.voucherNo}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                                    -
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-medium text-slate-600">
+                                  -
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-bold text-teal-700">
+                                  +{formatCurrency(tx.amount, isBn && useBengaliDigits)}
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200">
+                                    <CheckCircle2 className="w-3 h-3 text-teal-600" />
+                                    <span>{isBn ? 'সঞ্চয়ে যুক্ত' : 'Credited'}</span>
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </div>
@@ -653,30 +838,27 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-amber-200/60">
-                  <div className="bg-white p-3 rounded-xl border border-amber-100 shadow-2xs">
-                    <span className="text-[11px] text-slate-500 block">বর্তমান সক্রিয় শেয়ার</span>
-                    <span className="text-lg font-black text-amber-700 font-mono">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-amber-200/60">
+                  <div className="bg-white p-3.5 rounded-xl border border-blue-100 shadow-2xs">
+                    <span className="text-[11px] text-slate-500 block font-medium">বর্তমান সক্রিয় শেয়ার</span>
+                    <span className="text-xl font-black text-blue-700 font-mono">
                       {displayCount(member.shareCount || 0)} টি
                     </span>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">সদস্যের অর্জিত অংশীদারিত্ব</span>
                   </div>
-                  <div className="bg-white p-3 rounded-xl border border-amber-100 shadow-2xs">
-                    <span className="text-[11px] text-slate-500 block">শেয়ার প্রতি নির্ধারিত মূল্য</span>
-                    <span className="text-base font-bold text-slate-800">
-                      {formatCurrency(settings.sharePricePerUnit || 100, isBn && useBengaliDigits)}
+                  <div className="bg-white p-3.5 rounded-xl border border-emerald-100 shadow-2xs">
+                    <span className="text-[11px] text-slate-500 block font-medium">মোট জমাকৃত সঞ্চয় স্থিতি</span>
+                    <span className="text-xl font-black text-emerald-700">
+                      {formatCurrency(member.totalSavings || 0, isBn && useBengaliDigits)}
                     </span>
+                    <span className="text-[10px] text-emerald-600 font-medium block mt-0.5">ডিপোজিটকৃত আসল জমা</span>
                   </div>
-                  <div className="bg-white p-3 rounded-xl border border-amber-100 shadow-2xs">
-                    <span className="text-[11px] text-slate-500 block">মোট শেয়ার মূলধন স্থিতি</span>
-                    <span className="text-lg font-black text-emerald-700">
-                      {formatCurrency(member.shareValue || 0, isBn && useBengaliDigits)}
-                    </span>
-                  </div>
-                  <div className="bg-white p-3 rounded-xl border border-amber-100 shadow-2xs">
-                    <span className="text-[11px] text-slate-500 block">পূর্বে বন্ধকৃত শেয়ার</span>
-                    <span className="text-base font-bold text-slate-700 font-mono">
+                  <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+                    <span className="text-[11px] text-slate-500 block font-medium">পূর্বে সমর্পিত/বন্ধকৃত শেয়ার</span>
+                    <span className="text-xl font-bold text-slate-600 font-mono">
                       {displayCount(memberShareClosures.reduce((s, c) => s + (c.closedSharesCount || 0), 0))} টি
                     </span>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">ক্লোজকৃত শেয়ার রেকর্ড</span>
                   </div>
                 </div>
               </div>
@@ -956,6 +1138,13 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Tab 7: Business Funding */}
+        {activeTab === 'business' && (
+          <div className="p-6">
+            <MemberBusinessFundingTab member={member} isBn={isBn} />
           </div>
         )}
       </div>

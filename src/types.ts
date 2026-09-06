@@ -238,3 +238,83 @@ export interface SomitiSettings {
   currencySymbol: string;
   useBengaliDigits: boolean;
 }
+
+export type BusinessFundingStatus = 'pending' | 'approved' | 'active' | 'completed' | 'rejected';
+
+export interface BusinessFunding {
+  id: string;
+  applicationNo: string;
+  memberId: string;
+  memberNo: string;
+  memberName: string;
+  memberPhone?: string;
+  amountRequested: number;      // 1. কত টাকা নেবে
+  approvedAmount?: number;
+  durationMonths: number;       // 2. কতদিনের জন্য নেবে
+  businessName: string;         // 3. কোন Business/Purpose-এর জন্য নেবে
+  businessPurpose: string;
+  businessType?: string;
+  memberProfitSharePercent: number; // 4. Business থেকে কত % লাভ Member পাবে
+  somitiProfitSharePercent: number; // 5. কত % লাভ Somiti পাবে
+  applicationDate: string;
+  disbursementDate?: string;
+  maturityDate?: string;
+  paymentMethod?: PaymentMethod;
+  bankAccountId?: string;
+  status: BusinessFundingStatus;
+  totalProfitRecorded: number;
+  totalMemberProfitPaid: number;
+  totalSomitiProfitEarned: number;
+  repaidPrincipal?: number;
+  notes?: string;
+  approvedBy?: string;
+  createdAt: string;
+}
+
+export interface BusinessProfitRecord {
+  id: string;
+  businessFundingId: string;
+  applicationNo: string;
+  memberId: string;
+  memberName: string;
+  month: string;                // e.g. "2026-09"
+  totalBusinessProfit: number;  // e.g. 30000
+  memberProfitPercent: number;  // e.g. 50
+  somitiProfitPercent: number;  // e.g. 50
+  memberProfitAmount: number;   // e.g. 15000
+  somitiProfitAmount: number;   // e.g. 15000
+  date: string;
+  notes?: string;
+  recordedBy: string;
+  createdAt: string;
+}
+
+export interface MemberProfitShareItem {
+  memberId: string;
+  memberNo: string;
+  memberName: string;
+  totalSavingsSnapshot: number;
+  dailyWeightedDeposit: number;  // Daily balance sum over the month
+  weightPercentage: number;      // (dailyWeightedDeposit / totalWeightedDeposit) * 100
+  allocatedProfit: number;       // Member Profit = (Member's Monthly Weighted Deposit ÷ Total Weighted Deposit) × Monthly Distributable Profit
+  creditedToSavings: boolean;
+  transactionId?: string;
+}
+
+export interface MonthlyProfitDistribution {
+  id: string;
+  distributionNo: string;        // e.g. "PD-2026-09"
+  year: number;
+  month: number;                 // 1-12
+  monthName: string;             // e.g. "সেপ্টেম্বর ২০২৬"
+  totalSomitiProfitPool: number; // Monthly Distributable Profit
+  totalWeightedDeposit: number;
+  totalMembersDistributed: number;
+  distributionDate: string;
+  distributedBy: string;
+  status: 'draft' | 'completed';
+  memberDistributions: MemberProfitShareItem[];
+  notes?: string;
+  createdAt: string;
+}
+

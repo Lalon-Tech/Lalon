@@ -153,14 +153,14 @@ export const MemberList: React.FC = () => {
 
         <div className="bg-white p-4.5 rounded-xl border border-slate-200 shadow-2xs">
           <div className="flex items-center justify-between text-slate-500 mb-1">
-            <span className="text-xs font-semibold">{isBn ? 'মোট শেয়ার মূলধন' : 'Total Share Capital'}</span>
-            <span className="text-xs text-amber-600 font-bold">{isBn ? 'শেয়ার মূলধন' : 'Share Capital'}</span>
+            <span className="text-xs font-semibold">{isBn ? 'মোট সক্রিয় শেয়ার' : 'Total Active Shares'}</span>
+            <span className="text-xs text-blue-600 font-bold">{isBn ? 'শেয়ার সংখ্যা' : 'Shares'}</span>
           </div>
-          <div className="text-2xl font-bold text-amber-700">
-            {formatCurrency(members.reduce((s, m) => s + (m.shareValue || 0), 0), isBn && useBengaliDigits)}
+          <div className="text-2xl font-bold text-blue-700">
+            {displayCount(members.reduce((s, m) => s + (m.shareCount || 0), 0))} {isBn ? 'টি' : 'Shares'}
           </div>
           <span className="text-xs text-slate-400">
-            {isBn ? `মোট শেয়ার: ${displayCount(members.reduce((s, m) => s + m.shareCount, 0))} টি` : `Total Shares: ${displayCount(members.reduce((s, m) => s + m.shareCount, 0))}`}
+            {isBn ? 'সমিতির সকল সদস্যের মোট অংশীদারিত্ব' : 'All members active equity shares'}
           </span>
         </div>
       </div>
@@ -284,12 +284,9 @@ export const MemberList: React.FC = () => {
                     {/* Shares */}
                     <td className="py-3 px-4 text-center">
                       {canViewMemberFinancials(member.id) ? (
-                        <>
-                          <span className="font-bold text-slate-800">{displayCount(member.shareCount)}</span>
-                          <span className="block text-[11px] text-slate-400">
-                            {formatCurrency(member.shareValue, isBn && useBengaliDigits)}
-                          </span>
-                        </>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                          {displayCount(member.shareCount || 0)} {isBn ? 'টি' : 'Shares'}
+                        </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-[11px] text-slate-400 font-medium bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
                           <Lock className="w-2.5 h-2.5 text-slate-400" />

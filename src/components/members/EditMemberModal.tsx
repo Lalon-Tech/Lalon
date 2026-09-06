@@ -111,7 +111,7 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
       setStatus(member.status || 'active');
       setNotes(member.notes || '');
 
-      const unit = settings.sharePricePerUnit || 100;
+      const unit = settings.sharePricePerUnit || 1000;
       setShareUnitPrice(unit);
       setShareCount(member.shareCount ?? 1);
       setShareValue(member.shareValue ?? ((member.shareCount ?? 1) * unit));
@@ -149,11 +149,11 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
     setShareValue(shareCount * validPrice);
   };
 
+  // Total savings strictly represents accumulated deposit balances (general + dps + fdr), share value is fixed equity
   const calculatedTotalSavings = 
     Number(generalSavingsBalance || 0) + 
     Number(dpsSavingsBalance || 0) + 
-    Number(fdrSavingsBalance || 0) + 
-    Number(shareValue || 0);
+    Number(fdrSavingsBalance || 0);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -354,10 +354,10 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      {isBn ? 'শেয়ার সংখ্যা (টি)' : 'Share Count'} <span className="text-rose-500">*</span>
+                      {isBn ? 'সক্রিয় শেয়ার সংখ্যা (টি)' : 'Active Share Count'} <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="number"
@@ -368,41 +368,14 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
                       className="w-full px-3 py-2 bg-white border border-blue-300 rounded-xl text-sm font-bold text-blue-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                     />
                     <span className="text-[10px] text-slate-500 mt-1 block">
-                      {isBn ? 'ভুল এন্ট্রি হলে সঠিক সংখ্যা দিন (যেমন: ১, ২, ৫)' : 'Enter correct count if mistyped'}
+                      {isBn ? 'সদস্যের সক্রিয় শেয়ার সংখ্যা (যেমন: ১, ২, ৪ ইত্যাদি)' : 'Active share count of this member'}
                     </span>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      {isBn ? 'প্রতি শেয়ার মূল্য (৳)' : 'Share Unit Price (৳)'}
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      step="any"
-                      value={shareUnitPrice}
-                      onChange={(e) => handleUnitPriceChange(Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-white border border-blue-300 rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
-                    />
-                    <span className="text-[10px] text-slate-500 mt-1 block">
-                      {isBn ? 'ডিফল্ট ইউনিট মূল্য: ১০০৳' : 'Default unit price: ৳100'}
-                    </span>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      {isBn ? 'মোট শেয়ার মূল্য (৳)' : 'Total Share Value (৳)'}
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      step="any"
-                      value={shareValue}
-                      onChange={(e) => setShareValue(Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-white border border-blue-300 rounded-xl text-sm font-bold text-emerald-700 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
-                    />
-                    <span className="text-[10px] text-emerald-700 font-semibold mt-1 block">
-                      = {formatCurrency(shareValue, isBn && useBengaliDigits)}
+                  <div className="bg-slate-50/80 border border-slate-200 rounded-xl p-3 flex flex-col justify-center">
+                    <span className="text-[11px] text-slate-500 font-medium">সঞ্চয় ও জমা নীতি:</span>
+                    <span className="text-xs font-semibold text-slate-700 mt-0.5">
+                      সদস্য যখন ভাউচারের মাধ্যমে টাকা জমা (Deposit) করবেন, শুধুমাত্র তখনই মূল সঞ্চয় ব্যালেন্সে মোট জমা বৃদ্ধি পাবে।
                     </span>
                   </div>
                 </div>
