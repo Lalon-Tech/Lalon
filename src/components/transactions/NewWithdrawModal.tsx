@@ -21,26 +21,31 @@ export const NewWithdrawModal: React.FC<{ isOpen: boolean; onClose: () => void }
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [bankAccountId, setBankAccountId] = useState(bankAccounts[0]?.id || '');
   const [notes, setNotes] = useState('');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [confirmOverdraw, setConfirmOverdraw] = useState(false);
 
   if (!isOpen) return null;
 
   const selectedMember = members.find(m => m.id === memberId);
   const availableBalance = selectedMember ? selectedMember.generalSavingsBalance : 0;
+  const isOverdraw = amount > availableBalance;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
+
     if (!memberId || amount <= 0) {
-      alert(isBn ? 'সদস্য ও সঠিক টাকার পরিমাণ নির্বাচন করুন।' : 'Please select a member and valid amount.');
+      setErrorMsg(isBn ? 'সদস্য ও সঠিক টাকার পরিমাণ নির্বাচন করুন।' : 'Please select a member and valid amount.');
       return;
     }
 
-    if (amount > availableBalance) {
-      const confirmMsg = isBn 
-        ? `সদস্যের সাধারণ সঞ্চয় স্থিতি (${formatCurrency(availableBalance, useBengaliDigits)}) উত্তোলনের চেয়ে কম। আপনি কি তবুও উত্তোলন করতে চান?`
-        : `Member's savings balance (${formatCurrency(availableBalance, false)}) is less than withdrawal amount. Do you still want to proceed?`;
-      if (!window.confirm(confirmMsg)) {
-        return;
-      }
+    if (isOverdraw && !confirmOverdraw) {
+      setErrorMsg(
+        isBn 
+          ? `সদস্যের সাধারণ সঞ্চয় স্থিতি (${formatCurrency(availableBalance, useBengaliDigits)}) উত্তোলনের চেয়ে কম। অনুগ্রহ করে নিচে সম্মতি টিক দিন।`
+          : `Member's savings balance (${formatCurrency(availableBalance, false)}) is less than withdrawal amount. Please check the confirmation box below.`
+      );
+      return;
     }
 
     addWithdrawal({
@@ -172,6 +177,34 @@ export const NewWithdrawModal: React.FC<{ isOpen: boolean; onClose: () => void }
               className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500 focus:outline-hidden"
             />
           </div>
+
+          {isOverdraw && (
+            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-2">
+              <div className="text-xs font-bold text-amber-800">
+                {isBn ? '⚠️ অতিরিক্ত উত্তোলন সতর্কতা' : '⚠️ Overdraft Warning'}
+              </div>
+              <p className="text-[11px] text-amber-700 leading-relaxed">
+                {isBn
+                  ? `সদস্যের সাধারণ সঞ্চয় স্থিতি (${formatCurrency(availableBalance, useBengaliDigits)}) এর চেয়ে উত্তোলনের পরিমাণ বেশি।`
+                  : `Withdrawal amount exceeds member general savings balance (${formatCurrency(availableBalance, false)}).`}
+              </p>
+              <label className="flex items-center gap-2 pt-1 text-xs font-bold text-amber-900 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={confirmOverdraw}
+                  onChange={(e) => setConfirmOverdraw(e.target.checked)}
+                  className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 cursor-pointer"
+                />
+                <span>{isBn ? 'হ্যাঁ, আমি অতিরিক্ত উত্তোলন অনুমোদন করছি' : 'Yes, I authorize this overdraw'}</span>
+              </label>
+            </div>
+          )}
+
+          {errorMsg && (
+            <div className="p-2.5 bg-rose-100 text-rose-800 rounded-xl text-xs font-semibold">
+              {errorMsg}
+            </div>
+          )}
 
           <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
             <button

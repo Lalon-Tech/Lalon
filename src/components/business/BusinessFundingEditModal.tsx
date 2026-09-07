@@ -274,8 +274,8 @@ export const BusinessFundingEditModal: React.FC<BusinessFundingEditModalProps> =
                 <Calculator className="w-3.5 h-3.5 text-emerald-700" />
                 {isBn ? 'লভ্যাংশ বণ্টনের চুক্তিভিত্তিক অনুপাত (%)' : 'Agreed Profit Sharing Ratio (%)'}
               </span>
-              <span className="text-[11px] font-bold text-emerald-800">
-                {isBn ? `উদ্যোক্তা ${toBengaliNumber(memberProfitSharePercent)}% : সমিতি ${toBengaliNumber(somitiProfitSharePercent)}%` : `Member ${memberProfitSharePercent}% : Somiti ${somitiProfitSharePercent}%`}
+              <span className="text-[11px] font-bold text-emerald-800 bg-white px-2.5 py-0.5 rounded-full border border-emerald-300">
+                {isBn ? `সমিতির লভ্যাংশ: ${toBengaliNumber(somitiProfitSharePercent)}%` : `Somiti Share: ${somitiProfitSharePercent}%`}
               </span>
             </div>
 

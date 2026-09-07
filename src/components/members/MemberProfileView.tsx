@@ -27,7 +27,8 @@ import {
   Archive,
   TrendingUp,
   PieChart,
-  Edit3
+  Edit3,
+  Trash2
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -36,6 +37,7 @@ import { ShareClosureModal } from './ShareClosureModal';
 import { BuyShareModal } from './BuyShareModal';
 import { ShareClosuresList } from './ShareClosuresList';
 import { EditMemberModal } from './EditMemberModal';
+import { DeleteMemberModal } from './DeleteMemberModal';
 import { EditTransactionModal } from '../transactions/EditTransactionModal';
 import { Transaction } from '../../types';
 import { MemberBusinessFundingTab } from '../business/MemberBusinessFundingTab';
@@ -81,6 +83,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
   const [showShareClosureModal, setShowShareClosureModal] = useState(false);
   const [showBuyShareModal, setShowBuyShareModal] = useState(false);
   const [showEditMemberModal, setShowEditMemberModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
   const displayCount = (num: number) => (isBn || useBengaliDigits ? toBengaliNumber(num) : num.toString());
@@ -255,6 +258,14 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
               >
                 <CreditCard className="w-3.5 h-3.5" />
                 <span>{isBn ? 'নতুন ঋণ' : 'New Loan'}</span>
+              </button>
+              <button
+                onClick={() => setShowDeleteModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                title={isBn ? "সদস্য মুছে ফেলুন" : "Delete Member"}
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                <span>{isBn ? 'সদস্য মুছুন' : 'Delete'}</span>
               </button>
             </>
           )}
@@ -1227,6 +1238,14 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
         isOpen={!!editingTx}
         onClose={() => setEditingTx(null)}
         transaction={editingTx}
+      />
+
+      {/* Delete Member Confirmation Modal */}
+      <DeleteMemberModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        member={member}
+        onDeleted={onBack}
       />
     </div>
   );

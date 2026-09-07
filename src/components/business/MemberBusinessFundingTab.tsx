@@ -33,6 +33,8 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
     deleteBusinessFunding,
     deleteBusinessProfitRecord,
     disburseBusinessFunding,
+    deleteMonthlyProfitDistribution,
+    resetMemberProfitShare,
   } = useSomiti();
 
   const [showApplyModal, setShowApplyModal] = useState<boolean>(false);
@@ -42,6 +44,9 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
   const [fundingToDelete, setFundingToDelete] = useState<BusinessFunding | null>(null);
   const [profitToEdit, setProfitToEdit] = useState<BusinessProfitRecord | null>(null);
   const [profitToDelete, setProfitToDelete] = useState<BusinessProfitRecord | null>(null);
+  const [distributionToDelete, setDistributionToDelete] = useState<MonthlyProfitDistribution | null>(null);
+  const [showResetProfitModal, setShowResetProfitModal] = useState<boolean>(false);
+  const [isResettingProfit, setIsResettingProfit] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   const [disburseFunding, setDisburseFunding] = useState<BusinessFunding | null>(null);
@@ -217,30 +222,56 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
           </span>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-xs font-semibold">{isBn ? 'সমিতি হতে প্রাপ্ত লভ্যাংশ' : 'Somiti Profit Pool Received'}</span>
-            <TrendingUp className="w-4 h-4 text-indigo-600" />
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-semibold">{isBn ? 'সমিতি হতে প্রাপ্ত লভ্যাংশ' : 'Somiti Profit Pool Received'}</span>
+              <TrendingUp className="w-4 h-4 text-indigo-600" />
+            </div>
+            <div className="text-lg font-bold text-indigo-700">
+              {formatCurrency(totalReceivedFromSomitiDistribution, isBn && useBengaliDigits)}
+            </div>
+            <span className="text-[10px] text-slate-400 mt-1 block">
+              {isBn ? 'মাসিক জমার অনুপাতে বণ্টন' : 'Monthly deposit weighted share'}
+            </span>
           </div>
-          <div className="text-lg font-bold text-indigo-700">
-            {formatCurrency(totalReceivedFromSomitiDistribution, isBn && useBengaliDigits)}
-          </div>
-          <span className="text-[10px] text-slate-400 mt-1 block">
-            {isBn ? 'মাসিক জমার অনুপাতে বণ্টন' : 'Monthly deposit weighted share'}
-          </span>
+          {isUserAdmin && (totalReceivedFromSomitiDistribution > 0 || totalMemberProfitCredited > 0) && (
+            <button
+              type="button"
+              onClick={() => setShowResetProfitModal(true)}
+              className="mt-2 text-[11px] font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-colors w-fit"
+              title={isBn ? 'এই সদস্যের প্রোফাইল লভ্যাংশ মুছুন ও সমন্বয় করুন' : 'Reset / Clear Member Profit'}
+            >
+              <Trash2 className="w-3 h-3" />
+              <span>{isBn ? 'লভ্যাংশ মুছুন' : 'Clear Profit'}</span>
+            </button>
+          )}
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-xs font-semibold">{isBn ? 'প্রোফাইলে অর্জিত মোট লাভ' : 'Total Profit Credited'}</span>
-            <TrendingUp className="w-4 h-4 text-teal-600" />
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-semibold">{isBn ? 'প্রোফাইলে অর্জিত মোট লাভ' : 'Total Profit Credited'}</span>
+              <TrendingUp className="w-4 h-4 text-teal-600" />
+            </div>
+            <div className="text-lg font-bold text-teal-700">
+              {formatCurrency(totalMemberProfitCredited, isBn && useBengaliDigits)}
+            </div>
+            <span className="text-[10px] text-slate-400 mt-1 block">
+              {isBn ? 'সদস্যের অর্জিত মোট লভ্যাংশ' : 'Total earned by member'}
+            </span>
           </div>
-          <div className="text-lg font-bold text-teal-700">
-            {formatCurrency(totalMemberProfitCredited, isBn && useBengaliDigits)}
-          </div>
-          <span className="text-[10px] text-slate-400 mt-1 block">
-            {isBn ? 'সদস্যের অর্জিত মোট লভ্যাংশ' : 'Total earned by member'}
-          </span>
+          {isUserAdmin && (totalReceivedFromSomitiDistribution > 0 || totalMemberProfitCredited > 0) && (
+            <button
+              type="button"
+              onClick={() => setShowResetProfitModal(true)}
+              className="mt-2 text-[11px] font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-colors w-fit"
+              title={isBn ? 'এই সদস্যের প্রোফাইল লভ্যাংশ মুছুন ও সমন্বয় করুন' : 'Reset / Clear Member Profit'}
+            >
+              <Trash2 className="w-3 h-3" />
+              <span>{isBn ? 'লভ্যাংশ মুছুন' : 'Clear Profit'}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -518,6 +549,9 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
                   <th className="py-2.5 px-4 font-bold text-right">{isBn ? 'সমিতিতে অংশ হার (%)' : 'Weight %'}</th>
                   <th className="py-2.5 px-4 font-bold text-right text-indigo-800">{isBn ? 'প্রাপ্ত লভ্যাংশ' : 'Allocated Profit'}</th>
                   <th className="py-2.5 px-4 font-bold text-center">{isBn ? 'স্ট্যাটাস' : 'Status'}</th>
+                  {isUserAdmin && (
+                    <th className="py-2.5 px-4 font-bold text-center">{isBn ? 'অ্যাকশন' : 'Action'}</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
@@ -544,6 +578,18 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
                         <span>{isBn ? 'সঞ্চয়ে জমা' : 'Credited to Savings'}</span>
                       </span>
                     </td>
+                    {isUserAdmin && (
+                      <td className="py-2.5 px-4 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setDistributionToDelete(dist)}
+                          className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          title={isBn ? 'এই বণ্টন মুছে ফেলুন ও সঞ্চয় রিভার্ট করুন' : 'Delete distribution & revert savings'}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -801,6 +847,119 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
                   className="px-5 py-2 rounded-xl text-white bg-rose-600 hover:bg-rose-700 font-bold shadow-md disabled:opacity-50 cursor-pointer"
                 >
                   {isDeleting ? (isBn ? 'মুছে ফেলা হচ্ছে...' : 'Deleting...') : (isBn ? 'হ্যাঁ, মুছে ফেলুন' : 'Yes, Delete')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete Distribution Modal */}
+      {distributionToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="p-5 bg-rose-50 border-b border-rose-100 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">
+                  {isBn ? 'মাসিক বণ্টন রেকর্ড মুছে ফেলা' : 'Delete Monthly Distribution'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {distributionToDelete.monthName || distributionToDelete.distributionNo}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-3">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {isBn
+                  ? 'আপনি কি নিশ্চিত যে আপনি এই মাসিক লভ্যাংশ বণ্টনের রেকর্ডটি মুছে ফেলতে চান? এতে সদস্যদের সঞ্চয়ে জমা হওয়া এই বণ্টনের লভ্যাংশ স্বয়ংক্রিয়ভাবে রিভার্ট (সমন্বয়) করা হবে।'
+                  : 'Are you sure you want to delete this monthly distribution? Any profit credited to member savings from this distribution will be automatically reverted.'}
+              </p>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDistributionToDelete(null)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-semibold cursor-pointer"
+                >
+                  {isBn ? 'না, বাতিল' : 'Cancel'}
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={async () => {
+                    setIsDeleting(true);
+                    try {
+                      await deleteMonthlyProfitDistribution(distributionToDelete.id);
+                      setDistributionToDelete(null);
+                    } catch (err) {
+                      console.error(err);
+                    } finally {
+                      setIsDeleting(false);
+                    }
+                  }}
+                  className="px-5 py-2 rounded-xl text-white bg-rose-600 hover:bg-rose-700 text-xs font-bold shadow-md disabled:opacity-50 cursor-pointer"
+                >
+                  {isDeleting ? (isBn ? 'মুছে ফেলা হচ্ছে...' : 'Deleting...') : (isBn ? 'হ্যাঁ, মুছে ফেলুন' : 'Yes, Delete')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset / Clear Member Profit Modal */}
+      {showResetProfitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="p-5 bg-rose-50 border-b border-rose-100 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">
+                  {isBn ? 'সদস্যের লভ্যাংশ রেকর্ড মুছুন / রিসেট' : 'Clear / Reset Member Profit'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {member.name} ({member.memberNo})
+                </p>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-3">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {isBn
+                  ? 'আপনি কি নিশ্চিত যে আপনি এই সদস্যের প্রোফাইল থেকে সকল লভ্যাংশ রেকর্ড ও জমা মুছে ০ করতে চান? এতে পূর্বে যুক্ত হওয়া লভ্যাংশ লেনদেন মুছে ফেলা হবে এবং সঞ্চয় ব্যালেন্স সমন্বয় করা হবে।'
+                  : 'Are you sure you want to clear and reset all profit records for this member to 0? Related profit transactions will be removed and savings balance adjusted.'}
+              </p>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowResetProfitModal(false)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-semibold cursor-pointer"
+                >
+                  {isBn ? 'না, বাতিল' : 'Cancel'}
+                </button>
+                <button
+                  type="button"
+                  disabled={isResettingProfit}
+                  onClick={async () => {
+                    setIsResettingProfit(true);
+                    try {
+                      await resetMemberProfitShare(member.id);
+                      setShowResetProfitModal(false);
+                    } catch (err) {
+                      console.error(err);
+                    } finally {
+                      setIsResettingProfit(false);
+                    }
+                  }}
+                  className="px-5 py-2 rounded-xl text-white bg-rose-600 hover:bg-rose-700 text-xs font-bold shadow-md disabled:opacity-50 cursor-pointer"
+                >
+                  {isResettingProfit ? (isBn ? 'মুছে ফেলা হচ্ছে...' : 'Clearing...') : (isBn ? 'হ্যাঁ, সম্পূর্ণ মুছুন' : 'Yes, Clear All')}
                 </button>
               </div>
             </div>

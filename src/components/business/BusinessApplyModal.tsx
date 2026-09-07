@@ -375,28 +375,27 @@ export const BusinessApplyModal: React.FC<BusinessApplyModalProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                <div className="p-2.5 bg-blue-50/70 rounded-lg text-center">
-                  <span className="text-[11px] text-blue-600 block">
-                    {isBn ? `সদস্য পাবে (${toBengaliNumber(memberProfitSharePercent)}%)` : `Member Receives (${memberProfitSharePercent}%)`}
-                  </span>
-                  <span className="text-sm font-bold text-blue-900">
-                    {formatCurrency(calcMemberProfit, isBn && useBengaliDigits)}
-                  </span>
-                </div>
-                <div className="p-2.5 bg-emerald-50/70 rounded-lg text-center">
-                  <span className="text-[11px] text-emerald-600 block">
-                    {isBn ? `সমিতি পাবে (${toBengaliNumber(somitiProfitSharePercent)}%)` : `Somiti Receives (${somitiProfitSharePercent}%)`}
-                  </span>
-                  <span className="text-sm font-bold text-emerald-900">
-                    {formatCurrency(calcSomitiProfit, isBn && useBengaliDigits)}
-                  </span>
+              <div className="pt-1">
+                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                  <div>
+                    <span className="text-xs font-bold text-emerald-900 block">
+                      {isBn ? `সমিতিতে অর্জিত লভ্যাংশ (${toBengaliNumber(somitiProfitSharePercent)}%)` : `Somiti Profit Share (${somitiProfitSharePercent}%)`}
+                    </span>
+                    <span className="text-[10px] text-emerald-700 block mt-0.5">
+                      {isBn ? 'এই অংশটি সমিতিতে জমা হবে এবং সকল সদস্যদের সঞ্চয়ের অনুপাতে বণ্টিত হবে' : 'This amount will be credited to Somiti and distributed to members based on deposits'}
+                    </span>
+                  </div>
+                  <div className="text-left sm:text-right">
+                    <span className="text-lg font-black text-emerald-800 tracking-tight">
+                      +{formatCurrency(calcSomitiProfit, isBn && useBengaliDigits)}
+                    </span>
+                  </div>
                 </div>
               </div>
               <p className="text-[10px] text-slate-500 text-center italic">
                 {isBn
-                  ? '* সমিতির অংশটি মাস শেষে সকল সদস্যের দৈনিক জমার ভিত্তিতে বণ্টন করা হবে।'
-                  : '* The Somiti portion is distributed at month-end to all members proportionally based on daily balance deposits.'}
+                  ? '* সমিতির প্রাপ্ত এই লভ্যাংশ মাস শেষে সকল সদস্যের জমার ভিত্তিতে প্রোফাইলে যোগ হবে।'
+                  : '* This Somiti profit will be distributed at month-end to all member profiles based on savings.'}
               </p>
             </div>
           </div>

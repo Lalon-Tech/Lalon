@@ -23,6 +23,7 @@ import * as XLSX from 'xlsx';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { EditMemberModal } from './EditMemberModal';
+import { DeleteMemberModal } from './DeleteMemberModal';
 import { Member } from '../../types';
 import { 
   formatCurrency, 
@@ -51,6 +52,8 @@ export const MemberList: React.FC = () => {
   } = useSomiti();
 
   const [editingMember, setEditingMember] = useState<Member | null>(null);
+  const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
+  const [deleteSuccessMsg, setDeleteSuccessMsg] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'has_loan'>(() => {
     if (activeTab === 'active_members' || activeTab === 'members_active') return 'active';
@@ -221,6 +224,22 @@ export const MemberList: React.FC = () => {
         </div>
       </div>
 
+      {/* Success Notification */}
+      {deleteSuccessMsg && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center justify-between animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <span>{deleteSuccessMsg}</span>
+          </div>
+          <button 
+            onClick={() => setDeleteSuccessMsg(null)}
+            className="text-emerald-700 hover:text-emerald-900 text-xs font-bold px-2 py-0.5"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Members Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
@@ -390,10 +409,9 @@ export const MemberList: React.FC = () => {
                               </button>
                             )}
                             <button
-                              onClick={() => {
-                                if (window.confirm(isBn ? `আপনি কি নিশ্চিত যে ${member.name}-কে মুছে ফেলতে চান?` : `Are you sure you want to delete ${member.name}?`)) {
-                                  deleteMember(member.id);
-                                }
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMemberToDelete(member);
                               }}
                               title={isBn ? "সদস্য মুছে ফেলুন" : "Delete Member"}
                               className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
@@ -417,6 +435,17 @@ export const MemberList: React.FC = () => {
         isOpen={!!editingMember}
         onClose={() => setEditingMember(null)}
         member={editingMember}
+      />
+
+      {/* Delete Member Confirmation Modal */}
+      <DeleteMemberModal
+        isOpen={!!memberToDelete}
+        onClose={() => setMemberToDelete(null)}
+        member={memberToDelete}
+        onDeleted={() => {
+          setDeleteSuccessMsg(isBn ? 'সদস্য সফলভাবে মুছে ফেলা হয়েছে।' : 'Member successfully deleted.');
+          setTimeout(() => setDeleteSuccessMsg(null), 4000);
+        }}
       />
     </div>
   );

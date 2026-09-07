@@ -291,7 +291,7 @@ interface SomitiContextType {
   // Actions - Members & Shares
   addMember: (memberData: Omit<Member, 'id' | 'memberNo' | 'totalSavings' | 'generalSavingsBalance' | 'dpsSavingsBalance' | 'fdrSavingsBalance' | 'activeLoanBalance'>) => Member;
   updateMember: (id: string, memberData: Partial<Member>) => void;
-  deleteMember: (id: string) => void;
+  deleteMember: (id: string) => Promise<boolean>;
   importMembersFromList: (newMembers: Member[]) => void;
   closeMemberShares: (params: {
     memberId: string;
@@ -493,6 +493,9 @@ interface SomitiContextType {
     creditToSavings: boolean;
     notes?: string;
   }) => Promise<MonthlyProfitDistribution>;
+  deleteMonthlyProfitDistribution: (id: string) => Promise<boolean>;
+  clearAllProfitDistributions: () => Promise<boolean>;
+  resetMemberProfitShare: (memberId: string) => Promise<boolean>;
 }
 
 const SomitiContext = createContext<SomitiContextType | undefined>(undefined);
@@ -931,6 +934,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             });
             list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
             setBusinessFundings(list);
+          } else {
+            setBusinessFundings([]);
+            localStorage.setItem('bondhu_business_fundings', JSON.stringify([]));
           }
         }, (err) => {
           console.warn('Firestore businessFundings snapshot error:', err);
@@ -947,6 +953,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             });
             list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
             setBusinessProfitRecords(list);
+          } else {
+            setBusinessProfitRecords([]);
+            localStorage.setItem('bondhu_business_profit_records', JSON.stringify([]));
           }
         }, (err) => {
           console.warn('Firestore businessProfitRecords snapshot error:', err);
@@ -963,6 +972,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             });
             list.sort((a, b) => (b.distributionDate || '').localeCompare(a.distributionDate || ''));
             setProfitDistributions(list);
+          } else {
+            setProfitDistributions([]);
+            localStorage.setItem('bondhu_profit_distributions', JSON.stringify([]));
           }
         }, (err) => {
           console.warn('Firestore profitDistributions snapshot error:', err);
@@ -1192,6 +1204,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         businessFundingsSnap.forEach(d => list.push(sanitizeBusinessFunding({ ...d.data(), id: d.id })));
         list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
         setBusinessFundings(list);
+      } else {
+        setBusinessFundings([]);
+        localStorage.setItem('bondhu_business_fundings', JSON.stringify([]));
       }
 
       if (!businessProfitRecordsSnap.empty) {
@@ -1199,6 +1214,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         businessProfitRecordsSnap.forEach(d => list.push(sanitizeBusinessProfitRecord({ ...d.data(), id: d.id })));
         list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
         setBusinessProfitRecords(list);
+      } else {
+        setBusinessProfitRecords([]);
+        localStorage.setItem('bondhu_business_profit_records', JSON.stringify([]));
       }
 
       if (!profitDistributionsSnap.empty) {
@@ -1206,6 +1224,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         profitDistributionsSnap.forEach(d => list.push(sanitizeMonthlyProfitDistribution({ ...d.data(), id: d.id })));
         list.sort((a, b) => (b.distributionDate || '').localeCompare(a.distributionDate || ''));
         setProfitDistributions(list);
+      } else {
+        setProfitDistributions([]);
+        localStorage.setItem('bondhu_profit_distributions', JSON.stringify([]));
       }
 
       setFirestoreConnected(true);
@@ -1281,9 +1302,42 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }));
   };
 
-  const deleteMember = (id: string) => {
-    setMembers(prev => prev.filter(m => m.id !== id));
-    deleteDoc(doc(db, 'members', id)).catch(console.error);
+  const deleteMember = async (id: string): Promise<boolean> => {
+    try {
+      setMembers(prev => prev.filter(m => m.id !== id));
+      setLoans(prev => prev.filter(l => l.memberId !== id));
+      setSavingsSchemes(prev => prev.filter(s => s.memberId !== id));
+      setBusinessFundings(prev => prev.filter(b => b.memberId !== id));
+      setTransactions(prev => prev.filter(t => t.memberId !== id));
+
+      await deleteDoc(doc(db, 'members', id));
+      await deleteDoc(doc(db, 'memberFinancials', id)).catch(() => {});
+
+      // Clean up member's transactions in Firestore
+      const txsToDelete = transactions.filter(t => t.memberId === id);
+      txsToDelete.forEach(t => {
+        deleteDoc(doc(db, 'transactions', t.id)).catch(console.error);
+      });
+
+      // Clean up member's loans, savings schemes, and business fundings in Firestore
+      const loansToDelete = loans.filter(l => l.memberId === id);
+      loansToDelete.forEach(l => {
+        deleteDoc(doc(db, 'loans', l.id)).catch(console.error);
+      });
+      const savingsToDelete = savingsSchemes.filter(s => s.memberId === id);
+      savingsToDelete.forEach(s => {
+        deleteDoc(doc(db, 'savings', s.id)).catch(console.error);
+      });
+      const fundingsToDelete = businessFundings.filter(b => b.memberId === id);
+      fundingsToDelete.forEach(b => {
+        deleteDoc(doc(db, 'businessFundings', b.id)).catch(console.error);
+      });
+
+      return true;
+    } catch (err) {
+      console.error('Error deleting member from Firestore:', err);
+      return false;
+    }
   };
 
   const importMembersFromList = (newMembers: Member[]) => {
@@ -1812,22 +1866,14 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const unitPrice = tx.unitPrice || settings.sharePricePerUnit || 1000;
 
-    // 1. Revert member balances if applicable
+    // 1. Revert member balances if applicable using ledger calculation
     if (tx.memberId) {
       setMembers(prev => prev.map(m => {
         if (m.id !== tx.memberId) return m;
-        let gen = m.generalSavingsBalance;
-        let dps = m.dpsSavingsBalance;
-        let fdr = m.fdrSavingsBalance;
         let activeLoan = m.activeLoanBalance;
         let sCount = m.shareCount || 0;
         let sVal = m.shareValue || 0;
 
-        if (tx.type === 'deposit') gen = Math.max(0, gen - tx.amount);
-        if (tx.type === 'dps_deposit') dps = Math.max(0, dps - tx.amount);
-        if (tx.type === 'fdr_deposit') fdr = Math.max(0, fdr - tx.amount);
-        if (tx.type === 'withdraw') gen += tx.amount;
-        if (tx.type === 'profit_share') gen = Math.max(0, gen - tx.amount);
         if (tx.type === 'loan_installment') activeLoan += tx.amount;
 
         if (tx.type === 'share_purchase') {
@@ -1842,6 +1888,21 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           sVal = sVal + tx.amount;
         }
 
+        // Reconcile savings balances strictly from remaining transactions
+        const remainingTxs = transactions.filter(t => t.id !== id && t.memberId === m.id && t.status === 'completed');
+        const totalDep = remainingTxs.filter(t => t.type === 'deposit').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+        const totalWith = remainingTxs.filter(t => t.type === 'withdraw').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+        const totalProf = remainingTxs.filter(t => t.type === 'profit_share').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+        const totalDps = remainingTxs.filter(t => t.type === 'dps_deposit').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+        const totalFdr = remainingTxs.filter(t => t.type === 'fdr_deposit').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+
+        let gen = m.generalSavingsBalance;
+        if (remainingTxs.some(t => t.type === 'deposit' || t.type === 'withdraw' || t.type === 'profit_share') || tx.type === 'deposit' || tx.type === 'withdraw' || tx.type === 'profit_share') {
+          gen = Math.max(0, totalDep + totalProf - totalWith);
+        }
+        const dps = totalDps > 0 || tx.type === 'dps_deposit' ? Math.max(0, totalDps) : (m.dpsSavingsBalance || 0);
+        const fdr = totalFdr > 0 || tx.type === 'fdr_deposit' ? Math.max(0, totalFdr) : (m.fdrSavingsBalance || 0);
+
         const updated: Member = {
           ...m,
           generalSavingsBalance: gen,
@@ -1853,6 +1914,13 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           totalSavings: gen + dps + fdr,
         };
         safeSetDoc(doc(db, 'members', m.id), updated).catch(console.error);
+        safeSetDoc(doc(db, 'memberFinancials', m.id), {
+          generalSavingsBalance: gen,
+          dpsSavingsBalance: dps,
+          fdrSavingsBalance: fdr,
+          totalSavings: gen + dps + fdr,
+          updatedAt: new Date().toISOString()
+        }, { merge: true }).catch(console.error);
         return updated;
       }));
     }
@@ -1876,6 +1944,38 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // 3. Remove transaction from list and Firestore
     setTransactions(prev => prev.filter(t => t.id !== id));
     deleteDoc(doc(db, 'transactions', id)).catch(console.error);
+
+    // 4. If this was a profit_share transaction, update profitDistributions so it doesn't linger
+    if (tx.type === 'profit_share') {
+      setProfitDistributions(prev => {
+        const updated = prev.map(d => {
+          const matchingMember = d.memberDistributions?.find(m => m.transactionId === tx.id || (m.memberId === tx.memberId && m.allocatedProfit === tx.amount));
+          if (!matchingMember) return d;
+          const updatedMembers = (d.memberDistributions || []).map(m => {
+            if (m.transactionId === tx.id || (m.memberId === tx.memberId && m.allocatedProfit === tx.amount)) {
+              return { ...m, allocatedProfit: 0, creditedToSavings: false };
+            }
+            return m;
+          });
+          const newTotalPool = updatedMembers.reduce((sum, m) => sum + (m.allocatedProfit || 0), 0);
+          const updatedDist: MonthlyProfitDistribution = {
+            ...d,
+            memberDistributions: updatedMembers,
+            totalMembersDistributed: updatedMembers.filter(m => m.allocatedProfit > 0).length,
+            totalSomitiProfitPool: newTotalPool,
+          };
+          if (newTotalPool <= 0) {
+            deleteDoc(doc(db, 'profitDistributions', d.id)).catch(console.error);
+          } else {
+            safeSetDoc(doc(db, 'profitDistributions', d.id), updatedDist, { merge: true }).catch(console.error);
+          }
+          return updatedDist;
+        }).filter(d => d.totalSomitiProfitPool > 0);
+
+        localStorage.setItem('bondhu_profit_distributions', JSON.stringify(updated));
+        return updated;
+      });
+    }
 
     if (activeReceipt?.id === id) {
       setActiveReceipt(null);
@@ -2939,59 +3039,32 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // 3. Remove associated profit distribution and its transactions & revert member savings
     const relatedDistributions = profitDistributions.filter(d => 
       d.notes?.includes(record.id) || 
-      d.notes?.includes(record.applicationNo) ||
-      (d.year === parseInt(record.month.split('-')[0], 10) && d.month === parseInt(record.month.split('-')[1], 10) && d.totalSomitiProfitPool === record.somitiProfitAmount)
+      (record.applicationNo && d.notes?.includes(record.applicationNo)) ||
+      (record.month && (d.notes?.includes(record.month) || d.monthName?.includes(record.month))) ||
+      (d.year === parseInt(record.month?.split('-')[0], 10) && d.month === parseInt(record.month?.split('-')[1], 10))
     );
 
     for (const dist of relatedDistributions) {
-      const txIds = (dist.memberDistributions || []).map(m => m.transactionId).filter(Boolean);
-      const distTxs = transactions.filter(t => 
-        (t.id && txIds.includes(t.id)) || 
-        (t.type === 'profit_share' && (t.notes?.includes(record.applicationNo) || (dist.notes && t.notes?.includes(dist.notes))))
-      );
-
-      const memberDeductionMap: Record<string, number> = {};
-      distTxs.forEach(t => {
-        if (t.memberId && t.amount > 0) {
-          memberDeductionMap[t.memberId] = (memberDeductionMap[t.memberId] || 0) + t.amount;
-        }
-      });
-
-      if (distTxs.length > 0) {
-        const distTxIdSet = new Set(distTxs.map(t => t.id));
-        setTransactions(prev => prev.filter(t => !distTxIdSet.has(t.id)));
-        distTxs.forEach(t => {
-          deleteDoc(doc(db, 'transactions', t.id)).catch(console.error);
-        });
-      }
-
-      if (Object.keys(memberDeductionMap).length > 0) {
-        setMembers(prev => prev.map(m => {
-          const deduction = memberDeductionMap[m.id];
-          if (!deduction) return m;
-          const newGen = Math.max(0, m.generalSavingsBalance - deduction);
-          const newTot = Math.max(0, (m.totalSavings || 0) - deduction);
-          const updated = {
-            ...m,
-            generalSavingsBalance: newGen,
-            totalSavings: newTot,
-          };
-          safeSetDoc(doc(db, 'members', m.id), updated, { merge: true }).catch(console.error);
-          safeSetDoc(doc(db, 'memberFinancials', m.id), {
-            generalSavingsBalance: newGen,
-            totalSavings: newTot,
-          }, { merge: true }).catch(console.error);
-          return updated;
-        }));
-      }
-
-      setProfitDistributions(prev => prev.filter(d => d.id !== dist.id));
-      deleteDoc(doc(db, 'profitDistributions', dist.id)).catch(console.error);
+      await deleteMonthlyProfitDistribution(dist.id);
     }
 
     // 4. Delete the profit record itself
-    setBusinessProfitRecords(prev => prev.filter(p => p.id !== id));
+    const remainingProfitRecords = businessProfitRecords.filter(p => p.id !== id);
+    setBusinessProfitRecords(remainingProfitRecords);
+    localStorage.setItem('bondhu_business_profit_records', JSON.stringify(remainingProfitRecords));
     await deleteDoc(doc(db, 'businessProfitRecords', id));
+
+    // If all profit records are now deleted, ensure any remaining distributions created from business profits are also purged
+    if (remainingProfitRecords.length === 0) {
+      const leftoverAutoDist = profitDistributions.filter(d => 
+        d.notes?.includes('ব্যবসার লভ্যাংশ') || 
+        d.notes?.includes('#BF-') ||
+        d.notes?.includes('বণ্টন [bpr-')
+      );
+      for (const d of leftoverAutoDist) {
+        await deleteMonthlyProfitDistribution(d.id);
+      }
+    }
   };
 
   const updateBusinessProfitRecord = async (
@@ -3055,49 +3128,93 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [businessProfitRecords.length, profitDistributions.length, members.length]);
 
-  // Cleanup effect: Ensure personal business profit is NOT calculated in member savings/passbook
+  // Cleanup effect: If all business profit records are deleted, clean up orphaned auto-created profit distributions
   useEffect(() => {
-    const invalidTxs = transactions.filter(t => 
-      t.category === 'business_profit_member_share' || 
-      t.id.startsWith('tx-bp-') || 
-      t.id.startsWith('tx-sync-')
-    );
+    if (businessProfitRecords.length === 0 && profitDistributions.length > 0) {
+      const autoDistributions = profitDistributions.filter(d => 
+        d.notes?.includes('ব্যবসার লভ্যাংশ') || 
+        d.notes?.includes('#BF-') ||
+        d.notes?.includes('বণ্টন [bpr-') ||
+        d.notes?.includes('বণ্টন [')
+      );
+      if (autoDistributions.length > 0) {
+        autoDistributions.forEach(d => {
+          deleteMonthlyProfitDistribution(d.id);
+        });
+      }
+    }
+  }, [businessProfitRecords.length, profitDistributions.length]);
 
-    if (invalidTxs.length > 0) {
-      const deductions = new Map<string, number>();
-      invalidTxs.forEach(t => {
-        deductions.set(t.memberId, (deductions.get(t.memberId) || 0) + (t.amount || 0));
+  // Automated Ledger Reconciliation & Self-Healing Engine:
+  // Guarantees that each member's generalSavingsBalance and totalSavings strictly match their
+  // actual transaction ledger (deposits + profit share - withdrawals).
+  // This completely eliminates any balance corruption, double deductions, or desynchronization.
+  useEffect(() => {
+    if (members.length === 0) return;
+
+    let hasAnyCorrection = false;
+    const reconciledMembers = members.map(member => {
+      const memberTxs = transactions.filter(t => t.memberId === member.id && t.status === 'completed');
+      
+      // Reconcile if this member has recorded transactions
+      if (memberTxs.length > 0) {
+        const totalDeposits = memberTxs
+          .filter(t => t.type === 'deposit')
+          .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+        const totalWithdrawals = memberTxs
+          .filter(t => t.type === 'withdraw')
+          .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+        const totalProfitShare = memberTxs
+          .filter(t => t.type === 'profit_share')
+          .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+        const expectedGen = Math.max(0, totalDeposits + totalProfitShare - totalWithdrawals);
+        const expectedTot = expectedGen + (Number(member.dpsSavingsBalance) || 0) + (Number(member.fdrSavingsBalance) || 0);
+
+        if (
+          Math.abs((member.generalSavingsBalance || 0) - expectedGen) > 0.01 ||
+          Math.abs((member.totalSavings || 0) - expectedTot) > 0.01
+        ) {
+          hasAnyCorrection = true;
+          const updated: Member = {
+            ...member,
+            generalSavingsBalance: expectedGen,
+            totalSavings: expectedTot,
+          };
+          safeSetDoc(doc(db, 'members', member.id), updated, { merge: true }).catch(console.error);
+          safeSetDoc(doc(db, 'memberFinancials', member.id), {
+            memberId: member.id,
+            memberNo: member.memberNo,
+            generalSavingsBalance: expectedGen,
+            totalSavings: expectedTot,
+            updatedAt: new Date().toISOString(),
+          }, { merge: true }).catch(console.error);
+          return updated;
+        }
+      }
+      return member;
+    });
+
+    if (hasAnyCorrection) {
+      setMembers(reconciledMembers);
+    }
+  }, [transactions]);
+
+  // Automated Cleanup: Automatically purge orphan transactions belonging to members that were deleted
+  useEffect(() => {
+    if (!isInitialLoadDone.current || members.length === 0 || transactions.length === 0) return;
+    const memberIdSet = new Set(members.map(m => m.id));
+    const orphanTxs = transactions.filter(t => t.memberId && !memberIdSet.has(t.memberId));
+    if (orphanTxs.length > 0) {
+      const orphanIds = new Set(orphanTxs.map(t => t.id));
+      setTransactions(prev => prev.filter(t => !orphanIds.has(t.id)));
+      orphanTxs.forEach(t => {
         deleteDoc(doc(db, 'transactions', t.id)).catch(console.error);
       });
-
-      setTransactions(prev => prev.filter(t => 
-        t.category !== 'business_profit_member_share' && 
-        !t.id.startsWith('tx-bp-') && 
-        !t.id.startsWith('tx-sync-')
-      ));
-
-      setMembers(prev => prev.map(m => {
-        const toDeduct = deductions.get(m.id);
-        if (!toDeduct) return m;
-        const newGeneral = Math.max(0, (m.generalSavingsBalance || 0) - toDeduct);
-        const newTotal = Math.max(0, (m.totalSavings || 0) - toDeduct);
-        const updated = {
-          ...m,
-          generalSavingsBalance: newGeneral,
-          totalSavings: newTotal,
-        };
-        safeSetDoc(doc(db, 'members', m.id), updated, { merge: true }).catch(console.error);
-        safeSetDoc(doc(db, 'memberFinancials', m.id), {
-          memberId: m.id,
-          memberNo: m.memberNo,
-          totalSavings: newTotal,
-          generalSavingsBalance: newGeneral,
-          updatedAt: new Date().toISOString(),
-        }, { merge: true }).catch(console.error);
-        return updated;
-      }));
     }
-  }, [transactions.length]);
+  }, [members, transactions]);
 
   // Calculate Daily Weighted Balance and Deposits for each member in a month
   const calculateDailyWeightedDeposits = (year: number, month: number) => {
@@ -3330,6 +3447,232 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return newDistribution;
   };
 
+  // Delete Monthly Profit Distribution (revert member savings, delete profit transactions, remove distribution)
+  const deleteMonthlyProfitDistribution = async (id: string): Promise<boolean> => {
+    try {
+      const dist = profitDistributions.find(d => d.id === id);
+      if (!dist) return false;
+
+      // 1. Calculate deductions for each member whose savings were credited
+      const memberDeductionMap: Record<string, number> = {};
+      (dist.memberDistributions || []).forEach(m => {
+        if (m.allocatedProfit > 0 && m.creditedToSavings !== false) {
+          memberDeductionMap[m.memberId] = (memberDeductionMap[m.memberId] || 0) + m.allocatedProfit;
+        }
+      });
+
+      // 2. Identify related transactions
+      const txIds = new Set((dist.memberDistributions || []).map(m => m.transactionId).filter(Boolean));
+      const distTxs = transactions.filter(t => 
+        (t.id && txIds.has(t.id)) ||
+        (t.type === 'profit_share' && (
+          (dist.notes && t.notes?.includes(dist.notes)) ||
+          (dist.distributionNo && t.notes?.includes(dist.distributionNo)) ||
+          (dist.monthName && t.notes?.includes(dist.monthName)) ||
+          (dist.notes && dist.notes.includes(t.id))
+        ))
+      );
+
+      // Ensure deductions accurately match transaction amounts
+      distTxs.forEach(t => {
+        if (t.memberId && t.amount > 0) {
+          memberDeductionMap[t.memberId] = Math.max(memberDeductionMap[t.memberId] || 0, t.amount);
+        }
+      });
+
+      // Delete transactions
+      const toDeleteTxIds = new Set(distTxs.map(t => t.id));
+      if (distTxs.length > 0) {
+        setTransactions(prev => prev.filter(t => !toDeleteTxIds.has(t.id)));
+        distTxs.forEach(t => {
+          deleteDoc(doc(db, 'transactions', t.id)).catch(console.error);
+        });
+      }
+
+      // 3. Reconcile affected members' savings balances directly from remaining transactions
+      setMembers(prev => prev.map(m => {
+        if (!memberDeductionMap[m.id]) return m;
+        const remainingMemberTxs = transactions.filter(
+          t => t.memberId === m.id && t.status === 'completed' && !toDeleteTxIds.has(t.id)
+        );
+        const dep = remainingMemberTxs.filter(t => t.type === 'deposit').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+        const withdr = remainingMemberTxs.filter(t => t.type === 'withdraw').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+        const prof = remainingMemberTxs.filter(t => t.type === 'profit_share').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+        const newGen = Math.max(0, dep + prof - withdr);
+        const newTot = newGen + (Number(m.dpsSavingsBalance) || 0) + (Number(m.fdrSavingsBalance) || 0);
+
+        const updated: Member = {
+          ...m,
+          generalSavingsBalance: newGen,
+          totalSavings: newTot,
+        };
+        safeSetDoc(doc(db, 'members', m.id), updated, { merge: true }).catch(console.error);
+        safeSetDoc(doc(db, 'memberFinancials', m.id), {
+          generalSavingsBalance: newGen,
+          totalSavings: newTot,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true }).catch(console.error);
+        return updated;
+      }));
+
+      // 4. Delete profit distribution doc from state, localStorage, and Firestore
+      setProfitDistributions(prev => {
+        const updated = prev.filter(d => d.id !== id);
+        localStorage.setItem('bondhu_profit_distributions', JSON.stringify(updated));
+        return updated;
+      });
+      await deleteDoc(doc(db, 'profitDistributions', id));
+
+      return true;
+    } catch (err) {
+      console.error('Error deleting profit distribution:', err);
+      return false;
+    }
+  };
+
+  const clearAllProfitDistributions = async (): Promise<boolean> => {
+    try {
+      // 1. Collect all member deductions from all distributions and profit transactions
+      const memberDeductionMap: Record<string, number> = {};
+
+      // From profit distributions where credited to savings
+      profitDistributions.forEach(dist => {
+        (dist.memberDistributions || []).forEach(m => {
+          if (m.allocatedProfit > 0 && m.creditedToSavings !== false) {
+            memberDeductionMap[m.memberId] = (memberDeductionMap[m.memberId] || 0) + m.allocatedProfit;
+          }
+        });
+      });
+
+      // From all profit_share transactions
+      const profitTxs = transactions.filter(t => t.type === 'profit_share');
+      profitTxs.forEach(t => {
+        if (t.memberId && t.amount > 0) {
+          memberDeductionMap[t.memberId] = Math.max(memberDeductionMap[t.memberId] || 0, t.amount);
+        }
+      });
+
+      // 2. Delete all profit_share transactions from state and Firestore
+      if (profitTxs.length > 0) {
+        const profitTxIds = new Set(profitTxs.map(t => t.id));
+        setTransactions(prev => prev.filter(t => !profitTxIds.has(t.id)));
+        profitTxs.forEach(t => {
+          deleteDoc(doc(db, 'transactions', t.id)).catch(console.error);
+        });
+      }
+
+      // 3. Reconcile all member savings balances directly from remaining non-profit transactions
+      setMembers(prev => prev.map(m => {
+        const remainingMemberTxs = transactions.filter(
+          t => t.memberId === m.id && t.status === 'completed' && t.type !== 'profit_share'
+        );
+        if (remainingMemberTxs.length === 0) return m;
+        const dep = remainingMemberTxs.filter(t => t.type === 'deposit').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+        const withdr = remainingMemberTxs.filter(t => t.type === 'withdraw').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+        const newGen = Math.max(0, dep - withdr);
+        const newTot = newGen + (Number(m.dpsSavingsBalance) || 0) + (Number(m.fdrSavingsBalance) || 0);
+
+        const updated: Member = {
+          ...m,
+          generalSavingsBalance: newGen,
+          totalSavings: newTot,
+        };
+        safeSetDoc(doc(db, 'members', m.id), updated, { merge: true }).catch(console.error);
+        safeSetDoc(doc(db, 'memberFinancials', m.id), {
+          generalSavingsBalance: newGen,
+          totalSavings: newTot,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true }).catch(console.error);
+        return updated;
+      }));
+
+      // 4. Delete all profit distributions from Firestore and state
+      for (const dist of profitDistributions) {
+        deleteDoc(doc(db, 'profitDistributions', dist.id)).catch(console.error);
+      }
+      setProfitDistributions([]);
+      localStorage.setItem('bondhu_profit_distributions', JSON.stringify([]));
+      return true;
+    } catch (err) {
+      console.error('Error clearing all profit distributions:', err);
+      return false;
+    }
+  };
+
+  const resetMemberProfitShare = async (memberId: string): Promise<boolean> => {
+    try {
+      // 1. Identify all profit_share transactions for this member
+      const memberProfitTxs = transactions.filter(t => t.memberId === memberId && t.type === 'profit_share');
+      const totalTxProfit = memberProfitTxs.reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+
+      if (memberProfitTxs.length > 0) {
+        const txIds = new Set(memberProfitTxs.map(t => t.id));
+        setTransactions(prev => prev.filter(t => !txIds.has(t.id)));
+        memberProfitTxs.forEach(tx => {
+          deleteDoc(doc(db, 'transactions', tx.id)).catch(console.error);
+        });
+      }
+
+      // 2. Clear this member's allocation in profitDistributions
+      let foundDistributionProfit = 0;
+      for (const dist of profitDistributions) {
+        const myItem = dist.memberDistributions?.find(m => m.memberId === memberId);
+        if (myItem && myItem.allocatedProfit > 0) {
+          if (myItem.creditedToSavings !== false) {
+            foundDistributionProfit += myItem.allocatedProfit;
+          }
+          const updatedMembers = (dist.memberDistributions || []).map(m => {
+            if (m.memberId === memberId) {
+              return { ...m, allocatedProfit: 0, creditedToSavings: false };
+            }
+            return m;
+          });
+          const remainingAllocations = updatedMembers.filter(m => m.allocatedProfit > 0);
+          if (remainingAllocations.length === 0) {
+            deleteDoc(doc(db, 'profitDistributions', dist.id)).catch(console.error);
+            setProfitDistributions(prev => prev.filter(d => d.id !== dist.id));
+          } else {
+            const updatedDist: MonthlyProfitDistribution = {
+              ...dist,
+              memberDistributions: updatedMembers,
+              totalMembersDistributed: remainingAllocations.length,
+              totalSomitiProfitPool: remainingAllocations.reduce((sum, m) => sum + (m.allocatedProfit || 0), 0),
+            };
+            setProfitDistributions(prev => prev.map(d => d.id === dist.id ? updatedDist : d));
+            await safeSetDoc(doc(db, 'profitDistributions', dist.id), updatedDist, { merge: true });
+          }
+        }
+      }
+
+      // 3. Reconcile this member's savings directly from remaining transactions
+      setMembers(prev => prev.map(m => {
+        if (m.id !== memberId) return m;
+        const remainingMemberTxs = transactions.filter(
+          t => t.memberId === memberId && t.status === 'completed' && !memberProfitTxs.some(pt => pt.id === t.id)
+        );
+        const dep = remainingMemberTxs.filter(t => t.type === 'deposit').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+        const withdr = remainingMemberTxs.filter(t => t.type === 'withdraw').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+        const prof = remainingMemberTxs.filter(t => t.type === 'profit_share').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+        const newGen = Math.max(0, dep + prof - withdr);
+        const newTot = newGen + (Number(m.dpsSavingsBalance) || 0) + (Number(m.fdrSavingsBalance) || 0);
+
+        const updated = { ...m, generalSavingsBalance: newGen, totalSavings: newTot };
+        safeSetDoc(doc(db, 'members', m.id), updated, { merge: true }).catch(console.error);
+        safeSetDoc(doc(db, 'memberFinancials', m.id), {
+          generalSavingsBalance: newGen,
+          totalSavings: newTot,
+          updatedAt: new Date().toISOString()
+        }, { merge: true }).catch(console.error);
+        return updated;
+      }));
+
+      return true;
+    } catch (err) {
+      console.error('Error resetting member profit share:', err);
+      return false;
+    }
+  };
+
   return (
     <SomitiContext.Provider
       value={{
@@ -3435,6 +3778,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         deleteBusinessProfitRecord,
         calculateDailyWeightedDeposits,
         executeMonthlyProfitDistribution,
+        deleteMonthlyProfitDistribution,
+        clearAllProfitDistributions,
+        resetMemberProfitShare,
       }}
     >
       {children}

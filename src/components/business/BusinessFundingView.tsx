@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { BusinessFunding, BusinessFundingStatus, PaymentMethod, BusinessProfitRecord } from '../../types';
+import { BusinessFunding, BusinessFundingStatus, PaymentMethod, BusinessProfitRecord, MonthlyProfitDistribution } from '../../types';
 import { formatCurrency, toBengaliNumber, formatBengaliDate } from '../../utils/bengaliUtils';
 import { BusinessApplyModal } from './BusinessApplyModal';
 import { BusinessProfitRecordModal } from './BusinessProfitRecordModal';
@@ -47,6 +47,8 @@ export const BusinessFundingView: React.FC = () => {
     deleteBusinessFunding,
     deleteBusinessProfitRecord,
     disburseBusinessFunding,
+    deleteMonthlyProfitDistribution,
+    clearAllProfitDistributions,
     useBengaliDigits,
     setSelectedMemberId,
     setActiveTab,
@@ -67,6 +69,9 @@ export const BusinessFundingView: React.FC = () => {
   const [fundingToDelete, setFundingToDelete] = useState<BusinessFunding | null>(null);
   const [profitToEdit, setProfitToEdit] = useState<BusinessProfitRecord | null>(null);
   const [profitToDelete, setProfitToDelete] = useState<BusinessProfitRecord | null>(null);
+  const [distributionToDelete, setDistributionToDelete] = useState<MonthlyProfitDistribution | null>(null);
+  const [showClearAllDistributionsModal, setShowClearAllDistributionsModal] = useState<boolean>(false);
+  const [isClearingAll, setIsClearingAll] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   // Disbursement modal state
@@ -547,8 +552,8 @@ export const BusinessFundingView: React.FC = () => {
                 </h4>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {isBn
-                    ? 'প্রতিটি বিনিয়োগ হতে প্রাপ্ত মোট লাভ ও সমিতি-সদস্যের অংশ নথিভুক্তকরণ'
-                    : 'Records of profit generated from each business funding and member/Somiti split'}
+                    ? 'প্রতিটি বিনিয়োগ হতে প্রাপ্ত মোট ব্যবসা লাভ ও সমিতির লভ্যাংশ নথিভুক্তকরণ'
+                    : 'Records of profit generated from each business funding and Somiti profit share'}
                 </p>
               </div>
 
@@ -649,12 +654,25 @@ export const BusinessFundingView: React.FC = () => {
                 </p>
               </div>
 
-              <button
-                onClick={() => setShowDistributeModal(true)}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
-              >
-                {isBn ? '+ নতুন মাসিক বণ্টন কার্যকর করুন' : '+ Execute Monthly Distribution'}
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                {isUserAdmin && profitDistributions.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowClearAllDistributionsModal(true)}
+                    className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                    title={isBn ? 'সকল লভ্যাংশ বণ্টন মুছে ফেলুন ও সমন্বয় করুন' : 'Clear all profit distributions and revert savings'}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{isBn ? 'সকল বণ্টন মুছুন' : 'Clear All'}</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowDistributeModal(true)}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+                >
+                  {isBn ? '+ নতুন মাসিক বণ্টন কার্যকর করুন' : '+ Execute Monthly Distribution'}
+                </button>
+              </div>
             </div>
 
             {profitDistributions.length === 0 ? (
@@ -680,11 +698,23 @@ export const BusinessFundingView: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="text-right">
-                        <span className="text-[10px] text-slate-400 block">{isBn ? 'মোট বণ্টনকৃত লাভ' : 'Total Profit Distributed'}</span>
-                        <span className="text-sm font-bold text-indigo-700">
-                          {formatCurrency(d.totalSomitiProfitPool, isBn && useBengaliDigits)}
-                        </span>
+                      <div className="text-right flex items-center gap-3">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block">{isBn ? 'মোট বণ্টনকৃত লাভ' : 'Total Profit Distributed'}</span>
+                          <span className="text-sm font-bold text-indigo-700">
+                            {formatCurrency(d.totalSomitiProfitPool, isBn && useBengaliDigits)}
+                          </span>
+                        </div>
+                        {isUserAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => setDistributionToDelete(d)}
+                            className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-rose-200"
+                            title={isBn ? 'এই বণ্টন রেকর্ড মুছে ফেলুন ও সঞ্চয় রিভার্ট করুন' : 'Delete distribution & revert savings'}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -1012,6 +1042,119 @@ export const BusinessFundingView: React.FC = () => {
                   className="px-5 py-2 rounded-xl text-white bg-rose-600 hover:bg-rose-700 font-bold shadow-md disabled:opacity-50 cursor-pointer"
                 >
                   {isDeleting ? (isBn ? 'মুছে ফেলা হচ্ছে...' : 'Deleting...') : (isBn ? 'হ্যাঁ, মুছে ফেলুন' : 'Yes, Delete')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete Distribution Modal */}
+      {distributionToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="p-5 bg-rose-50 border-b border-rose-100 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">
+                  {isBn ? 'মাসিক বণ্টন রেকর্ড মুছে ফেলা' : 'Delete Monthly Distribution'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {distributionToDelete.monthName || distributionToDelete.distributionNo}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-3">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {isBn
+                  ? 'আপনি কি নিশ্চিত যে আপনি এই মাসিক বণ্টন রেকর্ডটি মুছে ফেলতে চান? এতে সদস্যদের সঞ্চয়ে জমা হওয়া সকল লভ্যাংশ স্বয়ংক্রিয়ভাবে রিভার্ট (সমন্বয়) হয়ে যাবে।'
+                  : 'Are you sure you want to delete this monthly distribution? All profit credited to members will be automatically reverted from their savings.'}
+              </p>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDistributionToDelete(null)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-semibold cursor-pointer"
+                >
+                  {isBn ? 'না, বাতিল' : 'Cancel'}
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={async () => {
+                    setIsDeleting(true);
+                    try {
+                      await deleteMonthlyProfitDistribution(distributionToDelete.id);
+                      setDistributionToDelete(null);
+                    } catch (err) {
+                      console.error(err);
+                    } finally {
+                      setIsDeleting(false);
+                    }
+                  }}
+                  className="px-5 py-2 rounded-xl text-white bg-rose-600 hover:bg-rose-700 text-xs font-bold shadow-md disabled:opacity-50 cursor-pointer"
+                >
+                  {isDeleting ? (isBn ? 'মুছে ফেলা হচ্ছে...' : 'Deleting...') : (isBn ? 'হ্যাঁ, মুছে ফেলুন' : 'Yes, Delete')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clear All Distributions Modal */}
+      {showClearAllDistributionsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="p-5 bg-rose-50 border-b border-rose-100 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">
+                  {isBn ? 'সকল বণ্টন রেকর্ড ও জমা মুছে ফেলা' : 'Clear All Profit Distributions'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {profitDistributions.length} {isBn ? 'টি বণ্টন রেকর্ড' : 'distribution records'}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-3">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {isBn
+                  ? 'আপনি কি নিশ্চিত যে আপনি সমিতির সকল মাসিক লভ্যাংশ বণ্টনের রেকর্ড ও লেনদেন মুছে ফেলতে চান? এটি নিশ্চিত করলে সদস্যদের সঞ্চয় থেকে লভ্যাংশ রিভার্ট হয়ে যাবে।'
+                  : 'Are you sure you want to clear all monthly distributions and revert all distributed profits from member savings?'}
+              </p>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowClearAllDistributionsModal(false)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-semibold cursor-pointer"
+                >
+                  {isBn ? 'না, বাতিল' : 'Cancel'}
+                </button>
+                <button
+                  type="button"
+                  disabled={isClearingAll}
+                  onClick={async () => {
+                    setIsClearingAll(true);
+                    try {
+                      await clearAllProfitDistributions();
+                      setShowClearAllDistributionsModal(false);
+                    } catch (err) {
+                      console.error(err);
+                    } finally {
+                      setIsClearingAll(false);
+                    }
+                  }}
+                  className="px-5 py-2 rounded-xl text-white bg-rose-600 hover:bg-rose-700 text-xs font-bold shadow-md disabled:opacity-50 cursor-pointer"
+                >
+                  {isClearingAll ? (isBn ? 'মুছে ফেলা হচ্ছে...' : 'Clearing...') : (isBn ? 'হ্যাঁ, সম্পূর্ণ মুছুন' : 'Yes, Clear All')}
                 </button>
               </div>
             </div>

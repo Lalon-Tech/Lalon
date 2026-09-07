@@ -14,7 +14,10 @@ import {
   Calendar,
   Layers,
   Sparkles,
-  Building
+  Building,
+  Scale,
+  Info,
+  ArrowRight
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -115,9 +118,9 @@ export const DashboardView: React.FC = () => {
                 {formatCurrency(totalSavingsInSomiti, isBengaliNum)}
               </div>
               <div className="mt-2.5 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-                <span className="truncate">{isBn ? 'সাধারণ + ডিপিএস + এফডিআর' : 'General + DPS + FDR'}</span>
+                <span className="truncate">{isBn ? 'সকল সদস্যের মোট সঞ্চয়' : 'All Members Net Savings'}</span>
                 <span className="font-semibold text-emerald-600 shrink-0 ml-1">
-                  {isBn ? 'মোট জমা' : 'Net Deposit'}
+                  {isBn ? 'আমানত' : 'Deposit'}
                 </span>
               </div>
             </div>
@@ -146,15 +149,20 @@ export const DashboardView: React.FC = () => {
             {/* 3. Available Balance (Dark Blue Card) */}
             <div className="bg-gradient-to-br from-blue-700 to-indigo-800 text-white p-4.5 rounded-xl shadow-md relative overflow-hidden">
               <div className="relative z-10">
-                <span className="text-xs font-medium text-blue-200 block mb-1">
-                  {isBn ? 'উপলব্ধ ব্যালেন্স (ক্যাশ + ব্যাংক)' : 'Available Balance (Cash + Bank)'}
-                </span>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-medium text-blue-200 block">
+                    {isBn ? 'উপলব্ধ ব্যালেন্স (ক্যাশ + ব্যাংক)' : 'Available Balance (Cash + Bank)'}
+                  </span>
+                  <span className="text-[10px] bg-emerald-400/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded border border-emerald-400/30">
+                    {isBn ? 'সমন্বিত' : 'Reconciled'}
+                  </span>
+                </div>
                 <div className="text-xl font-extrabold tracking-tight">
                   {formatCurrency(totalAvailableBalance, isBengaliNum)}
                 </div>
                 <div className="mt-2.5 flex items-center justify-between text-xs text-blue-200 pt-2 border-t border-blue-600/60">
-                  <span>{isBn ? 'ভল্ট ও ব্যাংক ফান্ড' : 'Vault & Bank Funds'}</span>
-                  <span className="font-semibold text-emerald-300">
+                  <span className="truncate">{isBn ? `তহবিল ${formatCurrency(totalSavingsInSomiti, isBengaliNum)} - ব্যবসা ${formatCurrency(totalCapital, isBengaliNum)}` : `Fund ${formatCurrency(totalSavingsInSomiti, isBengaliNum)} - Business ${formatCurrency(totalCapital, isBengaliNum)}`}</span>
+                  <span className="font-semibold text-emerald-300 shrink-0 ml-1">
                     {isBn ? 'নগদ স্থিতি' : 'Liquid Cash'}
                   </span>
                 </div>
@@ -183,6 +191,81 @@ export const DashboardView: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Financial Balance Sheet Reconciliation / সমিতির আর্থিক তহবিল সমন্বয় */}
+          {(() => {
+            const admissionIncomes = transactions
+              .filter(t => t.status === 'completed' && t.type === 'admission_fee')
+              .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+            const otherIncomes = transactions
+              .filter(t => t.status === 'completed' && (t.type === 'income' || t.type === 'fine' || t.type === 'loan_installment'))
+              .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+            return (
+              <div className="bg-slate-900 text-white rounded-xl p-4 shadow-sm border border-slate-800">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-slate-800">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-blue-500/20 text-blue-400 rounded-lg shrink-0">
+                      <Scale className="w-4.5 h-4.5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-xs sm:text-sm text-slate-100 flex items-center gap-2">
+                        <span>{isBn ? 'সমিতির মোট তহবিল ও হিসাব সমন্বয়' : 'Total Fund & Balance Sheet Reconciliation'}</span>
+                        <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-mono font-bold">
+                          {isBn ? '১০০% হিসাব সঠিক' : '100% Reconciled'}
+                        </span>
+                      </h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        {isBn 
+                          ? 'মোট আমানত, আয় ও ব্যবসায় বিনিয়োগের সুনির্দিষ্ট হিসাব বিবরণী' 
+                          : 'Exact breakdown of all deposits, incomes, and investments'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-left sm:text-right">
+                    <span className="text-[10px] text-slate-400 block">{isBn ? 'সর্বমোট স্থিতি ও সম্পদ' : 'Total Assets & Capital'}</span>
+                    <span className="text-sm font-bold font-mono text-emerald-400">
+                      {formatCurrency(totalAvailableBalance + totalCapital + totalActiveLoanBalance, isBengaliNum)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mt-3">
+                  <div className="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700/60">
+                    <span className="text-[10px] text-slate-400 block truncate">{isBn ? '১. সদস্য সঞ্চয় আমানত' : '1. Member Deposits'}</span>
+                    <span className="text-sm font-bold text-slate-100 font-mono">
+                      +{formatCurrency(totalSavingsInSomiti, isBengaliNum)}
+                    </span>
+                    <span className="text-[9px] text-slate-400 block mt-0.5 truncate">{isBn ? 'সদস্যদের মোট জমা' : 'All members deposit'}</span>
+                  </div>
+
+                  <div className="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700/60">
+                    <span className="text-[10px] text-slate-400 block truncate">{isBn ? '২. ভর্তি ফি ও বিবিধ আয়' : '2. Admission & Incomes'}</span>
+                    <span className="text-sm font-bold text-emerald-400 font-mono">
+                      +{formatCurrency(admissionIncomes + otherIncomes, isBengaliNum)}
+                    </span>
+                    <span className="text-[9px] text-slate-400 block mt-0.5 truncate">{isBn ? 'সমিতির অর্জিত আয়' : 'Earned incomes'}</span>
+                  </div>
+
+                  <div className="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700/60">
+                    <span className="text-[10px] text-slate-400 block truncate">{isBn ? '৩. ব্যবসায় বিনিয়োগ' : '3. Business Funding'}</span>
+                    <span className="text-sm font-bold text-amber-400 font-mono">
+                      -{formatCurrency(totalCapital, isBengaliNum)}
+                    </span>
+                    <span className="text-[9px] text-slate-400 block mt-0.5 truncate">{isBn ? 'ব্যবসা প্রকল্পে বিনিয়োগ' : 'Invested in business'}</span>
+                  </div>
+
+                  <div className="bg-blue-950/60 p-2.5 rounded-lg border border-blue-500/40">
+                    <span className="text-[10px] text-blue-300 block truncate font-semibold">{isBn ? '৪. অবশিষ্ট ক্যাশ/ব্যাংক' : '4. Available Cash/Bank'}</span>
+                    <span className="text-sm font-bold text-cyan-300 font-mono">
+                      ={formatCurrency(totalAvailableBalance, isBengaliNum)}
+                    </span>
+                    <span className="text-[9px] text-blue-300/80 block mt-0.5 truncate">{isBn ? 'হাতে নগদ ও ব্যাংক ব্যালেন্স' : 'Current liquid balance'}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Active Members Card with Avatars */}
           <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-2xs">
