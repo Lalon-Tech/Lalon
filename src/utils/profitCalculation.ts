@@ -166,51 +166,153 @@ export interface MemberProfitSummary {
 }
 
 export function deriveMemberProfitSummaries(
-  records: any[],
-  members: any[]
+  records: any[] = [],
+  members: any[] = [],
+  profitDistributions: any[] = [],
+  transactions: any[] = [],
+  monthFilter: string = 'all'
 ): MemberProfitSummary[] {
   const memberMap = new Map<string, MemberProfitSummary>();
 
-  // Initialize with all members
+  // Initialize with all members, deriving strictly the pure Base Deposit (excluding profit)
   members.forEach(m => {
-    const currentDeposit = Number(m.totalSavings || m.generalSavingsBalance || 0);
+    const memberTxs = (transactions || []).filter((t: any) => t.memberId === m.id && t.status === 'completed');
+    const depTxs = memberTxs.filter((t: any) => t.type === 'deposit').reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
+    const withdrTxs = memberTxs.filter((t: any) => t.type === 'withdraw').reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
+    const profTxs = memberTxs.filter((t: any) => t.type === 'profit_share').reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
+    const dpsFdr = (Number(m.dpsSavingsBalance) || 0) + (Number(m.fdrSavingsBalance) || 0);
+
+    let pureDeposit = 0;
+    if (depTxs > 0 || withdrTxs > 0) {
+      pureDeposit = Math.max(0, Number((depTxs - withdrTxs + dpsFdr).toFixed(2)));
+    } else {
+      const rawSavings = Number(m.totalSavings ?? m.generalSavingsBalance ?? 0);
+      pureDeposit = Math.max(0, Number((rawSavings - profTxs).toFixed(2)));
+    }
+
     memberMap.set(m.id, {
       memberId: m.id,
       memberNo: m.memberNo || '',
       memberName: m.name || '',
-      currentDeposit,
+      currentDeposit: pureDeposit,
       totalEarnedProfit: 0,
       totalProvidedProfit: 0,
-      overallBalanceWithProfit: currentDeposit,
+      overallBalanceWithProfit: pureDeposit,
       distributionCount: 0,
     });
   });
 
-  // Aggregate across all profit records
-  records.forEach(record => {
+  // Track counted distribution keys per member to prevent duplicate counts between records and profitDistributions
+  const memberCountedDistKeys = new Map<string, Set<string>>();
+  members.forEach(m => memberCountedDistKeys.set(m.id, new Set()));
+
+  // Active record IDs to filter out deleted records
+  const activeRecordIds = new Set((records || []).map(r => r.id));
+
+  // 1. Credit profit provided/contributed by members, plus any embedded memberDistributions snapshot
+  (records || []).forEach(record => {
+    if (monthFilter !== 'all' && record.month !== monthFilter) return;
     const profitAmount = Number(record.somitiProfitAmount || record.profitAmount || record.totalBusinessProfit || 0);
     const providerId = record.memberId;
 
-    // 1. Credit to provider
+    // Credit to provider
     if (providerId && memberMap.has(providerId)) {
       const p = memberMap.get(providerId)!;
       p.totalProvidedProfit = Number((p.totalProvidedProfit + profitAmount).toFixed(2));
     }
 
-    // 2. Credit to recipients from memberDistributions snapshot
+    // Credit to recipients from record snapshot
     const distributions = record.memberDistributions || record.distributions || [];
     distributions.forEach((d: any) => {
       const recipientId = d.memberId;
       const allocated = Number(d.allocatedProfit || 0);
-      if (recipientId && memberMap.has(recipientId)) {
-        const item = memberMap.get(recipientId)!;
-        item.totalEarnedProfit = Number((item.totalEarnedProfit + allocated).toFixed(2));
-        item.distributionCount += 1;
-        item.overallBalanceWithProfit = Number(
-          (item.currentDeposit + item.totalEarnedProfit).toFixed(2)
-        );
+      if (recipientId && memberMap.has(recipientId) && allocated > 0) {
+        const distKey = `rec-${record.id}`;
+        const userKeys = memberCountedDistKeys.get(recipientId)!;
+        if (!userKeys.has(distKey)) {
+          userKeys.add(distKey);
+          userKeys.add(`pd-${record.id}`);
+          userKeys.add(`dist-${record.id}`);
+          const item = memberMap.get(recipientId)!;
+          item.totalEarnedProfit = Number((item.totalEarnedProfit + allocated).toFixed(2));
+          item.distributionCount += 1;
+        }
       }
     });
+  });
+
+  // 2. Credit profit from profitDistributions (Monthly profit distribution cycles)
+  (profitDistributions || []).forEach(dist => {
+    // If monthFilter is active, filter distributions by month
+    if (monthFilter !== 'all') {
+      const distMonth = dist.month ? `${dist.year}-${String(dist.month).padStart(2, '0')}` : '';
+      if (distMonth && distMonth !== monthFilter && dist.monthName !== monthFilter) return;
+    }
+
+    // Skip distributions belonging to deleted business profit records
+    const recordTag = dist.id.startsWith('pd-')
+      ? dist.id.slice(3)
+      : (dist.id.startsWith('dist-bpr-')
+          ? dist.id.slice(9)
+          : dist.notes?.match(/\[(bpr-[^\]]+)\]/)?.[1]);
+    if (recordTag && !activeRecordIds.has(recordTag)) {
+      return;
+    }
+
+    const distKey = dist.id || dist.distributionNo;
+    const mDist = dist.memberDistributions || [];
+    mDist.forEach((d: any) => {
+      const recipientId = d.memberId;
+      const allocated = Number(d.allocatedProfit || 0);
+      if (recipientId && memberMap.has(recipientId) && allocated > 0) {
+        const userKeys = memberCountedDistKeys.get(recipientId)!;
+        if (!userKeys.has(distKey) && (!recordTag || !userKeys.has(`rec-${recordTag}`))) {
+          userKeys.add(distKey);
+          if (recordTag) userKeys.add(`rec-${recordTag}`);
+          const item = memberMap.get(recipientId)!;
+          item.totalEarnedProfit = Number((item.totalEarnedProfit + allocated).toFixed(2));
+          item.distributionCount += 1;
+        }
+      }
+    });
+  });
+
+  // 3. Fallback: If a member still has 0 earned profit from distributions, check transactions of type 'profit_share'
+  if (transactions && transactions.length > 0) {
+    memberMap.forEach((item, memberId) => {
+      if (item.totalEarnedProfit === 0) {
+        const memberProfitTxs = transactions.filter((t: any) => {
+          if (t.memberId !== memberId || t.type !== 'profit_share' || t.category === 'business_profit_member_share') {
+            return false;
+          }
+          const bprTag = t.notes?.match(/\[(bpr-[^\]]+)\]/)?.[1]
+            || (t.id.startsWith('tx-bpr-') ? t.id.replace('tx-', '').split('-')[0] : null);
+          if (bprTag && !activeRecordIds.has(bprTag)) {
+            return false;
+          }
+          if (monthFilter !== 'all') {
+            const txMonth = t.date ? t.date.slice(0, 7) : '';
+            if (txMonth !== monthFilter) return false;
+          }
+          return true;
+        });
+
+        if (memberProfitTxs.length > 0) {
+          const txSum = memberProfitTxs.reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
+          if (txSum > 0) {
+            item.totalEarnedProfit = Number(txSum.toFixed(2));
+            item.distributionCount = memberProfitTxs.length;
+          }
+        }
+      }
+    });
+  }
+
+  // 4. Update overallBalanceWithProfit
+  memberMap.forEach(item => {
+    item.overallBalanceWithProfit = Number(
+      (item.currentDeposit + item.totalEarnedProfit).toFixed(2)
+    );
   });
 
   return Array.from(memberMap.values()).sort((a, b) => b.totalEarnedProfit - a.totalEarnedProfit);

@@ -21,7 +21,12 @@ import {
   Layers,
   Clock,
   Eye,
+  FileSpreadsheet,
+  Printer,
+  Download,
+  X,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { formatCurrency, toBengaliNumber, formatBengaliDate } from '../../utils/bengaliUtils';
@@ -38,6 +43,8 @@ export const ProfitReportsAndSandbox: React.FC = () => {
   const {
     members,
     businessProfitRecords,
+    profitDistributions,
+    transactions,
     getMemberSavingsBalance,
     useBengaliDigits,
     isUserAdmin,
@@ -52,6 +59,7 @@ export const ProfitReportsAndSandbox: React.FC = () => {
   const [reportTab, setReportTab] = useState<'members' | 'dates' | 'months' | 'providers' | 'history'>('members');
   const [selectedMonthFilter, setSelectedMonthFilter] = useState<string>('all');
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
+  const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
 
   // Derive reports from the single source of truth (businessProfitRecords)
   const filteredRecords = useMemo(() => {
@@ -60,8 +68,81 @@ export const ProfitReportsAndSandbox: React.FC = () => {
   }, [businessProfitRecords, selectedMonthFilter]);
 
   const memberProfitSummaries = useMemo(() => {
-    return deriveMemberProfitSummaries(filteredRecords, members);
-  }, [filteredRecords, members]);
+    return deriveMemberProfitSummaries(filteredRecords, members, profitDistributions, transactions, selectedMonthFilter);
+  }, [filteredRecords, members, profitDistributions, transactions, selectedMonthFilter]);
+
+  // Grand totals for Member-wise Profit & Balance Ledger
+  const memberLedgerTotals = useMemo(() => {
+    return memberProfitSummaries.reduce(
+      (acc, m) => ({
+        baseDeposit: Number((acc.baseDeposit + (Number(m.currentDeposit) || 0)).toFixed(2)),
+        earnedProfit: Number((acc.earnedProfit + (Number(m.totalEarnedProfit) || 0)).toFixed(2)),
+        overallBalance: Number((acc.overallBalance + (Number(m.overallBalanceWithProfit) || 0)).toFixed(2)),
+        providedProfit: Number((acc.providedProfit + (Number(m.totalProvidedProfit) || 0)).toFixed(2)),
+      }),
+      { baseDeposit: 0, earnedProfit: 0, overallBalance: 0, providedProfit: 0 }
+    );
+  }, [memberProfitSummaries]);
+
+  // Excel Export Handler
+  const handleExportExcel = () => {
+    const filterLabel = selectedMonthFilter === 'all' ? (isBn ? 'সকল মাস' : 'All Months') : selectedMonthFilter;
+    const reportDate = new Date().toLocaleDateString(isBn ? 'bn-BD' : 'en-US');
+
+    const rows: (string | number)[][] = [
+      [isBn ? 'বন্ধু সঞ্চয় ও ঋণদান সমবায় সমিতি লিঃ' : 'Bondhu Somiti Ltd.'],
+      [isBn ? 'সদস্যভিত্তিক অর্জিত মুনাফা ও সার্বিক ব্যালেন্স বিবরণী' : 'Member-wise Total Profit & Balance Ledger'],
+      [`${isBn ? 'মাস ফিল্টার:' : 'Month Filter:'} ${filterLabel} | ${isBn ? 'তারিখ:' : 'Date:'} ${reportDate}`],
+      [],
+      [
+        isBn ? 'ক্রমিক' : 'SL',
+        isBn ? 'সদস্য নং' : 'Member No',
+        isBn ? 'সদস্যের নাম' : 'Member Name',
+        isBn ? 'মূল সঞ্চয় আমানত (৳)' : 'Base Deposit (৳)',
+        isBn ? 'মোট অর্জিত লাভ (+) (৳)' : 'Total Profit Earned (+) (৳)',
+        isBn ? 'লভ্যাংশসহ সার্বিক ব্যালেন্স (৳)' : 'Overall Balance + Profit (৳)',
+        isBn ? 'সমিতিতে প্রদত্ত লাভ (৳)' : 'Profit Contributed (৳)',
+        isBn ? 'বণ্টন সংখ্যা' : 'Distributions Count'
+      ],
+      ...memberProfitSummaries.map((m, idx) => [
+        idx + 1,
+        m.memberNo,
+        m.memberName,
+        m.currentDeposit,
+        m.totalEarnedProfit,
+        m.overallBalanceWithProfit,
+        m.totalProvidedProfit,
+        m.distributionCount
+      ]),
+      [
+        isBn ? 'সর্বমোট' : 'Grand Total',
+        '',
+        `${memberProfitSummaries.length} ${isBn ? 'জন সদস্য' : 'members'}`,
+        memberLedgerTotals.baseDeposit,
+        memberLedgerTotals.earnedProfit,
+        memberLedgerTotals.overallBalance,
+        memberLedgerTotals.providedProfit,
+        ''
+      ]
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [
+      { wch: 8 },  // SL
+      { wch: 16 }, // Member No
+      { wch: 28 }, // Member Name
+      { wch: 22 }, // Base Deposit
+      { wch: 24 }, // Profit Earned
+      { wch: 28 }, // Overall Balance + Profit
+      { wch: 22 }, // Profit Contributed
+      { wch: 16 }, // Distributions
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, isBn ? 'মুনাফা_ও_ব্যালেন্স' : 'Profit_Ledger');
+    const fileName = `member_profit_balance_ledger_${selectedMonthFilter}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  };
 
   const dateSummaries = useMemo(() => {
     return deriveProfitByDate(filteredRecords);
@@ -80,12 +161,14 @@ export const ProfitReportsAndSandbox: React.FC = () => {
   }, [filteredRecords]);
 
   const totalDistributedSum = useMemo(() => {
+    const fromMembers = memberProfitSummaries.reduce((sum, m) => sum + m.totalEarnedProfit, 0);
+    if (fromMembers > 0) return fromMembers;
     return filteredRecords.reduce((sum, r) => {
       const dist = r.memberDistributions || [];
       const distSum = dist.reduce((s: number, d: any) => s + Number(d.allocatedProfit || 0), 0);
       return sum + (distSum > 0 ? distSum : Number(r.somitiProfitAmount || 0));
     }, 0);
-  }, [filteredRecords]);
+  }, [memberProfitSummaries, filteredRecords]);
 
   // Unique months available
   const availableMonths = useMemo(() => {
@@ -93,8 +176,13 @@ export const ProfitReportsAndSandbox: React.FC = () => {
     businessProfitRecords.forEach(r => {
       if (r.month) set.add(r.month);
     });
+    profitDistributions.forEach(d => {
+      if (d.year && d.month) {
+        set.add(`${d.year}-${String(d.month).padStart(2, '0')}`);
+      }
+    });
     return Array.from(set).sort().reverse();
-  }, [businessProfitRecords]);
+  }, [businessProfitRecords, profitDistributions]);
 
   // ==========================================
   // REQUIREMENT 15: TEST SCENARIO ENGINE
@@ -644,20 +732,39 @@ export const ProfitReportsAndSandbox: React.FC = () => {
           {/* Sub-Tab 1: Member-wise Profit & Balances */}
           {reportTab === 'members' && (
             <div className="p-5 space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h3 className="font-bold text-sm text-slate-900">
                     {isBn ? 'সদস্যভিত্তিক অর্জিত মুনাফা ও সার্বিক ব্যালেন্স বিবরণী' : 'Member-wise Total Profit & Balance Ledger'}
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
                     {isBn
-                      ? 'প্রতিটি সদস্যের মূল সঞ্চয় আমানত, অর্জিত লভ্যাংশ এবং লভ্যাংশসহ বর্তমান প্রকৃত মোট ব্যালেন্স।'
-                      : 'Base savings deposit, total profit earned from all distributions, and overall balance with profit.'}
+                      ? 'মূল সঞ্চয় আমানত (আসল জমা), মোট অর্জিত লাভ এবং লভ্যাংশসহ বর্তমান প্রকৃত মোট ব্যালেন্স (আমানত + লাভ)।'
+                      : 'Base savings deposit (principal), total profit earned, and overall balance with profit (deposit + profit).'}
                   </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleExportExcel}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                    title={isBn ? 'এক্সেল ফাইল ডাউনলোড করুন' : 'Export to Excel'}
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                    <span>{isBn ? 'এক্সেল ডাউনলোড' : 'Excel Export'}</span>
+                  </button>
+                  <button
+                    onClick={() => setShowPrintModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-300 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                    title={isBn ? 'পিডিএফ / প্রিন্ট করুন' : 'Print / Save as PDF'}
+                  >
+                    <Printer className="w-4 h-4 text-indigo-600" />
+                    <span>{isBn ? 'পিডিএফ / প্রিন্ট' : 'PDF / Print'}</span>
+                  </button>
                 </div>
               </div>
 
-              <div className="overflow-x-auto border border-slate-200 rounded-xl">
+              <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-2xs">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 text-[10px] text-slate-500 uppercase border-b border-slate-200">
                     <tr>
@@ -694,7 +801,47 @@ export const ProfitReportsAndSandbox: React.FC = () => {
                       </tr>
                     ))}
                   </tbody>
+                  <tfoot className="bg-slate-100 font-bold border-t-2 border-slate-300 text-xs">
+                    <tr>
+                      <td className="py-3 px-4 text-slate-800 font-black">
+                        {isBn ? 'সর্বমোট (Grand Total)' : 'Grand Total'}
+                        <span className="block text-[10px] font-normal text-slate-500">
+                          {memberProfitSummaries.length} {isBn ? 'জন সদস্য' : 'members'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right font-black text-slate-900">
+                        ৳{formatCurrency(memberLedgerTotals.baseDeposit, isBn && useBengaliDigits)}
+                      </td>
+                      <td className="py-3 px-4 text-right font-black text-emerald-700">
+                        +৳{formatCurrency(memberLedgerTotals.earnedProfit, isBn && useBengaliDigits)}
+                      </td>
+                      <td className="py-3 px-4 text-right font-black text-indigo-900 bg-indigo-100/50">
+                        ৳{formatCurrency(memberLedgerTotals.overallBalance, isBn && useBengaliDigits)}
+                      </td>
+                      <td className="py-3 px-4 text-right font-black text-blue-700">
+                        {memberLedgerTotals.providedProfit > 0 ? `৳${formatCurrency(memberLedgerTotals.providedProfit, isBn && useBengaliDigits)}` : '—'}
+                      </td>
+                      <td className="py-3 px-4 text-center text-slate-500 font-mono text-[11px]">
+                        —
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
+              </div>
+
+              {/* Informational Explanatory Box */}
+              <div className="bg-blue-50/60 border border-blue-200/80 rounded-xl p-3 text-xs text-blue-900 flex items-start gap-2.5">
+                <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                <div className="space-y-0.5 text-[11px]">
+                  <div>
+                    <strong>{isBn ? 'মূল সঞ্চয় আমানত (Base Deposit):' : 'Base Deposit:'}</strong>{' '}
+                    {isBn ? 'সদস্যের আসল সঞ্চয় জমা (উত্তোলন ও লভ্যাংশ ব্যতীত নিট মূল আমানত)।' : 'Member\'s pure net savings deposit without any profit added.'}
+                  </div>
+                  <div>
+                    <strong>{isBn ? 'লভ্যাংশসহ সার্বিক ব্যালেন্স (Overall Balance + Profit):' : 'Overall Balance + Profit:'}</strong>{' '}
+                    {isBn ? 'সদস্যের মূল সঞ্চয় আমানত এবং মোট অর্জিত লাভের সমষ্টি (আমানত + লাভ = সদস্যের প্রকৃত মোট পাওনা)।' : 'Base deposit plus total earned profit (Deposit + Profit = True Member Balance).'}
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -1107,6 +1254,167 @@ export const ProfitReportsAndSandbox: React.FC = () => {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* PRINT & PDF EXPORT MODAL */}
+      {/* ========================================================= */}
+      {showPrintModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-4xl overflow-hidden animate-in fade-in-50 zoom-in-95 my-auto flex flex-col max-h-[92vh]">
+            {/* Top Control Bar (Hidden on Print) */}
+            <div className="no-print bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <Printer className="w-4 h-4 text-indigo-400" />
+                <span className="font-bold text-sm">
+                  {isBn ? 'সদস্যভিত্তিক মুনাফা ও ব্যালেন্স লেজার - প্রিন্ট / PDF প্রিভিউ' : 'Member-wise Profit & Balance Ledger - Print / PDF'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleExportExcel}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>{isBn ? 'এক্সেল ডাউনলোড' : 'Download Excel'}</span>
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>{isBn ? 'প্রিন্ট / PDF সংরক্ষণ করুন' : 'Print / Save as PDF'}</span>
+                </button>
+                <button
+                  onClick={() => setShowPrintModal(false)}
+                  className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Printable Document Body */}
+            <div className="p-6 sm:p-8 overflow-y-auto printable-area bg-white text-slate-900">
+              {/* Somiti Official Header */}
+              <div className="text-center pb-4 mb-4 border-b-2 border-slate-800">
+                <h1 className="text-xl font-black text-slate-900 tracking-tight">
+                  {isBn ? 'বন্ধু সঞ্চয় ও ঋণদান সমবায় সমিতি লিঃ' : 'Bondhu Somiti Ltd.'}
+                </h1>
+                <h2 className="text-sm font-bold text-slate-700 mt-0.5">
+                  {isBn ? 'সদস্যভিত্তিক অর্জিত মুনাফা ও সার্বিক ব্যালেন্স বিবরণী' : 'Member-wise Total Profit & Balance Ledger'}
+                </h2>
+                <div className="flex flex-wrap items-center justify-center gap-3 text-[11px] text-slate-600 mt-2">
+                  <span>
+                    <strong>{isBn ? 'ফিল্টার:' : 'Filter:'}</strong>{' '}
+                    {selectedMonthFilter === 'all' ? (isBn ? 'সকল সময় / মাস' : 'All Months') : selectedMonthFilter}
+                  </span>
+                  <span>•</span>
+                  <span>
+                    <strong>{isBn ? 'তারিখ:' : 'Date:'}</strong>{' '}
+                    {new Date().toLocaleDateString(isBn ? 'bn-BD' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </span>
+                  <span>•</span>
+                  <span>
+                    <strong>{isBn ? 'মোট সদস্য:' : 'Total Members:'}</strong>{' '}
+                    {memberProfitSummaries.length} {isBn ? 'জন' : ''}
+                  </span>
+                </div>
+              </div>
+
+              {/* Summary Badges */}
+              <div className="grid grid-cols-3 gap-3 mb-5">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-center">
+                  <div className="text-[10px] text-slate-500 font-bold uppercase">{isBn ? 'মোট মূল সঞ্চয় আমানত' : 'Total Base Deposit'}</div>
+                  <div className="text-base font-black text-slate-800 mt-0.5">৳{formatCurrency(memberLedgerTotals.baseDeposit, isBn && useBengaliDigits)}</div>
+                </div>
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-center">
+                  <div className="text-[10px] text-emerald-700 font-bold uppercase">{isBn ? 'মোট অর্জিত লাভ (+)' : 'Total Profit Earned (+)'}</div>
+                  <div className="text-base font-black text-emerald-800 mt-0.5">+৳{formatCurrency(memberLedgerTotals.earnedProfit, isBn && useBengaliDigits)}</div>
+                </div>
+                <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-center">
+                  <div className="text-[10px] text-indigo-700 font-bold uppercase">{isBn ? 'লভ্যাংশসহ সার্বিক ব্যালেন্স' : 'Overall Balance + Profit'}</div>
+                  <div className="text-base font-black text-indigo-950 mt-0.5">৳{formatCurrency(memberLedgerTotals.overallBalance, isBn && useBengaliDigits)}</div>
+                </div>
+              </div>
+
+              {/* Ledger Table */}
+              <table className="w-full text-left text-xs border border-slate-300">
+                <thead className="bg-slate-100 text-[10px] text-slate-700 uppercase border-b border-slate-300">
+                  <tr>
+                    <th className="py-2.5 px-3 font-bold border-r border-slate-300 text-center w-12">{isBn ? 'ক্রমিক' : 'SL'}</th>
+                    <th className="py-2.5 px-3 font-bold border-r border-slate-300">{isBn ? 'সদস্য নং ও নাম' : 'Member No & Name'}</th>
+                    <th className="py-2.5 px-3 font-bold border-r border-slate-300 text-right">{isBn ? 'মূল সঞ্চয় আমানত' : 'Base Deposit'}</th>
+                    <th className="py-2.5 px-3 font-bold border-r border-slate-300 text-right text-emerald-800">{isBn ? 'মোট অর্জিত লাভ (+)' : 'Profit Earned (+)'}</th>
+                    <th className="py-2.5 px-3 font-bold border-r border-slate-300 text-right text-indigo-900">{isBn ? 'লভ্যাংশসহ সার্বিক ব্যালেন্স' : 'Overall Balance + Profit'}</th>
+                    <th className="py-2.5 px-3 font-bold text-center w-20">{isBn ? 'বণ্টন সংখ্যা' : 'Distributions'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 font-medium">
+                  {memberProfitSummaries.map((m, idx) => (
+                    <tr key={m.memberId} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                      <td className="py-2 px-3 text-center border-r border-slate-200 font-mono text-[11px] text-slate-500">
+                        {idx + 1}
+                      </td>
+                      <td className="py-2 px-3 border-r border-slate-200">
+                        <div className="font-bold text-slate-900">{m.memberName}</div>
+                        <div className="text-[10px] text-slate-500 font-mono">{m.memberNo}</div>
+                      </td>
+                      <td className="py-2 px-3 text-right font-bold text-slate-800 border-r border-slate-200">
+                        ৳{formatCurrency(m.currentDeposit, isBn && useBengaliDigits)}
+                      </td>
+                      <td className="py-2 px-3 text-right font-bold text-emerald-700 border-r border-slate-200">
+                        +৳{formatCurrency(m.totalEarnedProfit, isBn && useBengaliDigits)}
+                      </td>
+                      <td className="py-2 px-3 text-right font-black text-indigo-950 border-r border-slate-200 bg-indigo-50/20">
+                        ৳{formatCurrency(m.overallBalanceWithProfit, isBn && useBengaliDigits)}
+                      </td>
+                      <td className="py-2 px-3 text-center text-slate-600 font-mono text-[11px]">
+                        {m.distributionCount} {isBn ? 'বার' : ''}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-slate-100 font-black border-t-2 border-slate-400 text-xs">
+                  <tr>
+                    <td colSpan={2} className="py-2.5 px-3 text-slate-900 border-r border-slate-300">
+                      {isBn ? 'সর্বমোট (Grand Total)' : 'Grand Total'}
+                    </td>
+                    <td className="py-2.5 px-3 text-right text-slate-900 border-r border-slate-300 font-black">
+                      ৳{formatCurrency(memberLedgerTotals.baseDeposit, isBn && useBengaliDigits)}
+                    </td>
+                    <td className="py-2.5 px-3 text-right text-emerald-800 border-r border-slate-300 font-black">
+                      +৳{formatCurrency(memberLedgerTotals.earnedProfit, isBn && useBengaliDigits)}
+                    </td>
+                    <td className="py-2.5 px-3 text-right text-indigo-950 border-r border-slate-300 font-black">
+                      ৳{formatCurrency(memberLedgerTotals.overallBalance, isBn && useBengaliDigits)}
+                    </td>
+                    <td className="py-2.5 px-3 text-center text-slate-500">—</td>
+                  </tr>
+                </tfoot>
+              </table>
+
+              {/* Signatures for Official Report */}
+              <div className="grid grid-cols-3 gap-6 pt-12 mt-8 text-center text-xs font-bold text-slate-700">
+                <div>
+                  <div className="border-t border-slate-400 pt-1.5">
+                    {isBn ? 'হিসাব প্রস্তুতকারক' : 'Prepared By'}
+                  </div>
+                </div>
+                <div>
+                  <div className="border-t border-slate-400 pt-1.5">
+                    {isBn ? 'ক্যাশিয়ার / ব্যবস্থাপক' : 'Cashier / Manager'}
+                  </div>
+                </div>
+                <div>
+                  <div className="border-t border-slate-400 pt-1.5">
+                    {isBn ? 'সভাপতি / সাধারণ সম্পাদক' : 'President / Secretary'}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -136,20 +136,35 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
   // Profit calculations for this member:
   // Only the Somiti profit pool distribution (divided among members based on deposits)
   // is credited to the member's profile and savings. Entrepreneur personal profit is NOT calculated or added anywhere in Somiti.
+  const activeRecordIds = new Set(businessProfitRecords.map(r => r.id));
+
   const totalMemberProfitFromPool = profitDistributions.reduce((sum, dist) => {
+    const recordTag = dist.id.startsWith('pd-') 
+      ? dist.id.slice(3) 
+      : (dist.id.startsWith('dist-bpr-') 
+          ? dist.id.slice(9) 
+          : dist.notes?.match(/\[(bpr-[^\]]+)\]/)?.[1]);
+    if (recordTag && !activeRecordIds.has(recordTag)) {
+      return sum;
+    }
     const share = dist.memberDistributions?.find(m => m.memberId === member.id);
     return sum + (Number(share?.allocatedProfit) || 0);
   }, 0);
 
-  const memberProfitTxs = memberTransactions.filter(
-    t => t.type === 'profit_share' && t.category !== 'business_profit_member_share'
-  );
+  const memberProfitTxs = memberTransactions.filter(t => {
+    if (t.type !== 'profit_share' || t.category === 'business_profit_member_share') return false;
+    const bprTag = t.notes?.match(/\[(bpr-[^\]]+)\]/)?.[1]
+      || (t.id.startsWith('tx-bpr-') ? t.id.replace('tx-', '').split('-')[0] : null);
+    if (bprTag && !activeRecordIds.has(bprTag)) {
+      return false;
+    }
+    return true;
+  });
   const totalProfitFromTxs = memberProfitTxs.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
-  const totalMemberProfitEarned = Math.max(
-    totalMemberProfitFromPool,
-    totalProfitFromTxs
-  );
+  const totalMemberProfitEarned = totalMemberProfitFromPool > 0
+    ? totalMemberProfitFromPool
+    : totalProfitFromTxs;
 
   const printPassbook = () => {
     window.print();

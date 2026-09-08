@@ -79,23 +79,26 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
   const myFundings = businessFundings.filter(f => f.memberId === member.id);
   const myProfitRecords = businessProfitRecords.filter(r => r.memberId === member.id);
 
-  // Filter distributions where this member received a profit share (deduplicated by month/distributionNo)
+  // Active business profit record IDs
+  const activeRecordIds = new Set(businessProfitRecords.map(r => r.id));
+
+  // Filter distributions where this member received a profit share
+  // (Filter out distributions belonging to deleted business profit records)
+  // Key by dist.id so every valid distribution is counted and never dropped due to month collisions
   const myDistributionsMap = new Map<string, { dist: MonthlyProfitDistribution; myShare: MemberProfitShareItem }>();
   profitDistributions.forEach(dist => {
-    const key = dist.distributionNo || `${dist.year}-${dist.month}`;
+    const recordTag = dist.id.startsWith('pd-')
+      ? dist.id.slice(3)
+      : (dist.id.startsWith('dist-bpr-')
+          ? dist.id.slice(9)
+          : dist.notes?.match(/\[(bpr-[^\]]+)\]/)?.[1]);
+    if (recordTag && !activeRecordIds.has(recordTag)) {
+      return; // Skip deleted profit record distribution
+    }
+
     const myShare = dist.memberDistributions?.find(m => m.memberId === member.id);
     if (myShare && myShare.allocatedProfit > 0) {
-      // If multiple exists for the same month, retain the latest valid one (prefer one with totalSavingsPool or newer createdAt)
-      const existing = myDistributionsMap.get(key);
-      if (!existing) {
-        myDistributionsMap.set(key, { dist, myShare });
-      } else {
-        const existingHasSavings = (existing.dist.totalSavingsPool || 0) > 0;
-        const currentHasSavings = (dist.totalSavingsPool || 0) > 0;
-        if ((currentHasSavings && !existingHasSavings) || (dist.createdAt || '') > (existing.dist.createdAt || '')) {
-          myDistributionsMap.set(key, { dist, myShare });
-        }
-      }
+      myDistributionsMap.set(dist.id, { dist, myShare });
     }
   });
   const myDistributions = Array.from(myDistributionsMap.values());
@@ -115,14 +118,24 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
     0
   );
 
-  // Total profit transactions credited to this member
-  const memberProfitTxs = transactions.filter(
-    t => t.memberId === member.id && t.type === 'profit_share' && t.category !== 'business_profit_member_share'
-  );
-  const totalMemberProfitCredited = Math.max(
-    totalReceivedFromSomitiDistribution,
-    memberProfitTxs.reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
-  );
+  // Total profit transactions credited to this member (excluding transactions from deleted profit records)
+  const memberProfitTxs = transactions.filter(t => {
+    if (t.memberId !== member.id || t.type !== 'profit_share' || t.category === 'business_profit_member_share') {
+      return false;
+    }
+    const bprTag = t.notes?.match(/\[(bpr-[^\]]+)\]/)?.[1]
+      || (t.id.startsWith('tx-bpr-') ? t.id.replace('tx-', '').split('-')[0] : null);
+    if (bprTag && !activeRecordIds.has(bprTag)) {
+      return false;
+    }
+    return true;
+  });
+
+  // Total profit credited to profile is dynamically synced with total received from Somiti distributions
+  // Ensuring Somiti Profit Pool Received and Total Profit Credited are always perfectly identical and reactive
+  const totalMemberProfitCredited = totalReceivedFromSomitiDistribution > 0
+    ? totalReceivedFromSomitiDistribution
+    : memberProfitTxs.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
   const getStatusBadge = (status: string) => {
     switch (status) {

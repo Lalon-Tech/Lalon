@@ -765,6 +765,92 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     localStorage.setItem('bondhu_profit_distributions', JSON.stringify(profitDistributions));
   }, [profitDistributions]);
 
+  // Self-healing automatic reconciliation:
+  // Whenever the app loads or businessProfitRecords/profitDistributions change, detect and purge any
+  // orphaned profit distributions or orphaned profit_share transactions left behind by previously deleted profit records,
+  // and auto-reconcile member savings balances so that all metrics stay 100% accurate and consistent.
+  useEffect(() => {
+    if (businessProfitRecords.length === 0 && profitDistributions.length === 0 && transactions.length === 0) return;
+
+    const activeRecordIds = new Set(businessProfitRecords.map(r => r.id));
+
+    // 1. Detect orphaned profit distributions whose underlying business profit record was deleted
+    const orphanedDistIds = new Set<string>();
+    profitDistributions.forEach(d => {
+      const bprTag = d.id.startsWith('pd-')
+        ? d.id.slice(3)
+        : (d.id.startsWith('dist-bpr-')
+            ? d.id.slice(9)
+            : d.notes?.match(/\[(bpr-[^\]]+)\]/)?.[1]);
+      if (bprTag && !activeRecordIds.has(bprTag)) {
+        orphanedDistIds.add(d.id);
+      }
+    });
+
+    if (orphanedDistIds.size > 0) {
+      setProfitDistributions(prev => {
+        const cleaned = prev.filter(d => !orphanedDistIds.has(d.id));
+        localStorage.setItem('bondhu_profit_distributions', JSON.stringify(cleaned));
+        return cleaned;
+      });
+      orphanedDistIds.forEach(id => deleteDoc(doc(db, 'profitDistributions', id)).catch(console.error));
+    }
+
+    // 2. Detect orphaned profit_share transactions whose underlying business profit record or distribution was deleted
+    const activeDistIds = new Set(profitDistributions.filter(d => !orphanedDistIds.has(d.id)).map(d => d.id));
+    const orphanedTxIds = new Set<string>();
+    const memberOrphanDeductions: Record<string, number> = {};
+
+    transactions.forEach(t => {
+      if (t.type !== 'profit_share' || t.category === 'business_profit_member_share') return;
+
+      const bprTag = t.notes?.match(/\[(bpr-[^\]]+)\]/)?.[1]
+        || (t.id.startsWith('tx-bpr-') ? t.id.replace('tx-', '').split('-')[0] : null);
+      const distTag = t.notes?.match(/\[(dist-[^\]]+|pd-[^\]]+)\]/)?.[1];
+
+      let isOrphan = false;
+      if (bprTag && !activeRecordIds.has(bprTag)) {
+        isOrphan = true;
+      } else if (distTag && !activeDistIds.has(distTag) && !activeRecordIds.has(distTag.replace('pd-', '').replace('dist-', ''))) {
+        isOrphan = true;
+      }
+
+      if (isOrphan) {
+        orphanedTxIds.add(t.id);
+        if (t.memberId && t.amount > 0) {
+          memberOrphanDeductions[t.memberId] = (memberOrphanDeductions[t.memberId] || 0) + Number(t.amount);
+        }
+      }
+    });
+
+    if (orphanedTxIds.size > 0) {
+      setTransactions(prev => {
+        const cleaned = prev.filter(t => !orphanedTxIds.has(t.id));
+        localStorage.setItem('bondhu_transactions', JSON.stringify(cleaned));
+        return cleaned;
+      });
+      orphanedTxIds.forEach(id => deleteDoc(doc(db, 'transactions', id)).catch(console.error));
+
+      // Reconcile affected members
+      if (Object.keys(memberOrphanDeductions).length > 0) {
+        setMembers(prev => prev.map(m => {
+          const deduct = memberOrphanDeductions[m.id];
+          if (!deduct) return m;
+          const newGen = Math.max(0, Number(((m.generalSavingsBalance || 0) - deduct).toFixed(2)));
+          const newTot = Math.max(0, Number(((m.totalSavings || 0) - deduct).toFixed(2)));
+          const updated: Member = { ...m, generalSavingsBalance: newGen, totalSavings: newTot };
+          safeSetDoc(doc(db, 'members', m.id), updated, { merge: true }).catch(console.error);
+          safeSetDoc(doc(db, 'memberFinancials', m.id), {
+            generalSavingsBalance: newGen,
+            totalSavings: newTot,
+            updatedAt: new Date().toISOString(),
+          }, { merge: true }).catch(console.error);
+          return updated;
+        }));
+      }
+    }
+  }, [businessProfitRecords, profitDistributions.length]);
+
   // Helper date - returns local YYYY-MM-DD to match browser date pickers precisely
   const getTodayDateStr = () => {
     const d = new Date();
@@ -3287,29 +3373,106 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     // 2. Remove associated income voucher
-    setVouchers(prev => prev.filter(v => v.id !== `v-${record.id}` && !v.notes?.includes(record.id)));
+    setVouchers(prev => {
+      const updated = prev.filter(v => v.id !== `v-${record.id}` && !v.notes?.includes(record.id));
+      localStorage.setItem('bondhu_vouchers', JSON.stringify(updated));
+      return updated;
+    });
     deleteDoc(doc(db, 'incomeExpenses', `v-${record.id}`)).catch(console.error);
 
-    // 3. Revert member savings and delete passbook transactions (Requirement 6)
-    const distributions = record.memberDistributions || [];
-    const deductionMap: Record<string, number> = {};
-    const txIdsToDelete = new Set<string>();
+    // 3. Find ALL associated profit distributions (by pd- prefix, dist- prefix, or notes)
+    const associatedDistributions = profitDistributions.filter(d =>
+      d.id === `pd-${record.id}` ||
+      d.id === `dist-${record.id}` ||
+      (d as any).businessProfitRecordId === record.id ||
+      (d.notes && (d.notes.includes(record.id) || (record.applicationNo && d.notes.includes(record.applicationNo))))
+    );
+    const associatedDistIds = new Set([`pd-${record.id}`, `dist-${record.id}`, ...associatedDistributions.map(d => d.id)]);
+    const distNos = new Set(associatedDistributions.map(d => d.distributionNo).filter(Boolean) as string[]);
 
-    distributions.forEach(d => {
-      if (d.allocatedProfit > 0 && d.creditedToSavings !== false) {
-        deductionMap[d.memberId] = Number(((deductionMap[d.memberId] || 0) + d.allocatedProfit).toFixed(2));
-      }
+    // 4. Identify all associated transaction IDs to delete
+    const txIdsToDelete = new Set<string>();
+    (record.memberDistributions || []).forEach(d => {
       if (d.transactionId) txIdsToDelete.add(d.transactionId);
       txIdsToDelete.add(`tx-${record.id}-${d.memberId}`);
     });
+    associatedDistributions.forEach(dist => {
+      (dist.memberDistributions || []).forEach(d => {
+        if (d.transactionId) txIdsToDelete.add(d.transactionId);
+        txIdsToDelete.add(`tx-${record.id}-${d.memberId}`);
+      });
+    });
 
-    if (Object.keys(deductionMap).length > 0) {
+    const linkedTxs = transactions.filter(t =>
+      txIdsToDelete.has(t.id) ||
+      (t.type === 'profit_share' && (
+        (t.notes && (
+          t.notes.includes(record.id) ||
+          (record.applicationNo && t.notes.includes(record.applicationNo)) ||
+          Array.from(distNos).some(no => t.notes?.includes(no)) ||
+          Array.from(associatedDistIds).some(did => t.notes?.includes(did))
+        )) ||
+        (t.voucherNo && (t.voucherNo.includes(record.id) || t.voucherNo.includes(record.id.slice(-4))))
+      ))
+    );
+    linkedTxs.forEach(t => txIdsToDelete.add(t.id));
+
+    // 5. Calculate profit deduction per member
+    const memberDeductionMap: Record<string, number> = {};
+    linkedTxs.forEach(t => {
+      if (t.memberId && t.amount > 0) {
+        memberDeductionMap[t.memberId] = (memberDeductionMap[t.memberId] || 0) + Number(t.amount);
+      }
+    });
+    const allDistItems = [
+      ...(record.memberDistributions || []),
+      ...associatedDistributions.flatMap(d => d.memberDistributions || [])
+    ];
+    allDistItems.forEach(d => {
+      if (d.memberId && d.allocatedProfit > 0 && d.creditedToSavings !== false) {
+        if (!memberDeductionMap[d.memberId]) {
+          memberDeductionMap[d.memberId] = d.allocatedProfit;
+        }
+      }
+    });
+
+    // 6. Delete transactions from state, localStorage, and Firestore
+    if (txIdsToDelete.size > 0) {
+      setTransactions(prev => {
+        const remaining = prev.filter(t => !txIdsToDelete.has(t.id));
+        localStorage.setItem('bondhu_transactions', JSON.stringify(remaining));
+        return remaining;
+      });
+      txIdsToDelete.forEach(txId => deleteDoc(doc(db, 'transactions', txId)).catch(console.error));
+    }
+
+    // 7. Delete associated profit distributions from state, localStorage, and Firestore
+    setProfitDistributions(prev => {
+      const remaining = prev.filter(d => !associatedDistIds.has(d.id) && !d.notes?.includes(record.id));
+      localStorage.setItem('bondhu_profit_distributions', JSON.stringify(remaining));
+      return remaining;
+    });
+    associatedDistIds.forEach(did => deleteDoc(doc(db, 'profitDistributions', did)).catch(console.error));
+
+    // 8. Reconcile affected members' savings balance
+    if (Object.keys(memberDeductionMap).length > 0) {
       setMembers(prev => prev.map(m => {
-        const deduct = deductionMap[m.id];
+        const deduct = memberDeductionMap[m.id];
         if (!deduct) return m;
-        const newGen = Math.max(0, Number(((m.generalSavingsBalance || 0) - deduct).toFixed(2)));
-        const newTot = Math.max(0, Number(((m.totalSavings || 0) - deduct).toFixed(2)));
-        const updated = { ...m, generalSavingsBalance: newGen, totalSavings: newTot };
+
+        const remainingMemberTxs = transactions.filter(
+          t => t.memberId === m.id && t.status === 'completed' && !txIdsToDelete.has(t.id)
+        );
+        const dep = remainingMemberTxs.filter(t => t.type === 'deposit').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+        const withdr = remainingMemberTxs.filter(t => t.type === 'withdraw').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+        const prof = remainingMemberTxs.filter(t => t.type === 'profit_share').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+
+        const newGen = dep > 0 || withdr > 0 || prof > 0
+          ? Math.max(0, dep + prof - withdr)
+          : Math.max(0, Number(((m.generalSavingsBalance || 0) - deduct).toFixed(2)));
+        const newTot = newGen + (Number(m.dpsSavingsBalance) || 0) + (Number(m.fdrSavingsBalance) || 0);
+
+        const updated: Member = { ...m, generalSavingsBalance: newGen, totalSavings: newTot };
         safeSetDoc(doc(db, 'members', m.id), updated, { merge: true }).catch(console.error);
         safeSetDoc(doc(db, 'memberFinancials', m.id), {
           generalSavingsBalance: newGen,
@@ -3320,15 +3483,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }));
     }
 
-    // Delete associated transactions
-    setTransactions(prev => prev.filter(t => !txIdsToDelete.has(t.id) && !t.notes?.includes(record.id)));
-    txIdsToDelete.forEach(txId => deleteDoc(doc(db, 'transactions', txId)).catch(console.error));
-
-    // Delete associated profit distribution
-    setProfitDistributions(prev => prev.filter(d => d.id !== `pd-${record.id}` && !d.notes?.includes(record.id)));
-    deleteDoc(doc(db, 'profitDistributions', `pd-${record.id}`)).catch(console.error);
-
-    // 4. Delete the profit record itself
+    // 9. Delete the profit record itself
     const remainingProfitRecords = businessProfitRecords.filter(p => p.id !== id);
     setBusinessProfitRecords(remainingProfitRecords);
     localStorage.setItem('bondhu_business_profit_records', JSON.stringify(remainingProfitRecords));
@@ -3817,6 +3972,39 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return updated;
       });
       await deleteDoc(doc(db, 'profitDistributions', id));
+
+      // 5. If this distribution was linked to a businessProfitRecord, clean up that record and funding too!
+      const recordTag = dist.id.startsWith('pd-')
+        ? dist.id.slice(3)
+        : (dist.id.startsWith('dist-bpr-')
+            ? dist.id.slice(9)
+            : dist.notes?.match(/\[(bpr-[^\]]+)\]/)?.[1]);
+      if (recordTag) {
+        const linkedRecord = businessProfitRecords.find(p => p.id === recordTag);
+        if (linkedRecord) {
+          if (linkedRecord.businessFundingId) {
+            const funding = businessFundings.find(f => f.id === linkedRecord.businessFundingId);
+            if (funding) {
+              const newTotalProfit = Math.max(0, (funding.totalProfitRecorded || 0) - (linkedRecord.totalBusinessProfit || 0));
+              const newMemberProfit = Math.max(0, (funding.totalMemberProfitPaid || 0) - (linkedRecord.memberProfitAmount || 0));
+              const newSomitiProfit = Math.max(0, (funding.totalSomitiProfitEarned || 0) - (linkedRecord.somitiProfitAmount || 0));
+              const updatedFunding: Partial<BusinessFunding> = {
+                totalProfitRecorded: newTotalProfit,
+                totalMemberProfitPaid: newMemberProfit,
+                totalSomitiProfitEarned: newSomitiProfit,
+              };
+              setBusinessFundings(prev => prev.map(f => f.id === funding.id ? { ...f, ...updatedFunding } : f));
+              safeSetDoc(doc(db, 'businessFundings', funding.id), updatedFunding, { merge: true }).catch(console.error);
+            }
+          }
+          setBusinessProfitRecords(prev => {
+            const remaining = prev.filter(p => p.id !== recordTag);
+            localStorage.setItem('bondhu_business_profit_records', JSON.stringify(remaining));
+            return remaining;
+          });
+          deleteDoc(doc(db, 'businessProfitRecords', recordTag)).catch(console.error);
+        }
+      }
 
       return true;
     } catch (err) {
