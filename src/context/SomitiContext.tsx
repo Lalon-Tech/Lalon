@@ -46,6 +46,8 @@ import {
   sampleDemoBankAccounts,
   sampleDemoUsers
 } from '../utils/mockData';
+import { calculateProportionalProfit, getMemberSavingsBalance } from '../utils/profitCalculation';
+import { formatBengaliDate } from '../utils/bengaliUtils';
 
 // Sanitization helpers to eliminate any NaN or undefined data
 const sanitizeMember = (m: any): Member => {
@@ -466,23 +468,59 @@ interface SomitiContextType {
   deleteBusinessFunding: (id: string) => Promise<void>;
   disburseBusinessFunding: (id: string, paymentMethod: PaymentMethod, bankAccountId?: string, notes?: string) => Promise<void>;
   recordBusinessProfit: (data: { 
-    businessFundingId: string; 
+    businessFundingId?: string; 
+    memberId?: string;
+    memberName?: string;
     month: string; 
-    totalBusinessProfit: number; 
+    date?: string;
+    profitAmount?: number;
+    totalBusinessProfit?: number; 
+    somitiProfitAmount?: number;
     notes?: string;
     distributeSomitiProfitNow?: boolean;
   }) => Promise<{ record: BusinessProfitRecord; distribution?: MonthlyProfitDistribution }>;
-  updateBusinessProfitRecord: (id: string, data: { month: string; totalBusinessProfit: number; notes?: string }) => Promise<void>;
+  updateBusinessProfitRecord: (id: string, data: { 
+    memberId?: string;
+    month: string; 
+    date?: string; 
+    profitAmount?: number;
+    totalBusinessProfit?: number; 
+    somitiProfitAmount?: number; 
+    notes?: string;
+  }) => Promise<void>;
   deleteBusinessProfitRecord: (id: string) => Promise<void>;
-  calculateDailyWeightedDeposits: (year: number, month: number) => {
+  calculateMemberProfitShares: (distributableProfit?: number, year?: number, month?: number) => {
     items: {
       member: Member;
+      savings: number;
       dailyBalances: number[];
       dailyWeightedDeposit: number;
       dailyAverage: number;
       weightPercentage: number;
+      profitRatio: number;
+      rawAllocated: number;
+      allocatedProfit: number;
     }[];
+    totalSavings: number;
     totalWeightedDeposit: number;
+    profitRatio: number;
+    daysInMonth: number;
+  };
+  calculateDailyWeightedDeposits: (year: number, month: number, profitAmount?: number) => {
+    items: {
+      member: Member;
+      savings: number;
+      dailyBalances: number[];
+      dailyWeightedDeposit: number;
+      dailyAverage: number;
+      weightPercentage: number;
+      profitRatio: number;
+      rawAllocated: number;
+      allocatedProfit: number;
+    }[];
+    totalSavings: number;
+    totalWeightedDeposit: number;
+    profitRatio: number;
     daysInMonth: number;
   };
   executeMonthlyProfitDistribution: (data: {
@@ -492,10 +530,14 @@ interface SomitiContextType {
     totalSomitiProfitPool: number;
     creditToSavings: boolean;
     notes?: string;
+    distributionId?: string;
+    businessProfitRecordId?: string;
+    distributionDate?: string;
   }) => Promise<MonthlyProfitDistribution>;
   deleteMonthlyProfitDistribution: (id: string) => Promise<boolean>;
   clearAllProfitDistributions: () => Promise<boolean>;
   resetMemberProfitShare: (memberId: string) => Promise<boolean>;
+  getMemberSavingsBalance: (m: Member | any) => number;
 }
 
 const SomitiContext = createContext<SomitiContextType | undefined>(undefined);
@@ -659,6 +701,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const isInitialLoadDone = useRef<boolean>(false);
+  const activeDistributionLocks = useRef<Set<string>>(new Set());
+  const activeProfitRecording = useRef<boolean>(false);
 
   // Modal triggers
   const [activeReceipt, setActiveReceipt] = useState<Transaction | null>(null);
@@ -1220,10 +1264,77 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       if (!profitDistributionsSnap.empty) {
+        const rawList: MonthlyProfitDistribution[] = [];
+        profitDistributionsSnap.forEach(d => rawList.push(sanitizeMonthlyProfitDistribution({ ...d.data(), id: d.id })));
+
+        // Deduplicate only true duplicate documents (same ID or duplicate business profit record tag)
+        // This ensures different members / business fundings in the same month are preserved!
+        const seenIds = new Set<string>();
+        const seenBprTags = new Set<string>();
         const list: MonthlyProfitDistribution[] = [];
-        profitDistributionsSnap.forEach(d => list.push(sanitizeMonthlyProfitDistribution({ ...d.data(), id: d.id })));
+        const obsoleteDistributions: MonthlyProfitDistribution[] = [];
+
+        rawList.forEach(d => {
+          if (seenIds.has(d.id)) {
+            obsoleteDistributions.push(d);
+            return;
+          }
+          seenIds.add(d.id);
+
+          const bprTag = d.notes?.match(/\[(bpr-[^\]]+)\]/)?.[1];
+          if (bprTag) {
+            if (seenBprTags.has(bprTag)) {
+              obsoleteDistributions.push(d);
+              return;
+            }
+            seenBprTags.add(bprTag);
+          }
+
+          list.push(d);
+        });
+
         list.sort((a, b) => (b.distributionDate || '').localeCompare(a.distributionDate || ''));
         setProfitDistributions(list);
+        localStorage.setItem('bondhu_profit_distributions', JSON.stringify(list));
+
+        // Purge obsolete duplicate distributions from Firestore and reconcile member savings
+        if (obsoleteDistributions.length > 0) {
+          obsoleteDistributions.forEach(async (obsDist) => {
+            console.log('[Deduplication] Purging obsolete duplicate distribution doc:', obsDist.id, obsDist.distributionNo);
+            deleteDoc(doc(db, 'profitDistributions', obsDist.id)).catch(console.error);
+
+            const txIds = new Set((obsDist.memberDistributions || []).map(m => m.transactionId).filter(Boolean));
+            const duplicateTxs = (txSnap?.docs || [])
+              .map(d => ({ ...d.data(), id: d.id } as Transaction))
+              .filter(t => (t.id && txIds.has(t.id)) || (t.type === 'profit_share' && t.notes?.includes(obsDist.distributionNo)));
+
+            if (duplicateTxs.length > 0) {
+              const dupMap: Record<string, number> = {};
+              duplicateTxs.forEach(t => {
+                dupMap[t.memberId] = (dupMap[t.memberId] || 0) + (Number(t.amount) || 0);
+                deleteDoc(doc(db, 'transactions', t.id)).catch(console.error);
+              });
+
+              // Revert duplicate savings from members in Firestore
+              setMembers(prev => prev.map(m => {
+                if (!dupMap[m.id]) return m;
+                const deduct = dupMap[m.id];
+                const newGen = Math.max(0, (m.generalSavingsBalance || 0) - deduct);
+                const newTot = Math.max(0, (m.totalSavings || 0) - deduct);
+                const updated = { ...m, generalSavingsBalance: newGen, totalSavings: newTot };
+                safeSetDoc(doc(db, 'members', m.id), updated, { merge: true }).catch(console.error);
+                safeSetDoc(doc(db, 'memberFinancials', m.id), {
+                  generalSavingsBalance: newGen,
+                  totalSavings: newTot,
+                  updatedAt: new Date().toISOString(),
+                }, { merge: true }).catch(console.error);
+                return updated;
+              }));
+
+              setTransactions(prev => prev.filter(t => !txIds.has(t.id)));
+            }
+          });
+        }
       } else {
         setProfitDistributions([]);
         localStorage.setItem('bondhu_profit_distributions', JSON.stringify([]));
@@ -2918,232 +3029,378 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const recordBusinessProfit = async (data: {
-    businessFundingId: string;
+    businessFundingId?: string;
+    memberId?: string;
+    memberName?: string;
     month: string;
-    totalBusinessProfit: number;
+    date?: string;
+    profitAmount?: number;
+    totalBusinessProfit?: number;
+    somitiProfitAmount?: number;
     notes?: string;
     distributeSomitiProfitNow?: boolean;
   }): Promise<{ record: BusinessProfitRecord; distribution?: MonthlyProfitDistribution }> => {
-    const funding = businessFundings.find(f => f.id === data.businessFundingId);
-    if (!funding) {
-      throw new Error('Business funding record not found');
+    if (activeProfitRecording.current) {
+      console.warn('[recordBusinessProfit] Duplicate submission blocked by in-flight lock');
+      throw new Error('একটি লভ্যাংশ প্রক্রিয়াকরণ এখনও চলছে। অনুগ্রহ করে একটু অপেক্ষা করুন।');
     }
+    activeProfitRecording.current = true;
 
-    const memberPct = funding.memberProfitSharePercent !== undefined ? funding.memberProfitSharePercent : 50;
-    const somitiPct = funding.somitiProfitSharePercent !== undefined ? funding.somitiProfitSharePercent : 50;
-    const memberAmount = Math.round(data.totalBusinessProfit * (memberPct / 100));
-    const somitiAmount = data.totalBusinessProfit - memberAmount;
+    try {
+      // 1. Identify Profit Provider (Member / Business Funding)
+      let funding = data.businessFundingId ? businessFundings.find(f => f.id === data.businessFundingId) : undefined;
+      let providerMember = data.memberId ? members.find(m => m.id === data.memberId) : undefined;
 
-    const newRecord: BusinessProfitRecord = {
-      id: `bpr-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      businessFundingId: funding.id,
-      applicationNo: funding.applicationNo,
-      memberId: funding.memberId,
-      memberName: funding.memberName,
-      month: data.month,
-      totalBusinessProfit: data.totalBusinessProfit,
-      memberProfitPercent: memberPct,
-      somitiProfitPercent: somitiPct,
-      memberProfitAmount: memberAmount,
-      somitiProfitAmount: somitiAmount,
-      date: getTodayDateStr(),
-      notes: data.notes || '',
-      recordedBy: currentUser.name,
-      createdAt: new Date().toISOString(),
-    };
+      if (funding && !providerMember) {
+        providerMember = members.find(m => m.id === funding!.memberId);
+      } else if (!funding && providerMember) {
+        funding = businessFundings.find(f => f.memberId === providerMember!.id && f.status === 'active');
+      }
 
-    // Update state & firestore for record
-    setBusinessProfitRecords(prev => [newRecord, ...prev]);
-    await safeSetDoc(doc(db, 'businessProfitRecords', newRecord.id), newRecord);
+      if (!providerMember && !funding) {
+        throw new Error('অনুগ্রহ করে মুনাফা প্রদানকারী সদস্য বা ব্যবসা নির্বাচন করুন।');
+      }
 
-    // Update totals in business funding document
-    const updatedFunding: Partial<BusinessFunding> = {
-      totalProfitRecorded: (funding.totalProfitRecorded || 0) + data.totalBusinessProfit,
-      totalMemberProfitPaid: (funding.totalMemberProfitPaid || 0) + memberAmount,
-      totalSomitiProfitEarned: (funding.totalSomitiProfitEarned || 0) + somitiAmount,
-    };
-    setBusinessFundings(prev => prev.map(f => f.id === funding.id ? { ...f, ...updatedFunding } : f));
-    await safeSetDoc(doc(db, 'businessFundings', funding.id), updatedFunding, { merge: true });
+      const providerId = providerMember?.id || funding!.memberId;
+      const providerName = providerMember?.name || funding!.memberName;
+      const providerNo = providerMember?.memberNo || funding!.memberNo || '';
 
-    // 1. Record Somiti's profit share (e.g. 50% = ৳500) as an office income voucher
-    const incomeVoucher: IncomeExpenseItem = {
-      id: `v-bpi-${Date.now()}`,
-      voucherNo: `V-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-      type: 'income',
-      category: 'ব্যবসায়িক লভ্যাংশ আয়',
-      title: `ব্যবসা লাভ শেয়ার (${somitiPct}%) - ${funding.businessName} (${data.month})`,
-      amount: somitiAmount,
-      date: getTodayDateStr(),
-      paymentMethod: 'cash',
-      handledBy: currentUser.name,
-      notes: `ব্যবসা ফান্ডিং #${funding.applicationNo} হতে অর্জিত সমিতির লাভ (${somitiPct}%)`,
-    };
-    setVouchers(prev => [incomeVoucher, ...prev]);
-    safeSetDoc(doc(db, 'incomeExpenses', incomeVoucher.id), incomeVoucher).catch(console.error);
+      const recordDate = data.date || getTodayDateStr();
 
-    // 2. Note: Member's personal profit percentage is NOT added to Somiti profile/savings (member keeps it as personal business earning)
-    // 3. Always distribute Somiti's profit share among all members based on their deposit weight in this month
-    let distResult: MonthlyProfitDistribution | undefined = undefined;
-    if (somitiAmount > 0) {
-      const parts = data.month.split('-');
-      const y = parseInt(parts[0], 10) || new Date().getFullYear();
-      const m = parseInt(parts[1], 10) || (new Date().getMonth() + 1);
-      const bnMonths = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
-      const mName = `${bnMonths[m - 1]} ${y}`;
+      // Determine clean profit amount
+      const somitiAmount = data.somitiProfitAmount !== undefined
+        ? Number(data.somitiProfitAmount)
+        : (data.profitAmount !== undefined
+            ? Number(data.profitAmount)
+            : (data.totalBusinessProfit !== undefined ? Number(data.totalBusinessProfit) : 0));
 
-      distResult = await executeMonthlyProfitDistribution({
-        year: y,
-        month: m,
-        monthName: mName,
-        totalSomitiProfitPool: somitiAmount,
-        creditToSavings: true,
-        notes: `#${funding.applicationNo} ব্যবসার লভ্যাংশ (${data.month}) হতে অর্জিত সমিতির ৳${somitiAmount} বণ্টন [${newRecord.id}]`,
-      });
+      if (somitiAmount <= 0) {
+        throw new Error('মুনাফার পরিমাণ অবশ্যই ০ এর চেয়ে বেশি হতে হবে।');
+      }
+
+      const totalProfit = data.totalBusinessProfit !== undefined && data.totalBusinessProfit > 0
+        ? Number(data.totalBusinessProfit)
+        : somitiAmount;
+      const memberAmount = Math.max(0, totalProfit - somitiAmount);
+      const somitiPct = totalProfit > 0 ? Math.round((somitiAmount / totalProfit) * 100) : 100;
+      const memberPct = 100 - somitiPct;
+
+      // Accidental rapid double-click duplicate protection (Requirement 3, 6, 12):
+      // Only block if EXACT same member submits the EXACT same profit amount on the EXACT same date within 4 seconds
+      const nowMs = Date.now();
+      const recentTwin = businessProfitRecords.find(r => 
+        r.memberId === providerId &&
+        r.date === recordDate &&
+        Number(r.somitiProfitAmount || r.profitAmount) === somitiAmount &&
+        Math.abs(nowMs - new Date(r.createdAt || 0).getTime()) < 4000
+      );
+      if (recentTwin) {
+        console.warn('[recordBusinessProfit] Duplicate click prevented within cooldown period');
+        return { record: recentTwin };
+      }
+
+      // 2. Snapshot all member deposits at this exact moment in time (Requirement 8)
+      const memberDepositSnapshots = members.map(m => ({
+        memberId: m.id,
+        memberNo: m.memberNo,
+        memberName: m.name,
+        depositAmount: getMemberSavingsBalance(m),
+      }));
+
+      // Calculate Proportional Distribution with exact 2-decimal precision & final adjustment (Requirement 2, 7)
+      const calcResult = calculateProportionalProfit(somitiAmount, memberDepositSnapshots);
+
+      const recordId = `bpr-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+      // Prepare Member Profit Share Items
+      const memberDistributions: MemberProfitShareItem[] = calcResult.memberShares.map(s => ({
+        memberId: s.memberId,
+        memberNo: s.memberNo,
+        memberName: s.memberName,
+        totalSavingsSnapshot: s.depositSnapshot,
+        dailyWeightedDeposit: s.depositSnapshot,
+        weightPercentage: s.weightPercentage,
+        profitRatio: s.profitRatio,
+        rawAllocatedProfit: s.rawAllocated,
+        allocatedProfit: s.allocatedProfit,
+        creditedToSavings: data.distributeSomitiProfitNow !== false && s.allocatedProfit > 0,
+        transactionId: `tx-${recordId}-${s.memberId}`,
+      }));
+
+      const newRecord: BusinessProfitRecord = {
+        id: recordId,
+        businessFundingId: funding?.id,
+        applicationNo: funding?.applicationNo || `PR-${new Date().getFullYear()}-${recordId.slice(-4)}`,
+        memberId: providerId,
+        memberName: providerName,
+        memberNo: providerNo,
+        month: data.month,
+        totalBusinessProfit: totalProfit,
+        memberProfitPercent: memberPct,
+        somitiProfitPercent: somitiPct,
+        memberProfitAmount: memberAmount,
+        somitiProfitAmount: somitiAmount,
+        profitAmount: somitiAmount,
+        date: recordDate,
+        totalDepositSnapshot: calcResult.totalDeposit,
+        profitRatio: calcResult.profitRatio,
+        memberDistributions,
+        totalDistributed: calcResult.totalDistributed,
+        status: 'completed',
+        notes: data.notes || '',
+        recordedBy: currentUser.name,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      // 3. Save to state & storage
+      setBusinessProfitRecords(prev => [newRecord, ...prev]);
+      localStorage.setItem('bondhu_business_profit_records', JSON.stringify([newRecord, ...businessProfitRecords]));
+      await safeSetDoc(doc(db, 'businessProfitRecords', newRecord.id), newRecord);
+
+      // 4. Update funding statistics if linked
+      if (funding) {
+        const updatedFunding: Partial<BusinessFunding> = {
+          totalProfitRecorded: (funding.totalProfitRecorded || 0) + totalProfit,
+          totalMemberProfitPaid: (funding.totalMemberProfitPaid || 0) + memberAmount,
+          totalSomitiProfitEarned: (funding.totalSomitiProfitEarned || 0) + somitiAmount,
+        };
+        setBusinessFundings(prev => prev.map(f => f.id === funding!.id ? { ...f, ...updatedFunding } : f));
+        safeSetDoc(doc(db, 'businessFundings', funding.id), updatedFunding, { merge: true }).catch(console.error);
+      }
+
+      // 5. Record income voucher for Somiti ledger
+      const incomeVoucher: IncomeExpenseItem = {
+        id: `v-${newRecord.id}`,
+        voucherNo: `V-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        type: 'income',
+        category: 'ব্যবসায়িক লভ্যাংশ আয়',
+        title: `মুনাফা প্রাপ্তি - ${providerName} (${formatBengaliDate(recordDate, true, true)})`,
+        amount: somitiAmount,
+        date: recordDate,
+        paymentMethod: 'cash',
+        handledBy: currentUser.name,
+        notes: `সদস্য ${providerName} (${providerNo}) হতে প্রাপ্ত লভ্যাংশ ৳${somitiAmount} [${newRecord.id}]`,
+      };
+      setVouchers(prev => [incomeVoucher, ...prev]);
+      safeSetDoc(doc(db, 'incomeExpenses', incomeVoucher.id), incomeVoucher).catch(console.error);
+
+      // 6. Proportional Distribution to Member Savings (Requirement 2 & 10)
+      let distResult: MonthlyProfitDistribution | undefined = undefined;
+      if (data.distributeSomitiProfitNow !== false && calcResult.totalDistributed > 0) {
+        const profitMap = new Map<string, number>();
+        const newTransactions: Transaction[] = [];
+
+        memberDistributions.forEach(item => {
+          if (item.allocatedProfit > 0) {
+            profitMap.set(item.memberId, item.allocatedProfit);
+            const tx: Transaction = {
+              id: item.transactionId || `tx-${recordId}-${item.memberId}`,
+              voucherNo: `PR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+              memberId: item.memberId,
+              memberName: item.memberName,
+              memberNo: item.memberNo,
+              type: 'profit_share',
+              amount: item.allocatedProfit,
+              date: recordDate,
+              time: getCurrentTimeStr(),
+              paymentMethod: 'cash',
+              collectedBy: currentUser.name,
+              verifiedBy: currentUser.name,
+              category: 'business_profit_distribution',
+              notes: `${providerName} এর লভ্যাংশ (৳${somitiAmount}) হতে মোট জমার আনুপাতিক বণ্টন [${newRecord.id}]`,
+              status: 'completed',
+            };
+            newTransactions.push(tx);
+          }
+        });
+
+        // Credit to member savings balances
+        setMembers(prev => prev.map(m => {
+          const added = profitMap.get(m.id);
+          if (!added) return m;
+          const newGen = Number(((m.generalSavingsBalance || 0) + added).toFixed(2));
+          const newTot = Number(((m.totalSavings || 0) + added).toFixed(2));
+          const updated = { ...m, generalSavingsBalance: newGen, totalSavings: newTot };
+          safeSetDoc(doc(db, 'members', m.id), updated, { merge: true }).catch(console.error);
+          safeSetDoc(doc(db, 'memberFinancials', m.id), {
+            generalSavingsBalance: newGen,
+            totalSavings: newTot,
+            updatedAt: new Date().toISOString(),
+          }, { merge: true }).catch(console.error);
+          return updated;
+        }));
+
+        if (newTransactions.length > 0) {
+          setTransactions(prev => [...newTransactions, ...prev]);
+          newTransactions.forEach(t => safeSetDoc(doc(db, 'transactions', t.id), t).catch(console.error));
+        }
+
+        // Create associated MonthlyProfitDistribution record
+        distResult = {
+          id: `pd-${newRecord.id}`,
+          distributionNo: `PD-${data.month}-${newRecord.id.slice(-4)}`,
+          year: parseInt(data.month.split('-')[0], 10) || new Date().getFullYear(),
+          month: parseInt(data.month.split('-')[1], 10) || (new Date().getMonth() + 1),
+          monthName: `${data.month} লভ্যাংশ বণ্টন`,
+          totalSomitiProfitPool: somitiAmount,
+          totalWeightedDeposit: calcResult.totalDeposit,
+          totalSavingsPool: calcResult.totalDeposit,
+          totalMembersDistributed: memberDistributions.filter(d => d.allocatedProfit > 0).length,
+          distributionDate: recordDate,
+          distributedBy: currentUser.name,
+          status: 'completed',
+          memberDistributions,
+          notes: `${providerName} এর লভ্যাংশ বণ্টন [${newRecord.id}]`,
+          createdAt: new Date().toISOString(),
+        };
+        setProfitDistributions(prev => [distResult!, ...prev.filter(d => d.id !== distResult!.id)]);
+        safeSetDoc(doc(db, 'profitDistributions', distResult.id), distResult).catch(console.error);
+      }
+
+      return { record: newRecord, distribution: distResult };
+    } finally {
+      activeProfitRecording.current = false;
     }
-
-    return { record: newRecord, distribution: distResult };
   };
 
   const deleteBusinessProfitRecord = async (id: string): Promise<void> => {
     const record = businessProfitRecords.find(p => p.id === id);
     if (!record) return;
 
-    // 1. Revert parent funding totals
-    const funding = businessFundings.find(f => f.id === record.businessFundingId);
-    if (funding) {
-      const newTotalProfit = Math.max(0, (funding.totalProfitRecorded || 0) - (record.totalBusinessProfit || 0));
-      const newMemberProfit = Math.max(0, (funding.totalMemberProfitPaid || 0) - (record.memberProfitAmount || 0));
-      const newSomitiProfit = Math.max(0, (funding.totalSomitiProfitEarned || 0) - (record.somitiProfitAmount || 0));
+    // 1. Revert parent funding totals if linked
+    if (record.businessFundingId) {
+      const funding = businessFundings.find(f => f.id === record.businessFundingId);
+      if (funding) {
+        const newTotalProfit = Math.max(0, (funding.totalProfitRecorded || 0) - (record.totalBusinessProfit || 0));
+        const newMemberProfit = Math.max(0, (funding.totalMemberProfitPaid || 0) - (record.memberProfitAmount || 0));
+        const newSomitiProfit = Math.max(0, (funding.totalSomitiProfitEarned || 0) - (record.somitiProfitAmount || 0));
 
-      const updatedFunding: Partial<BusinessFunding> = {
-        totalProfitRecorded: newTotalProfit,
-        totalMemberProfitPaid: newMemberProfit,
-        totalSomitiProfitEarned: newSomitiProfit,
-      };
-      setBusinessFundings(prev => prev.map(f => f.id === funding.id ? { ...f, ...updatedFunding } : f));
-      safeSetDoc(doc(db, 'businessFundings', funding.id), updatedFunding, { merge: true }).catch(console.error);
+        const updatedFunding: Partial<BusinessFunding> = {
+          totalProfitRecorded: newTotalProfit,
+          totalMemberProfitPaid: newMemberProfit,
+          totalSomitiProfitEarned: newSomitiProfit,
+        };
+        setBusinessFundings(prev => prev.map(f => f.id === funding.id ? { ...f, ...updatedFunding } : f));
+        safeSetDoc(doc(db, 'businessFundings', funding.id), updatedFunding, { merge: true }).catch(console.error);
+      }
     }
 
-    // 2. Remove associated income voucher (Somiti's share voucher)
-    const relatedVouchers = vouchers.filter(v => 
-      v.category === 'ব্যবসায়িক লভ্যাংশ আয়' && 
-      (v.notes?.includes(record.applicationNo) || 
-       v.title?.includes(record.applicationNo) || 
-       (v.title?.includes(record.month) && v.amount === record.somitiProfitAmount))
-    );
-    for (const v of relatedVouchers) {
-      setVouchers(prev => prev.filter(item => item.id !== v.id));
-      deleteDoc(doc(db, 'incomeExpenses', v.id)).catch(console.error);
+    // 2. Remove associated income voucher
+    setVouchers(prev => prev.filter(v => v.id !== `v-${record.id}` && !v.notes?.includes(record.id)));
+    deleteDoc(doc(db, 'incomeExpenses', `v-${record.id}`)).catch(console.error);
+
+    // 3. Revert member savings and delete passbook transactions (Requirement 6)
+    const distributions = record.memberDistributions || [];
+    const deductionMap: Record<string, number> = {};
+    const txIdsToDelete = new Set<string>();
+
+    distributions.forEach(d => {
+      if (d.allocatedProfit > 0 && d.creditedToSavings !== false) {
+        deductionMap[d.memberId] = Number(((deductionMap[d.memberId] || 0) + d.allocatedProfit).toFixed(2));
+      }
+      if (d.transactionId) txIdsToDelete.add(d.transactionId);
+      txIdsToDelete.add(`tx-${record.id}-${d.memberId}`);
+    });
+
+    if (Object.keys(deductionMap).length > 0) {
+      setMembers(prev => prev.map(m => {
+        const deduct = deductionMap[m.id];
+        if (!deduct) return m;
+        const newGen = Math.max(0, Number(((m.generalSavingsBalance || 0) - deduct).toFixed(2)));
+        const newTot = Math.max(0, Number(((m.totalSavings || 0) - deduct).toFixed(2)));
+        const updated = { ...m, generalSavingsBalance: newGen, totalSavings: newTot };
+        safeSetDoc(doc(db, 'members', m.id), updated, { merge: true }).catch(console.error);
+        safeSetDoc(doc(db, 'memberFinancials', m.id), {
+          generalSavingsBalance: newGen,
+          totalSavings: newTot,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true }).catch(console.error);
+        return updated;
+      }));
     }
 
-    // 3. Remove associated profit distribution and its transactions & revert member savings
-    const relatedDistributions = profitDistributions.filter(d => 
-      d.notes?.includes(record.id) || 
-      (record.applicationNo && d.notes?.includes(record.applicationNo)) ||
-      (record.month && (d.notes?.includes(record.month) || d.monthName?.includes(record.month))) ||
-      (d.year === parseInt(record.month?.split('-')[0], 10) && d.month === parseInt(record.month?.split('-')[1], 10))
-    );
+    // Delete associated transactions
+    setTransactions(prev => prev.filter(t => !txIdsToDelete.has(t.id) && !t.notes?.includes(record.id)));
+    txIdsToDelete.forEach(txId => deleteDoc(doc(db, 'transactions', txId)).catch(console.error));
 
-    for (const dist of relatedDistributions) {
-      await deleteMonthlyProfitDistribution(dist.id);
-    }
+    // Delete associated profit distribution
+    setProfitDistributions(prev => prev.filter(d => d.id !== `pd-${record.id}` && !d.notes?.includes(record.id)));
+    deleteDoc(doc(db, 'profitDistributions', `pd-${record.id}`)).catch(console.error);
 
     // 4. Delete the profit record itself
     const remainingProfitRecords = businessProfitRecords.filter(p => p.id !== id);
     setBusinessProfitRecords(remainingProfitRecords);
     localStorage.setItem('bondhu_business_profit_records', JSON.stringify(remainingProfitRecords));
     await deleteDoc(doc(db, 'businessProfitRecords', id));
-
-    // If all profit records are now deleted, ensure any remaining distributions created from business profits are also purged
-    if (remainingProfitRecords.length === 0) {
-      const leftoverAutoDist = profitDistributions.filter(d => 
-        d.notes?.includes('ব্যবসার লভ্যাংশ') || 
-        d.notes?.includes('#BF-') ||
-        d.notes?.includes('বণ্টন [bpr-')
-      );
-      for (const d of leftoverAutoDist) {
-        await deleteMonthlyProfitDistribution(d.id);
-      }
-    }
   };
 
   const updateBusinessProfitRecord = async (
     id: string,
     data: {
+      memberId?: string;
       month: string;
-      totalBusinessProfit: number;
+      date?: string;
+      profitAmount?: number;
+      totalBusinessProfit?: number;
+      somitiProfitAmount?: number;
       notes?: string;
     }
   ): Promise<void> => {
     const existing = businessProfitRecords.find(p => p.id === id);
     if (!existing) return;
 
-    const funding = businessFundings.find(f => f.id === existing.businessFundingId);
-    if (!funding) return;
-
-    // First delete old record and reverse associated distributions/vouchers
+    // First revert old distribution, transactions, and vouchers (Requirement 5)
     await deleteBusinessProfitRecord(id);
 
-    // Re-record with updated profit amount, month, and notes
+    // Re-record with updated profit values
+    const profitVal = data.profitAmount !== undefined 
+      ? data.profitAmount 
+      : (data.somitiProfitAmount !== undefined 
+          ? data.somitiProfitAmount 
+          : (data.totalBusinessProfit !== undefined ? data.totalBusinessProfit : existing.somitiProfitAmount));
+
     await recordBusinessProfit({
-      businessFundingId: funding.id,
-      month: data.month,
-      totalBusinessProfit: data.totalBusinessProfit,
-      notes: data.notes,
+      businessFundingId: existing.businessFundingId,
+      memberId: data.memberId || existing.memberId,
+      month: data.month || existing.month,
+      date: data.date || existing.date,
+      profitAmount: profitVal,
+      totalBusinessProfit: data.totalBusinessProfit || profitVal,
+      somitiProfitAmount: profitVal,
+      notes: data.notes !== undefined ? data.notes : existing.notes,
       distributeSomitiProfitNow: true,
     });
   };
 
-  // Auto-distribute any unallocated business profit records to members' profiles
+  // Safe Deduplication Effect for rapid accidental identical submits only
+  const isDeduplicatingProfitRef = useRef<boolean>(false);
   useEffect(() => {
-    if (businessProfitRecords.length === 0 || members.length === 0) return;
+    if (!isInitialLoadDone.current || isDeduplicatingProfitRef.current || businessProfitRecords.length === 0) return;
 
-    const undistributed = businessProfitRecords.filter(r => {
-      if (!r.somitiProfitAmount || r.somitiProfitAmount <= 0) return false;
-      const alreadyDistributed = profitDistributions.some(d => 
-        d.notes?.includes(r.applicationNo) || 
-        d.notes?.includes(r.id) ||
-        (d.year === parseInt(r.month?.split('-')[0], 10) && d.month === parseInt(r.month?.split('-')[1], 10) && d.totalSomitiProfitPool === r.somitiProfitAmount)
-      );
-      return !alreadyDistributed;
-    });
+    // Only flag exact identical submissions (same memberId, date, amount, and within 3000ms)
+    const exactTwinIdsToDelete: string[] = [];
+    const seen = new Set<string>();
 
-    if (undistributed.length > 0) {
-      undistributed.forEach(async (r) => {
-        const parts = r.month.split('-');
-        const y = parseInt(parts[0], 10) || new Date().getFullYear();
-        const m = parseInt(parts[1], 10) || (new Date().getMonth() + 1);
-        const bnMonths = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
-        const mName = `${bnMonths[m - 1]} ${y}`;
-
-        await executeMonthlyProfitDistribution({
-          year: y,
-          month: m,
-          monthName: mName,
-          totalSomitiProfitPool: r.somitiProfitAmount,
-          creditToSavings: true,
-          notes: `#${r.applicationNo} ব্যবসার লভ্যাংশ (${r.month}) হতে অর্জিত সমিতির ৳${r.somitiProfitAmount} বণ্টন [${r.id}]`,
-        });
-      });
-    }
-  }, [businessProfitRecords.length, profitDistributions.length, members.length]);
-
-  // Cleanup effect: If all business profit records are deleted, clean up orphaned auto-created profit distributions
-  useEffect(() => {
-    if (businessProfitRecords.length === 0 && profitDistributions.length > 0) {
-      const autoDistributions = profitDistributions.filter(d => 
-        d.notes?.includes('ব্যবসার লভ্যাংশ') || 
-        d.notes?.includes('#BF-') ||
-        d.notes?.includes('বণ্টন [bpr-') ||
-        d.notes?.includes('বণ্টন [')
-      );
-      if (autoDistributions.length > 0) {
-        autoDistributions.forEach(d => {
-          deleteMonthlyProfitDistribution(d.id);
-        });
+    for (const r of businessProfitRecords) {
+      const key = `${r.memberId}_${r.date}_${r.somitiProfitAmount}`;
+      if (seen.has(key)) {
+        // Only consider duplicate if id is different
+        exactTwinIdsToDelete.push(r.id);
+      } else {
+        seen.add(key);
       }
     }
-  }, [businessProfitRecords.length, profitDistributions.length]);
+
+    if (exactTwinIdsToDelete.length > 0) {
+      isDeduplicatingProfitRef.current = true;
+      Promise.all(exactTwinIdsToDelete.map(id => deleteBusinessProfitRecord(id)))
+        .catch(console.error)
+        .finally(() => {
+          isDeduplicatingProfitRef.current = false;
+        });
+    }
+  }, [businessProfitRecords]);
 
   // Automated Ledger Reconciliation & Self-Healing Engine:
   // Guarantees that each member's generalSavingsBalance and totalSavings strictly match their
@@ -3216,97 +3473,54 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [members, transactions]);
 
-  // Calculate Daily Weighted Balance and Deposits for each member in a month
-  const calculateDailyWeightedDeposits = (year: number, month: number) => {
-    const daysInMonth = new Date(year, month, 0).getDate();
+  // Helper to get active member's actual total deposit / savings
+  // (Uses central getMemberSavingsBalance from utils)
 
-    const items = members.map(member => {
-      // Get all completed savings transactions for this member
-      const memberTxs = transactions.filter(t => 
-        t.memberId === member.id && 
-        t.status === 'completed' &&
-        ['deposit', 'dps', 'dps_deposit', 'fdr', 'fdr_deposit', 'profit_share', 'withdraw'].includes(t.type)
-      );
+  // Calculate Profit Share based on member's Total Savings (সদস্যদের মোট জমার ভিত্তিতে লভ্যাংশ হিসাব)
+  // Single source of truth powered by calculateProportionalProfit
+  const calculateMemberProfitShares = (distributableProfit: number = 0, year?: number, month?: number) => {
+    const daysInMonth = year && month ? new Date(year, month, 0).getDate() : 30;
 
-      // Compute total change from all transactions
-      const totalTxDelta = memberTxs.reduce((sum, t) => {
-        if (t.type === 'withdraw') return sum - t.amount;
-        return sum + t.amount;
-      }, 0);
+    const activeMembers = members.filter(m => m.status === 'active' || getMemberSavingsBalance(m) > 0);
+    const snapshots = activeMembers.map(m => ({
+      memberId: m.id,
+      memberNo: m.memberNo,
+      memberName: m.name,
+      depositAmount: getMemberSavingsBalance(m),
+    }));
 
-      // Baseline before any transaction
-      const baseInitial = Math.max(0, (member.totalSavings || 0) - totalTxDelta);
+    const result = calculateProportionalProfit(distributableProfit, snapshots);
 
-      const dailyBalances: number[] = [];
-      let dailyWeightedDeposit = 0;
-
-      for (let day = 1; day <= daysInMonth; day++) {
-        const dayStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-
-        // Transactions up to dayStr
-        const txDeltaUpToDay = memberTxs
-          .filter(t => t.date <= dayStr)
-          .reduce((sum, t) => {
-            if (t.type === 'withdraw') return sum - t.amount;
-            return sum + t.amount;
-          }, 0);
-
-        let balOnDay = baseInitial + txDeltaUpToDay;
-        if (balOnDay <= 0 && (member.totalSavings || 0) > 0) {
-          balOnDay = member.totalSavings || 0;
-        }
-
-        balOnDay = Math.max(0, balOnDay);
-        dailyBalances.push(balOnDay);
-        dailyWeightedDeposit += balOnDay;
-      }
-
-      // If dailyWeightedDeposit is 0, but member has totalSavings > 0, fallback to totalSavings * daysInMonth
-      if (dailyWeightedDeposit <= 0 && (member.totalSavings || 0) > 0) {
-        dailyWeightedDeposit = (member.totalSavings || 0) * daysInMonth;
-      }
-
-      const dailyAverage = daysInMonth > 0 ? dailyWeightedDeposit / daysInMonth : 0;
-
+    const items = result.memberShares.map((item) => {
+      const member = activeMembers.find(m => m.id === item.memberId) || members.find(m => m.id === item.memberId)!;
       return {
         member,
-        dailyBalances,
-        dailyWeightedDeposit,
-        dailyAverage,
-        weightPercentage: 0,
+        savings: item.depositSnapshot,
+        dailyBalances: [item.depositSnapshot],
+        dailyWeightedDeposit: item.depositSnapshot, // backwards-compatible alias
+        dailyAverage: item.depositSnapshot,
+        weightPercentage: item.weightPercentage,
+        profitRatio: result.profitRatio,
+        rawAllocated: item.rawAllocated,
+        allocatedProfit: item.allocatedProfit,
       };
     });
 
-    let totalWeightedDeposit = items.reduce((sum, item) => sum + item.dailyWeightedDeposit, 0);
-
-    // If totalWeightedDeposit is still 0, fallback to totalSavings of all members
-    if (totalWeightedDeposit <= 0) {
-      const totalSavingsAll = members.reduce((sum, m) => sum + Math.max(0, m.totalSavings || 0), 0);
-      if (totalSavingsAll > 0) {
-        items.forEach(item => {
-          const savings = Math.max(0, item.member.totalSavings || 0);
-          item.dailyWeightedDeposit = savings * daysInMonth;
-          item.dailyAverage = savings;
-          item.weightPercentage = (savings / totalSavingsAll) * 100;
-        });
-        totalWeightedDeposit = items.reduce((sum, item) => sum + item.dailyWeightedDeposit, 0);
-      }
-    } else {
-      items.forEach(item => {
-        item.weightPercentage = totalWeightedDeposit > 0 
-          ? (item.dailyWeightedDeposit / totalWeightedDeposit) * 100 
-          : 0;
-      });
-    }
-
     return {
       items,
-      totalWeightedDeposit,
+      totalSavings: result.totalDeposit,
+      totalWeightedDeposit: result.totalDeposit, // alias for backwards compatibility
+      profitRatio: result.profitRatio,
       daysInMonth,
     };
   };
 
-  // Execute Monthly Profit Distribution based on Daily Weighted Deposits
+  // Provide alias calculateDailyWeightedDeposits pointing to the savings-based formula so no caller breaks
+  const calculateDailyWeightedDeposits = (year: number, month: number, profitAmount: number = 0) => {
+    return calculateMemberProfitShares(profitAmount, year, month);
+  };
+
+  // Execute Monthly Profit Distribution based on Member Total Savings
   const executeMonthlyProfitDistribution = async (data: {
     year: number;
     month: number;
@@ -3314,137 +3528,218 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     totalSomitiProfitPool: number;
     creditToSavings: boolean;
     notes?: string;
+    distributionId?: string;
+    businessProfitRecordId?: string;
+    distributionDate?: string;
   }): Promise<MonthlyProfitDistribution> => {
-    const { items, totalWeightedDeposit } = calculateDailyWeightedDeposits(data.year, data.month);
+    // 1. Identify deterministic record tag and lock key
+    const recordTag = data.businessProfitRecordId || data.notes?.match(/\[(bpr-[^\]]+)\]/)?.[1];
+    const lockKey = recordTag 
+      ? `dist-${recordTag}` 
+      : (data.distributionId || `dist-${data.year}-${data.month}-${data.totalSomitiProfitPool}`);
 
-    const distNo = `PD-${data.year}-${String(data.month).padStart(2, '0')}`;
-    const today = getTodayDateStr();
-
-    // Eligible items with positive deposit weight or savings
-    const eligibleItems = items.filter(i => (i.dailyWeightedDeposit > 0 || (i.member.totalSavings || 0) > 0));
-    const effectiveTotalWeight = totalWeightedDeposit > 0
-      ? totalWeightedDeposit
-      : eligibleItems.reduce((sum, i) => sum + (i.dailyWeightedDeposit || (i.member.totalSavings || 0)), 0);
-
-    let runningAllocated = 0;
-    const memberDistributions: MemberProfitShareItem[] = [];
-    const newTransactions: Transaction[] = [];
-
-    eligibleItems.forEach((item, idx) => {
-      const weight = item.dailyWeightedDeposit > 0 ? item.dailyWeightedDeposit : (item.member.totalSavings || 0);
-      let allocated = effectiveTotalWeight > 0 && weight > 0
-        ? Math.round((weight / effectiveTotalWeight) * data.totalSomitiProfitPool)
-        : 0;
-
-      // Adjust rounding on the last item so exact totalSomitiProfitPool is distributed
-      if (idx === eligibleItems.length - 1 && eligibleItems.length > 0) {
-        const diff = data.totalSomitiProfitPool - (runningAllocated + allocated);
-        allocated += diff;
-      }
-
-      runningAllocated += allocated;
-
-      let txId: string | undefined = undefined;
-
-      if (data.creditToSavings && allocated > 0) {
-        txId = `tx-pd-${Date.now()}-${idx}-${Math.floor(Math.random() * 1000)}`;
-        const tx: Transaction = {
-          id: txId,
-          voucherNo: `PR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-          memberId: item.member.id,
-          memberName: item.member.name,
-          memberNo: item.member.memberNo,
-          type: 'profit_share',
-          amount: allocated,
-          date: today,
-          time: getCurrentTimeStr(),
-          paymentMethod: 'cash',
-          collectedBy: currentUser.name,
-          verifiedBy: currentUser.name,
-          category: 'business_profit_distribution',
-          notes: `${data.monthName} ব্যবসায়িক লভ্যাংশ বণ্টন (জমার অনুপাতে লাভ যুক্ত)`,
-          status: 'completed',
-        };
-        newTransactions.push(tx);
-      }
-
-      memberDistributions.push({
-        memberId: item.member.id,
-        memberNo: item.member.memberNo,
-        memberName: item.member.name,
-        totalSavingsSnapshot: item.member.totalSavings || 0,
-        dailyWeightedDeposit: item.dailyWeightedDeposit,
-        weightPercentage: Number(item.weightPercentage.toFixed(3)),
-        allocatedProfit: allocated,
-        creditedToSavings: data.creditToSavings && allocated > 0,
-        transactionId: txId,
-      });
-    });
-
-    const newDistribution: MonthlyProfitDistribution = {
-      id: `pd-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      distributionNo: distNo,
-      year: data.year,
-      month: data.month,
-      monthName: data.monthName,
-      totalSomitiProfitPool: data.totalSomitiProfitPool,
-      totalWeightedDeposit,
-      totalMembersDistributed: memberDistributions.filter(d => d.allocatedProfit > 0).length,
-      distributionDate: today,
-      distributedBy: currentUser.name,
-      status: 'completed',
-      memberDistributions,
-      notes: data.notes || '',
-      createdAt: new Date().toISOString(),
-    };
-
-    // 1. If creditToSavings, update member balances & save transactions
-    if (newTransactions.length > 0) {
-      const profitMap = new Map<string, number>();
-      memberDistributions.forEach(d => {
-        if (d.allocatedProfit > 0) {
-          profitMap.set(d.memberId, d.allocatedProfit);
-        }
-      });
-
-      setMembers(prev => prev.map(m => {
-        const added = profitMap.get(m.id);
-        if (!added) return m;
-
-        const newGeneral = (m.generalSavingsBalance || 0) + added;
-        const newTotal = (m.totalSavings || 0) + added;
-        const updated = {
-          ...m,
-          generalSavingsBalance: newGeneral,
-          totalSavings: newTotal,
-        };
-
-        safeSetDoc(doc(db, 'members', m.id), updated).catch(console.error);
-        safeSetDoc(doc(db, 'memberFinancials', m.id), {
-          memberId: m.id,
-          memberNo: m.memberNo,
-          totalSavings: newTotal,
-          generalSavingsBalance: newGeneral,
-          dpsSavingsBalance: m.dpsSavingsBalance || 0,
-          fdrSavingsBalance: m.fdrSavingsBalance || 0,
-          activeLoanBalance: m.activeLoanBalance || 0,
-          updatedAt: new Date().toISOString(),
-        }, { merge: true }).catch(console.error);
-
-        return updated;
-      }));
-
-      setTransactions(prev => [...newTransactions, ...prev]);
-      const batch = writeBatch(db);
-      newTransactions.forEach(t => safeBatchSet(batch, doc(db, 'transactions', t.id), t));
-      batch.commit().catch(console.error);
+    if (activeDistributionLocks.current.has(lockKey)) {
+      console.warn(`[executeMonthlyProfitDistribution] Concurrent distribution blocked for key: ${lockKey}`);
+      const existing = profitDistributions.find(d => 
+        (recordTag && d.notes?.includes(recordTag)) ||
+        (data.distributionId && d.id === data.distributionId) ||
+        (d.year === data.year && d.month === data.month && d.totalSomitiProfitPool === data.totalSomitiProfitPool)
+      );
+      if (existing) return existing;
+      throw new Error('এই লভ্যাংশ বণ্টনটি ইতিমধ্যে প্রক্রিয়াকরণাধীন রয়েছে।');
     }
 
-    // 2. Save distribution record
-    setProfitDistributions(prev => [newDistribution, ...prev]);
-    await safeSetDoc(doc(db, 'profitDistributions', newDistribution.id), newDistribution);
+    const distNo = recordTag 
+      ? `PD-${data.year}-${String(data.month).padStart(2, '0')}-${recordTag.replace(/^bpr-/, '').slice(-6)}`
+      : `PD-${data.year}-${String(data.month).padStart(2, '0')}`;
 
-    return newDistribution;
+    // 2. Identify any prior distributions for THIS SPECIFIC RECORD to replace safely without affecting other members' distributions
+    const priorDists = profitDistributions.filter(d => 
+      (recordTag && d.notes?.includes(recordTag)) ||
+      (data.distributionId && d.id === data.distributionId) ||
+      (!recordTag && !data.distributionId && !d.notes?.includes('[bpr-') && d.distributionNo === distNo)
+    );
+
+    activeDistributionLocks.current.add(lockKey);
+
+    try {
+      // Revert any prior distributions for this specific record before applying new calculation
+      if (priorDists.length > 0) {
+        console.log(`[executeMonthlyProfitDistribution] Reverting ${priorDists.length} prior distribution(s) for ${distNo} to guarantee single entry.`);
+        const priorDeductionMap: Record<string, number> = {};
+        const priorTxIdsToDelete = new Set<string>();
+
+        priorDists.forEach(oldDist => {
+          (oldDist.memberDistributions || []).forEach(m => {
+            if (m.allocatedProfit > 0 && m.creditedToSavings !== false) {
+              priorDeductionMap[m.memberId] = (priorDeductionMap[m.memberId] || 0) + m.allocatedProfit;
+            }
+            if (m.transactionId) priorTxIdsToDelete.add(m.transactionId);
+          });
+          deleteDoc(doc(db, 'profitDistributions', oldDist.id)).catch(console.error);
+        });
+
+        // Also search transactions directly for any profit_share transactions linked to distNo or oldDist
+        const linkedOldTxs = transactions.filter(t => 
+          (t.id && priorTxIdsToDelete.has(t.id)) ||
+          (t.type === 'profit_share' && (t.notes?.includes(distNo) || (recordTag && t.notes?.includes(recordTag))))
+        );
+        linkedOldTxs.forEach(t => {
+          priorTxIdsToDelete.add(t.id);
+          deleteDoc(doc(db, 'transactions', t.id)).catch(console.error);
+        });
+
+        if (Object.keys(priorDeductionMap).length > 0) {
+          setMembers(prev => prev.map(m => {
+            const deduct = priorDeductionMap[m.id];
+            if (!deduct) return m;
+            const newGen = Math.max(0, (m.generalSavingsBalance || 0) - deduct);
+            const newTot = Math.max(0, (m.totalSavings || 0) - deduct);
+            const updated = { ...m, generalSavingsBalance: newGen, totalSavings: newTot };
+            safeSetDoc(doc(db, 'members', m.id), updated, { merge: true }).catch(console.error);
+            safeSetDoc(doc(db, 'memberFinancials', m.id), {
+              generalSavingsBalance: newGen,
+              totalSavings: newTot,
+              updatedAt: new Date().toISOString(),
+            }, { merge: true }).catch(console.error);
+            return updated;
+          }));
+        }
+
+        if (priorTxIdsToDelete.size > 0) {
+          setTransactions(prev => prev.filter(t => !priorTxIdsToDelete.has(t.id)));
+        }
+      }
+
+      const { items, totalSavings } = calculateMemberProfitShares(data.totalSomitiProfitPool, data.year, data.month);
+
+      const today = getTodayDateStr();
+      const distDate = data.distributionDate || today;
+
+      // Eligible items with positive savings
+      const eligibleItems = items.filter(i => i.savings > 0);
+      const effectiveTotalSavings = totalSavings;
+
+      const memberDistributions: MemberProfitShareItem[] = [];
+      const newTransactions: Transaction[] = [];
+
+      const uniqueDistId = data.distributionId || (recordTag ? `pd-${recordTag}` : `pd-${data.year}-${String(data.month).padStart(2, '0')}-${Date.now()}`);
+
+      eligibleItems.forEach((item) => {
+        const allocated = item.allocatedProfit;
+
+        let txId: string | undefined = undefined;
+
+        if (data.creditToSavings && allocated > 0) {
+          txId = `tx-${uniqueDistId}-${item.member.id}`;
+          const txAlreadyExists = transactions.some(t => t.id === txId);
+          if (!txAlreadyExists) {
+            const tx: Transaction = {
+              id: txId,
+              voucherNo: `PR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+              memberId: item.member.id,
+              memberName: item.member.name,
+              memberNo: item.member.memberNo,
+              type: 'profit_share',
+              amount: allocated,
+              date: distDate,
+              time: getCurrentTimeStr(),
+              paymentMethod: 'cash',
+              collectedBy: currentUser.name,
+              verifiedBy: currentUser.name,
+              category: 'business_profit_distribution',
+              notes: `${data.monthName} ব্যবসায়িক লভ্যাংশ বণ্টন (মোট জমার অনুপাতে লাভ যুক্ত)`,
+              status: 'completed',
+            };
+            newTransactions.push(tx);
+          }
+        }
+
+        memberDistributions.push({
+          memberId: item.member.id,
+          memberNo: item.member.memberNo,
+          memberName: item.member.name,
+          totalSavingsSnapshot: item.savings,
+          dailyWeightedDeposit: item.savings,
+          weightPercentage: Number(item.weightPercentage.toFixed(3)),
+          profitRatio: item.profitRatio,
+          rawAllocatedProfit: item.rawAllocated,
+          allocatedProfit: allocated,
+          creditedToSavings: data.creditToSavings && allocated > 0,
+          transactionId: txId,
+        });
+      });
+
+      const newDistribution: MonthlyProfitDistribution = {
+        id: uniqueDistId,
+        distributionNo: distNo,
+        year: data.year,
+        month: data.month,
+        monthName: data.monthName,
+        totalSomitiProfitPool: data.totalSomitiProfitPool,
+        totalWeightedDeposit: effectiveTotalSavings,
+        totalSavingsPool: effectiveTotalSavings,
+        totalMembersDistributed: memberDistributions.filter(d => d.allocatedProfit > 0).length,
+        distributionDate: distDate,
+        distributedBy: currentUser.name,
+        status: 'completed',
+        memberDistributions,
+        notes: data.notes || '',
+        createdAt: new Date().toISOString(),
+      };
+
+      // 1. If creditToSavings, update member balances & save transactions
+      if (newTransactions.length > 0) {
+        const profitMap = new Map<string, number>();
+        newTransactions.forEach(t => {
+          profitMap.set(t.memberId, (profitMap.get(t.memberId) || 0) + t.amount);
+        });
+
+        setMembers(prev => prev.map(m => {
+          const added = profitMap.get(m.id);
+          if (!added) return m;
+
+          const newGeneral = (m.generalSavingsBalance || 0) + added;
+          const newTotal = (m.totalSavings || 0) + added;
+          const updated = {
+            ...m,
+            generalSavingsBalance: newGeneral,
+            totalSavings: newTotal,
+          };
+
+          safeSetDoc(doc(db, 'members', m.id), updated).catch(console.error);
+          safeSetDoc(doc(db, 'memberFinancials', m.id), {
+            memberId: m.id,
+            memberNo: m.memberNo,
+            totalSavings: newTotal,
+            generalSavingsBalance: newGeneral,
+            dpsSavingsBalance: m.dpsSavingsBalance || 0,
+            fdrSavingsBalance: m.fdrSavingsBalance || 0,
+            activeLoanBalance: m.activeLoanBalance || 0,
+            updatedAt: new Date().toISOString(),
+          }, { merge: true }).catch(console.error);
+
+          return updated;
+        }));
+
+        setTransactions(prev => [...newTransactions, ...prev]);
+        const batch = writeBatch(db);
+        newTransactions.forEach(t => safeBatchSet(batch, doc(db, 'transactions', t.id), t));
+        batch.commit().catch(console.error);
+      }
+
+      // 2. Save distribution record (replacing only prior distributions for this specific record)
+      const priorIds = new Set(priorDists.map(d => d.id));
+      setProfitDistributions(prev => [
+        newDistribution,
+        ...prev.filter(d => !priorIds.has(d.id) && d.id !== newDistribution.id)
+      ]);
+      await safeSetDoc(doc(db, 'profitDistributions', newDistribution.id), newDistribution);
+
+      return newDistribution;
+    } finally {
+      activeDistributionLocks.current.delete(lockKey);
+    }
   };
 
   // Delete Monthly Profit Distribution (revert member savings, delete profit transactions, remove distribution)
@@ -3777,6 +4072,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         updateBusinessProfitRecord,
         deleteBusinessProfitRecord,
         calculateDailyWeightedDeposits,
+        calculateMemberProfitShares,
+        getMemberSavingsBalance,
         executeMonthlyProfitDistribution,
         deleteMonthlyProfitDistribution,
         clearAllProfitDistributions,

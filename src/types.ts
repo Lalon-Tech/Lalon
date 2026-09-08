@@ -273,30 +273,40 @@ export interface BusinessFunding {
 
 export interface BusinessProfitRecord {
   id: string;
-  businessFundingId: string;
-  applicationNo: string;
+  businessFundingId?: string;
+  applicationNo?: string;
   memberId: string;
   memberName: string;
+  memberNo?: string;
   month: string;                // e.g. "2026-09"
   totalBusinessProfit: number;  // e.g. 30000
   memberProfitPercent: number;  // e.g. 50
   somitiProfitPercent: number;  // e.g. 50
   memberProfitAmount: number;   // e.g. 15000
   somitiProfitAmount: number;   // e.g. 15000
+  profitAmount?: number;        // Explicit alias for original profit amount
   date: string;
+  totalDepositSnapshot?: number;// Snapshot of total deposits at transaction time (e.g. 15000)
+  profitRatio?: number;         // Ratio: profitAmount / totalDepositSnapshot
+  memberDistributions?: MemberProfitShareItem[]; // Individual member distributions
+  totalDistributed?: number;    // Guaranteed to equal original profit amount
+  status?: 'completed' | 'active';
   notes?: string;
   recordedBy: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface MemberProfitShareItem {
   memberId: string;
   memberNo: string;
   memberName: string;
-  totalSavingsSnapshot: number;
-  dailyWeightedDeposit: number;  // Daily balance sum over the month
-  weightPercentage: number;      // (dailyWeightedDeposit / totalWeightedDeposit) * 100
-  allocatedProfit: number;       // Member Profit = (Member's Monthly Weighted Deposit ÷ Total Weighted Deposit) × Monthly Distributable Profit
+  totalSavingsSnapshot: number;  // Member's total savings/deposit at distribution time
+  dailyWeightedDeposit?: number; // Kept for backwards compatibility, equal to totalSavingsSnapshot
+  weightPercentage: number;      // (memberSavings / totalSavings) * 100
+  profitRatio?: number;          // Sum = profit / totalSavings
+  rawAllocatedProfit?: number;   // Exact floating point allocated profit
+  allocatedProfit: number;       // Final allocated profit amount (Taka)
   creditedToSavings: boolean;
   transactionId?: string;
 }
@@ -308,7 +318,8 @@ export interface MonthlyProfitDistribution {
   month: number;                 // 1-12
   monthName: string;             // e.g. "সেপ্টেম্বর ২০২৬"
   totalSomitiProfitPool: number; // Monthly Distributable Profit
-  totalWeightedDeposit: number;
+  totalWeightedDeposit: number;  // Total Somiti member savings/deposit pool
+  totalSavingsPool?: number;     // Alias to total member savings
   totalMembersDistributed: number;
   distributionDate: string;
   distributedBy: string;

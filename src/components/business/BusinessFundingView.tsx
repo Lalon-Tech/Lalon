@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Briefcase,
   Plus,
@@ -21,6 +21,7 @@ import {
   X as XIcon,
   Edit,
   Trash2,
+  BarChart3,
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -31,6 +32,7 @@ import { BusinessProfitRecordModal } from './BusinessProfitRecordModal';
 import { MonthlyProfitDistributionModal } from './MonthlyProfitDistributionModal';
 import { BusinessFundingEditModal } from './BusinessFundingEditModal';
 import { BusinessProfitEditModal } from './BusinessProfitEditModal';
+import { ProfitReportsAndSandbox } from './ProfitReportsAndSandbox';
 
 export const BusinessFundingView: React.FC = () => {
   const { language } = useLanguage();
@@ -54,7 +56,7 @@ export const BusinessFundingView: React.FC = () => {
     setActiveTab,
   } = useSomiti();
 
-  const [activeSubTab, setActiveSubTab] = useState<'applications' | 'profits' | 'distributions' | 'calculator'>('applications');
+  const [activeSubTab, setActiveSubTab] = useState<'applications' | 'profits' | 'distributions' | 'calculator' | 'reports'>('applications');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -86,9 +88,22 @@ export const BusinessFundingView: React.FC = () => {
     ? businessFundings.filter(f => f.memberId === currentUser.memberId)
     : businessFundings;
 
-  const accessibleProfits = isMemberUser
-    ? businessProfitRecords.filter(r => r.memberId === currentUser.memberId)
-    : businessProfitRecords;
+  const accessibleProfits = useMemo(() => {
+    const rawList = isMemberUser
+      ? businessProfitRecords.filter(r => r.memberId === currentUser.memberId)
+      : businessProfitRecords;
+
+    // Deduplicate only identical IDs to safeguard against duplicate items, while preserving all legitimate entries
+    const seen = new Set<string>();
+    const uniqueList: BusinessProfitRecord[] = [];
+    for (const record of rawList) {
+      if (!seen.has(record.id)) {
+        seen.add(record.id);
+        uniqueList.push(record);
+      }
+    }
+    return uniqueList;
+  }, [businessProfitRecords, isMemberUser, currentUser.memberId]);
 
   const filteredFundings = accessibleFundings.filter(f => {
     const matchesSearch = 
@@ -366,10 +381,27 @@ export const BusinessFundingView: React.FC = () => {
             >
               <Sparkles className="w-4 h-4 text-indigo-600" />
               <span>
-                {isBn ? 'দৈনিক ওয়েটেড ব্যালেন্স ড্যাশবোর্ড' : 'Daily Weighted Formula Guide'}
+                {isBn ? 'সদস্যের মোট জমা অনুযায়ী বণ্টন নির্দেশিকা' : 'Total Savings Formula Guide'}
               </span>
             </button>
           )}
+
+          <button
+            onClick={() => setActiveSubTab('reports')}
+            className={`px-5 py-3 text-xs font-bold border-b-2 flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
+              activeSubTab === 'reports'
+                ? 'border-emerald-600 text-emerald-700 bg-white'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4 text-emerald-600" />
+            <span className="flex items-center gap-1.5">
+              <span>{isBn ? 'মুনাফা রিপোর্ট ও স্যান্ডবক্স' : 'Profit Reports & Sandbox'}</span>
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-full">
+                Req 11 & 15
+              </span>
+            </span>
+          </button>
         </div>
 
         {/* Tab 1: Applications & Business List */}
@@ -649,8 +681,8 @@ export const BusinessFundingView: React.FC = () => {
                 </h4>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {isBn
-                    ? 'দৈনিক ব্যালেন্স ও ওয়েটেড ডিপোজিট ফর্মুলা অনুযায়ী সদস্য বণ্টন ইতিহাস'
-                    : 'History of Somiti profit pool distributed to members based on daily weighted deposits'}
+                    ? 'সদস্যদের মোট জমার অনুপাত ফর্মুলা অনুযায়ী বণ্টন ইতিহাস'
+                    : 'History of Somiti profit pool distributed to members based on total savings ratio'}
                 </p>
               </div>
 
@@ -675,102 +707,144 @@ export const BusinessFundingView: React.FC = () => {
               </div>
             </div>
 
-            {profitDistributions.length === 0 ? (
-              <div className="p-12 text-center text-slate-400 text-xs">
-                {isBn ? 'এখনো কোনো মাসিক লাভ বণ্টন রেকর্ড নেই।' : 'No monthly profit distributions recorded yet.'}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {profitDistributions.map((d) => (
-                  <div key={d.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors space-y-3">
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs">
-                          <PieChart className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h5 className="font-bold text-sm text-slate-800">
-                            {d.monthName || `${d.year}-${d.month}`} {isBn ? 'লভ্যাংশ বণ্টন' : 'Profit Distribution'}
-                          </h5>
-                          <span className="text-[10px] font-mono text-slate-400">
-                            {isBn ? 'বণ্টন নং: ' : 'Dist No: '}{d.distributionNo} • {isBn ? 'তারিখ: ' : 'Date: '}{formatBengaliDate(d.distributionDate, true, isBn)}
-                          </span>
-                        </div>
-                      </div>
+            {(() => {
+              // Deduplicate by distribution ID / unique record tag
+              const distMap = new Map<string, MonthlyProfitDistribution>();
+              profitDistributions.forEach(d => {
+                const key = d.id;
+                const existing = distMap.get(key);
+                if (!existing) {
+                  distMap.set(key, d);
+                } else {
+                  const existingHasSavings = (existing.totalSavingsPool || 0) > 0;
+                  const currentHasSavings = (d.totalSavingsPool || 0) > 0;
+                  if ((currentHasSavings && !existingHasSavings) || (d.createdAt || '') > (existing.createdAt || '')) {
+                    distMap.set(key, d);
+                  }
+                }
+              });
+              const uniqueDists = Array.from(distMap.values()).sort((a, b) => (b.distributionDate || '').localeCompare(a.distributionDate || ''));
 
-                      <div className="text-right flex items-center gap-3">
-                        <div>
-                          <span className="text-[10px] text-slate-400 block">{isBn ? 'মোট বণ্টনকৃত লাভ' : 'Total Profit Distributed'}</span>
-                          <span className="text-sm font-bold text-indigo-700">
-                            {formatCurrency(d.totalSomitiProfitPool, isBn && useBengaliDigits)}
-                          </span>
-                        </div>
-                        {isUserAdmin && (
-                          <button
-                            type="button"
-                            onClick={() => setDistributionToDelete(d)}
-                            className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-rose-200"
-                            title={isBn ? 'এই বণ্টন রেকর্ড মুছে ফেলুন ও সঞ্চয় রিভার্ট করুন' : 'Delete distribution & revert savings'}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs bg-white p-3 rounded-lg border border-slate-200">
-                      <div>
-                        <span className="text-[10px] text-slate-400 block">{isBn ? 'সুবিধাপ্রাপ্ত সদস্য' : 'Members Benefited'}</span>
-                        <span className="font-bold text-slate-800">
-                          {isBn ? `${toBengaliNumber(d.totalMembersDistributed)} জন` : `${d.totalMembersDistributed} Members`}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-slate-400 block">{isBn ? 'মোট ওয়েটেড ডিপোজিট' : 'Total Weighted Deposit'}</span>
-                        <span className="font-bold text-slate-800 font-mono">
-                          {isBn ? toBengaliNumber(Math.round(d.totalWeightedDeposit)) : Math.round(d.totalWeightedDeposit).toLocaleString()}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-slate-400 block">{isBn ? 'কার্যকরকারী কর্মকর্তা' : 'Executed By'}</span>
-                        <span className="font-bold text-slate-800">{d.distributedBy}</span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-slate-400 block">{isBn ? 'স্ট্যাটাস' : 'Status'}</span>
-                        <span className="inline-flex items-center gap-1 font-bold text-emerald-700">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>{isBn ? 'সঞ্চয়ে জমা সম্পন্ন' : 'Credited to Savings'}</span>
-                        </span>
-                      </div>
-                    </div>
+              if (uniqueDists.length === 0) {
+                return (
+                  <div className="p-12 text-center text-slate-400 text-xs">
+                    {isBn ? 'এখনো কোনো মাসিক লাভ বণ্টন রেকর্ড নেই।' : 'No monthly profit distributions recorded yet.'}
                   </div>
-                ))}
-              </div>
-            )}
+                );
+              }
+
+              return (
+                <div className="space-y-3">
+                  {uniqueDists.map((d) => (
+                    <div key={d.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors space-y-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs">
+                            <PieChart className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <h5 className="font-bold text-sm text-slate-800">
+                              {d.monthName || `${d.year}-${d.month}`} {isBn ? 'লভ্যাংশ বণ্টন' : 'Profit Distribution'}
+                            </h5>
+                            <span className="text-[10px] font-mono text-slate-400">
+                              {isBn ? 'বণ্টন নং: ' : 'Dist No: '}{d.distributionNo} • {isBn ? 'তারিখ: ' : 'Date: '}{formatBengaliDate(d.distributionDate, true, isBn)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="text-right flex items-center gap-3">
+                          <div>
+                            <span className="text-[10px] text-slate-400 block">{isBn ? 'মোট বণ্টনকৃত লাভ' : 'Total Profit Distributed'}</span>
+                            <span className="text-sm font-bold text-indigo-700">
+                              {formatCurrency(d.totalSomitiProfitPool, isBn && useBengaliDigits)}
+                            </span>
+                          </div>
+                          {isUserAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => setDistributionToDelete(d)}
+                              className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-rose-200"
+                              title={isBn ? 'এই বণ্টন রেকর্ড মুছে ফেলুন ও সঞ্চয় রিভার্ট করুন' : 'Delete distribution & revert savings'}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs bg-white p-3 rounded-lg border border-slate-200">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block">{isBn ? 'সুবিধাপ্রাপ্ত সদস্য' : 'Members Benefited'}</span>
+                          <span className="font-bold text-slate-800">
+                            {isBn ? `${toBengaliNumber(d.totalMembersDistributed)} জন` : `${d.totalMembersDistributed} Members`}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block">{isBn ? 'মোট সদস্য জমা' : 'Total Member Savings'}</span>
+                          <span className="font-bold text-slate-800 font-mono">
+                            {isBn 
+                              ? toBengaliNumber(Math.round(d.totalSavingsPool || d.totalWeightedDeposit || 0)) 
+                              : Math.round(d.totalSavingsPool || d.totalWeightedDeposit || 0).toLocaleString()}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block">{isBn ? 'কার্যকরকারী কর্মকর্তা' : 'Executed By'}</span>
+                          <span className="font-bold text-slate-800">{d.distributedBy}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block">{isBn ? 'স্ট্যাটাস' : 'Status'}</span>
+                          <span className="inline-flex items-center gap-1 font-bold text-emerald-700">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>{isBn ? 'সঞ্চয়ে জমা সম্পন্ন' : 'Credited to Savings'}</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         )}
 
-        {/* Tab 4: Calculator & Live Daily Weighted Explorer */}
+        {/* Tab 4: Total Savings Formula Guide */}
         {activeSubTab === 'calculator' && isUserAdmin && (
           <div className="p-5 space-y-4">
-            <div className="bg-indigo-50/80 p-4 rounded-xl border border-indigo-200 text-xs space-y-2">
-              <h4 className="font-bold text-indigo-950 flex items-center gap-2">
+            <div className="bg-indigo-50/80 p-5 rounded-2xl border border-indigo-200 text-xs space-y-3">
+              <h4 className="font-bold text-indigo-950 flex items-center gap-2 text-sm">
                 <Sparkles className="w-4 h-4 text-indigo-600" />
                 <span>
                   {isBn
-                    ? 'দৈনিক ব্যালেন্সভিত্তিক লাভ বণ্টন সূত্র (Daily Weighted Balance Principles)'
-                    : 'Daily Weighted Balance Profit Sharing Principles'}
+                    ? 'সদস্যের মোট সঞ্চয় জমার ভিত্তিতে লাভ বণ্টন সূত্র (Total Savings Basis)'
+                    : 'Total Savings Basis Profit Sharing Formula'}
                 </span>
               </h4>
               <p className="text-indigo-900 leading-relaxed">
                 {isBn
-                  ? 'মাস শেষে কেবল শেষ দিনের ব্যালেন্স দেখে লাভ দিলে অনিয়ম হয়। তাই বন্ধু সমিতিতে প্রতি সদস্যের মাসের প্রতিটি দিনের জমার যোগফল (Monthly Weighted Deposit) নির্ণয় করা হয়। যে সদস্য পুরো মাস জুড়ে বেশি অর্থ সঞ্চয় রেখেছেন, তিনি সমানুপাতিক হারে বেশি মুনাফা লাভ করবেন।'
-                  : 'Distributing profit based only on month-end balance is unfair to long-term savers. Bondhu Somiti calculates the sum of each day balance across all days of the month (Monthly Weighted Deposit). Members who maintained higher savings throughout the month receive a proportionally higher share.'}
+                  ? 'সমিতির ব্যবসা হতে অর্জিত মুনাফা সকল সদস্যদের মাঝে তাদের মোট সঞ্চয় জমার (Total Savings) অনুপাতে বণ্টন করা হয়।'
+                  : 'Profits generated from Somiti business are distributed among all members proportionally based on their total savings balance.'}
               </p>
-              <div className="bg-white px-3.5 py-2 rounded-lg border border-indigo-200 font-mono text-[11px] text-indigo-900 font-bold inline-block">
+
+              <div className="bg-white p-4 rounded-xl border border-indigo-200 font-mono text-xs text-indigo-950 space-y-2">
+                <div className="font-bold text-indigo-700">
+                  {isBn ? '১. অনুপাত নির্ণয়:' : '1. Ratio Calculation:'}
+                </div>
+                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                  <strong>Sum</strong> = {isBn ? 'বণ্টনযোগ্য লাভ (Profit) ÷ সকল সদস্যের মোট জমা (Total Joma)' : 'Profit ÷ Total Member Savings'}
+                </div>
+                <div className="font-bold text-indigo-700 mt-2">
+                  {isBn ? '২. সদস্যের প্রাপ্য লাভ:' : '2. Member Profit Calculation:'}
+                </div>
+                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                  {isBn ? 'সদস্যের প্রাপ্য লাভ = Sum × সদস্যের নিজস্ব মোট জমা' : "Member Profit = Sum × Member's Total Savings"}
+                </div>
+              </div>
+
+              <div className="bg-emerald-50 p-3.5 rounded-xl border border-emerald-200 text-emerald-900 text-xs">
+                <span className="font-bold">{isBn ? 'বাস্তব উদাহরণ:' : 'Practical Example:'}</span>{' '}
                 {isBn
-                  ? 'সদস্যের লাভ = (সদস্যের Monthly Weighted Deposit ÷ সকল সদস্যের মোট Weighted Deposit) × মোট বণ্টনযোগ্য লাভ'
-                  : "Member Profit = (Member's Monthly Weighted Deposit ÷ Total Somiti Weighted Deposit) × Distributable Profit Pool"}
+                  ? 'লালন = ৮,০০০, মিলন = ৫,০০০, কামরুল = ২,০০০ (মোট জমা = ১৫,০০০)। কামরুল লভ্যাংশ দিল ১,০০০। Sum = ১,০০০ ÷ ১৫,০০০ = ০.০৬৬৬৬৭। লালন পাবে = ৫৩৩.৩৩, মিলন পাবে = ৩৩৩.৩৩, কামরুল পাবে = ১৩৩.৩৩।'
+                  : 'Lalon = 8000, Milon = 5000, Kamrul = 2000 (Total = 15000). Kamrul profit = 1000. Sum = 1000 / 15000 = 0.066667. Lalon gets 533.33, Milon gets 333.33, Kamrul gets 133.33.'}
               </div>
             </div>
 
@@ -783,6 +857,13 @@ export const BusinessFundingView: React.FC = () => {
                 <span>{isBn ? 'বর্তমান মাসের বণ্টন কার্যকর করুন' : 'Execute This Month Distribution'}</span>
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Tab 5: Profit Reports & Sandbox (Req 11 & 15) */}
+        {activeSubTab === 'reports' && (
+          <div className="p-5">
+            <ProfitReportsAndSandbox />
           </div>
         )}
       </div>

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { X, PieChart, Users, ArrowRight, CheckCircle2, AlertCircle, Sparkles, HelpCircle, CheckSquare } from 'lucide-react';
+import { X, PieChart, Users, ArrowRight, CheckCircle2, AlertCircle, Sparkles, HelpCircle, CheckSquare, AlertTriangle } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { formatCurrency, toBengaliNumber } from '../../utils/bengaliUtils';
@@ -28,7 +28,8 @@ export const MonthlyProfitDistributionModal: React.FC<MonthlyProfitDistributionM
   const {
     members,
     businessProfitRecords,
-    calculateDailyWeightedDeposits,
+    profitDistributions,
+    calculateMemberProfitShares,
     executeMonthlyProfitDistribution,
     useBengaliDigits,
   } = useSomiti();
@@ -51,11 +52,18 @@ export const MonthlyProfitDistributionModal: React.FC<MonthlyProfitDistributionM
       .reduce((sum, r) => sum + (r.somitiProfitAmount || 0), 0);
   }, [businessProfitRecords, monthStr]);
 
-  const [distributableProfit, setDistributableProfit] = useState<number>(autoSomitiProfit || 15000);
+  const [distributableProfit, setDistributableProfit] = useState<number>(autoSomitiProfit || 1000);
   const [creditToSavings, setCreditToSavings] = useState<boolean>(true);
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
+
+  // Check if a distribution for this year & month already exists
+  const existingDistributionForMonth = useMemo(() => {
+    return profitDistributions.find(
+      d => d.year === selectedYear && d.month === selectedMonth
+    );
+  }, [profitDistributions, selectedYear, selectedMonth]);
 
   // Update distributable profit when month changes if autoSomitiProfit has changed
   React.useEffect(() => {
@@ -64,14 +72,16 @@ export const MonthlyProfitDistributionModal: React.FC<MonthlyProfitDistributionM
     }
   }, [autoSomitiProfit]);
 
-  // Compute daily weighted deposits
-  const { items, totalWeightedDeposit, daysInMonth } = useMemo(() => {
-    return calculateDailyWeightedDeposits(selectedYear, selectedMonth);
-  }, [calculateDailyWeightedDeposits, selectedYear, selectedMonth]);
+  // Compute profit shares based on members' total savings
+  // Sum = profit / total savings
+  // Member Profit = Sum * member.totalSavings
+  const { items, totalSavings, profitRatio } = useMemo(() => {
+    return calculateMemberProfitShares(distributableProfit, selectedYear, selectedMonth);
+  }, [calculateMemberProfitShares, distributableProfit, selectedYear, selectedMonth]);
 
   if (!isOpen) return null;
 
-  const validMembers = items.filter(i => i.dailyWeightedDeposit > 0);
+  const validMembers = items.filter(i => i.savings > 0);
 
   const handleExecute = async () => {
     setErrorMsg('');
@@ -81,8 +91,13 @@ export const MonthlyProfitDistributionModal: React.FC<MonthlyProfitDistributionM
       return;
     }
 
-    if (totalWeightedDeposit <= 0) {
-      setErrorMsg(isBn ? 'এই মাসে কোনো সদস্যের সক্রিয় সঞ্চয় বা ব্যালেন্স নেই' : 'No active deposits or balances found for members in this month');
+    if (totalSavings <= 0) {
+      setErrorMsg(isBn ? 'কোনো সদস্যের সঞ্চয় বা জমা ব্যালেন্স নেই' : 'No active member savings found');
+      return;
+    }
+
+    if (existingDistributionForMonth) {
+      setErrorMsg(isBn ? 'এই মাসের লভ্যাংশ ইতোমধ্যে একবার বণ্টন করা হয়েছে।' : 'Profit for this month has already been distributed.');
       return;
     }
 
@@ -118,12 +133,12 @@ export const MonthlyProfitDistributionModal: React.FC<MonthlyProfitDistributionM
             </div>
             <div>
               <h3 className="font-bold text-base tracking-tight">
-                {isBn ? 'মাসিক সমিতির ব্যবসায়িক লাভ বণ্টন' : 'Monthly Somiti Business Profit Distribution'}
+                {isBn ? 'মাসিক সমিতির ব্যবসায়িক লভ্যাংশ বণ্টন' : 'Monthly Somiti Business Profit Distribution'}
               </h3>
               <p className="text-xs text-indigo-200">
                 {isBn
-                  ? 'দৈনিক ওয়েটেড ব্যালেন্স (Daily Weighted Deposit) ফর্মুলা অনুযায়ী সদস্য বণ্টন'
-                  : 'Proportional member distribution based on Daily Weighted Deposit formula'}
+                  ? 'সদস্যদের মোট জমার ভিত্তিতে আনুপাতিক লভ্যাংশ বণ্টন (Sum = Profit ÷ Total Joma)'
+                  : 'Proportional member distribution based on Total Savings (Sum = Profit ÷ Total Joma)'}
               </p>
             </div>
           </div>
@@ -141,6 +156,25 @@ export const MonthlyProfitDistributionModal: React.FC<MonthlyProfitDistributionM
             <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-xs text-rose-700 font-medium">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
               <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {/* Duplicate Month Distribution Warning */}
+          {existingDistributionForMonth && (
+            <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-2.5 text-xs text-amber-950">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <strong className="block text-amber-950">
+                  {isBn
+                    ? `সতর্কতা: ${monthName} মাসের লভ্যাংশ ইতোমধ্যে বণ্টন করা হয়েছে!`
+                    : `Warning: Profit for ${monthName} has already been distributed!`}
+                </strong>
+                <p className="text-[11px] text-amber-800 mt-1 leading-relaxed">
+                  {isBn
+                    ? `ডুপ্লিকেট বণ্টন এবং সদস্যদের একাধিকবার লাভ জমা হওয়া প্রতিরোধ করতে একই মাসে একাধিক বণ্টন বন্ধ রাখা হয়েছে। (বণ্টন নম্বর: ${existingDistributionForMonth.distributionNo})`
+                    : `To prevent duplicate entries and multiple profit crediting, duplicate distributions for the same month are prohibited. (Distribution ID: ${existingDistributionForMonth.distributionNo})`}
+                </p>
+              </div>
             </div>
           )}
 
@@ -221,20 +255,34 @@ export const MonthlyProfitDistributionModal: React.FC<MonthlyProfitDistributionM
           </div>
 
           {/* Mathematical Formula Explanation Badge */}
-          <div className="p-3.5 bg-blue-50/80 rounded-xl border border-blue-200 text-xs space-y-1.5">
-            <div className="flex items-center gap-2 font-bold text-blue-950">
-              <Sparkles className="w-4 h-4 text-blue-600" />
-              <span>{isBn ? 'বণ্টন নীতি ও সূত্র (Daily Balance ভিত্তিতে):' : 'Distribution Policy & Formula (Daily Balance):'}</span>
+          <div className="p-4 bg-blue-50/90 rounded-xl border border-blue-200 text-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 font-bold text-blue-950">
+                <Sparkles className="w-4 h-4 text-blue-600" />
+                <span>{isBn ? 'লভ্যাংশ বণ্টন নীতি ও গাণিতিক সূত্র (Formula):' : 'Profit Distribution Policy & Formula:'}</span>
+              </span>
+              <span className="text-[10px] font-bold text-blue-800 bg-blue-100 px-2.5 py-0.5 rounded-full border border-blue-200">
+                {isBn ? 'মোট জমার ভিত্তিতে' : 'Based on Total Savings'}
+              </span>
             </div>
-            <p className="text-blue-900 font-mono text-[11px] bg-white px-3 py-1.5 rounded-lg border border-blue-200 inline-block">
-              {isBn
-                ? 'Member Profit = (সদস্যের Monthly Weighted Deposit ÷ মোট Weighted Deposit) × মোট বণ্টনযোগ্য লাভ'
-                : 'Member Profit = (Member Monthly Weighted Deposit ÷ Total Weighted Deposit) × Total Distributable Pool'}
-            </p>
+            <div className="bg-white p-3 rounded-lg border border-blue-200 text-blue-900 font-mono text-xs space-y-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-1 border-b border-slate-100 pb-1.5">
+                <span>
+                  <strong>Sum</strong> = {isBn ? 'মোট লভ্যাংশ' : 'Profit'} ÷ {isBn ? 'মোট জমা' : 'Total Savings'}
+                </span>
+                <span className="text-blue-700 font-bold">
+                  = {formatCurrency(distributableProfit, false)} ÷ {formatCurrency(totalSavings, false)}
+                  {totalSavings > 0 ? ` = ${(profitRatio).toFixed(6)}` : ''}
+                </span>
+              </div>
+              <div className="text-slate-700">
+                {isBn ? 'প্রত্যেক সদস্যের লাভ' : 'Member Profit'} = <strong>Sum</strong> × {isBn ? 'সদস্যের মোট জমা' : "Member's Total Savings"}
+              </div>
+            </div>
             <p className="text-[11px] text-blue-800">
               {isBn
-                ? `* মাসের ${toBengaliNumber(daysInMonth)} দিনের প্রতি দিনের ব্যালেন্সের যোগফলই হলো সেই সদস্যের Monthly Weighted Deposit।`
-                : `* The sum of every day's savings balance across the ${daysInMonth} days in this month is that member's Monthly Weighted Deposit.`}
+                ? `* উদাহরণ: ১,০০০ টাকা লভে মোট ১৫,০০০ টাকা জমার ক্ষেত্রে Sum = ০.০৬৬৬৬৭; সদস্যের ৮,০০০ টাকা জমার বিপরীতে লাভ = ৫৩৩.৩৩ টাকা।`
+                : `* Example: For 1,000 profit and 15,000 total savings, Sum = 0.066667; Member with 8,000 savings receives 533.33 Taka.`}
             </p>
           </div>
 
@@ -242,10 +290,10 @@ export const MonthlyProfitDistributionModal: React.FC<MonthlyProfitDistributionM
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
               <span className="text-[11px] text-slate-500 block">
-                {isBn ? 'মাসের মোট দিন' : 'Days in Month'}
+                {isBn ? 'মোট সদস্য জমা' : 'Total Member Savings'}
               </span>
-              <span className="text-sm font-bold text-slate-800">
-                {isBn && useBengaliDigits ? `${toBengaliNumber(daysInMonth)} দিন` : `${daysInMonth} Days`}
+              <span className="text-sm font-bold text-slate-800 font-mono">
+                {formatCurrency(totalSavings, isBn && useBengaliDigits)}
               </span>
             </div>
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
@@ -258,12 +306,10 @@ export const MonthlyProfitDistributionModal: React.FC<MonthlyProfitDistributionM
             </div>
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
               <span className="text-[11px] text-slate-500 block">
-                {isBn ? 'মোট ওয়েটেড ব্যালেন্স' : 'Total Weighted Deposit'}
+                {isBn ? 'লভ্যাংশের হার (Sum)' : 'Profit Ratio (Sum)'}
               </span>
-              <span className="text-sm font-bold text-slate-800 font-mono">
-                {isBn && useBengaliDigits
-                  ? toBengaliNumber(Math.round(totalWeightedDeposit))
-                  : Math.round(totalWeightedDeposit).toLocaleString()}
+              <span className="text-sm font-bold text-emerald-700 font-mono">
+                {profitRatio > 0 ? profitRatio.toFixed(6) : '0.000000'}
               </span>
             </div>
             <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-200">
@@ -299,37 +345,24 @@ export const MonthlyProfitDistributionModal: React.FC<MonthlyProfitDistributionM
                 <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] tracking-wider sticky top-0 border-b border-slate-200">
                   <tr>
                     <th className="py-2.5 px-3 font-bold">{isBn ? 'সদস্য' : 'Member'}</th>
-                    <th className="py-2.5 px-3 font-bold text-right">{isBn ? 'বর্তমান সঞ্চয়' : 'Total Savings'}</th>
-                    <th className="py-2.5 px-3 font-bold text-right">{isBn ? 'দৈনিক গড় ব্যালেন্স' : 'Daily Avg Balance'}</th>
-                    <th className="py-2.5 px-3 font-bold text-right">{isBn ? 'ওয়েটেড ডিপোজিট' : 'Weighted Deposit'}</th>
-                    <th className="py-2.5 px-3 font-bold text-right">{isBn ? 'অংশ হার (%)' : 'Share (%)'}</th>
+                    <th className="py-2.5 px-3 font-bold text-right">{isBn ? 'মোট জমা (টাকা)' : 'Total Savings (৳)'}</th>
+                    <th className="py-2.5 px-3 font-bold text-right">{isBn ? 'জমার অংশ (%)' : 'Share (%)'}</th>
+                    <th className="py-2.5 px-3 font-bold text-right">{isBn ? 'গণিত হিসাব (Sum × জমা)' : 'Calculation'}</th>
                     <th className="py-2.5 px-3 font-bold text-right text-indigo-800 bg-indigo-50/50">
-                      {isBn ? 'প্রাপ্ত লাভ (৳)' : 'Profit Received (৳)'}
+                      {isBn ? 'প্রাপ্ত লাভ (৳)' : 'Profit Allocated (৳)'}
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
                   {items.map((item) => {
-                    const allocatedProfit = totalWeightedDeposit > 0 && item.dailyWeightedDeposit > 0
-                      ? Math.round((item.dailyWeightedDeposit / totalWeightedDeposit) * distributableProfit)
-                      : 0;
-
                     return (
                       <tr key={item.member.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="py-2.5 px-3">
                           <div className="font-bold text-slate-800">{item.member.name}</div>
                           <div className="text-[10px] text-slate-400 font-mono">{item.member.memberNo}</div>
                         </td>
-                        <td className="py-2.5 px-3 text-right text-slate-600">
-                          {formatCurrency(item.member.totalSavings, isBn && useBengaliDigits)}
-                        </td>
-                        <td className="py-2.5 px-3 text-right text-slate-700">
-                          {formatCurrency(Math.round(item.dailyAverage), isBn && useBengaliDigits)}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-slate-700">
-                          {isBn && useBengaliDigits
-                            ? toBengaliNumber(Math.round(item.dailyWeightedDeposit))
-                            : Math.round(item.dailyWeightedDeposit).toLocaleString()}
+                        <td className="py-2.5 px-3 text-right font-bold text-slate-700">
+                          {formatCurrency(item.savings, isBn && useBengaliDigits)}
                         </td>
                         <td className="py-2.5 px-3 text-right">
                           <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold text-[11px]">
@@ -338,8 +371,13 @@ export const MonthlyProfitDistributionModal: React.FC<MonthlyProfitDistributionM
                               : `${item.weightPercentage.toFixed(2)}%`}
                           </span>
                         </td>
-                        <td className="py-2.5 px-3 text-right font-bold text-indigo-700 bg-indigo-50/30 text-xs">
-                          {formatCurrency(allocatedProfit, isBn && useBengaliDigits)}
+                        <td className="py-2.5 px-3 text-right font-mono text-slate-600 text-[11px]">
+                          {profitRatio > 0 && item.savings > 0 
+                            ? `${profitRatio.toFixed(4)} × ${item.savings} = ${item.rawAllocated.toFixed(2)}` 
+                            : '-'}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-black text-indigo-700 bg-indigo-50/30 text-xs">
+                          +{formatCurrency(item.allocatedProfit, isBn && useBengaliDigits)}
                         </td>
                       </tr>
                     );
@@ -355,7 +393,7 @@ export const MonthlyProfitDistributionModal: React.FC<MonthlyProfitDistributionM
             </label>
             <input
               type="text"
-              placeholder={isBn ? 'যেমন: কার্যকরী কমিটির মিটিং রেজোলিউশন # ১২ অনুযায়ী বণ্টন সম্পন্ন' : 'e.g. As per Executive Committee Resolution #12'}
+              placeholder={isBn ? 'যেমন: কার্যকরী কমিটির মিটিং রেজোলিউশন অনুযায়ী লভ্যাংশ বণ্টন সম্পন্ন' : 'e.g. Monthly business profit distribution'}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
@@ -381,7 +419,7 @@ export const MonthlyProfitDistributionModal: React.FC<MonthlyProfitDistributionM
             </button>
             <button
               type="button"
-              disabled={isSubmitting || totalWeightedDeposit <= 0}
+              disabled={isSubmitting || totalSavings <= 0 || !!existingDistributionForMonth}
               onClick={handleExecute}
               className="px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-98 shadow-md transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
             >

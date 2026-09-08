@@ -27,6 +27,7 @@ import {
   getTransactionTypeName, 
   toBengaliNumber 
 } from '../../utils/bengaliUtils';
+import { calculateProportionalProfit, MemberDepositSnapshotItem } from '../../utils/profitCalculation';
 
 export const ReportsView: React.FC = () => {
   const { language, t } = useLanguage();
@@ -44,6 +45,8 @@ export const ReportsView: React.FC = () => {
     settings, 
     useBengaliDigits, 
     distributeProfitToSavings, 
+    businessProfitRecords,
+    getMemberSavingsBalance,
     activeTab 
   } = useSomiti();
 
@@ -139,18 +142,20 @@ export const ReportsView: React.FC = () => {
       }));
       fileName = `member_wise_report.xlsx`;
     } else if (activeReport === 'dividend') {
-      const totalDepositBase = members.reduce((sum, m) => sum + (m.savingsBalance || 0), 0);
-      exportData = members.map(m => {
-        const memberBalance = m.savingsBalance || 0;
-        const shareRatio = totalDepositBase > 0 ? (memberBalance / totalDepositBase) : 0;
-        const profitShare = profitToDistribute * shareRatio;
+      const memberSnapshots: MemberDepositSnapshotItem[] = members.map(m => ({
+        memberId: m.id,
+        memberNo: m.memberNo,
+        memberName: m.name,
+        depositAmount: getMemberSavingsBalance(m),
+      }));
+      const res = calculateProportionalProfit(profitToDistribute, memberSnapshots);
+      exportData = res.memberShares.map(item => {
         return {
-          [isBn ? 'সদস্য নং' : 'Member No']: m.memberNo,
-          [isBn ? 'নাম' : 'Name']: m.name,
-          [isBn ? 'মোবাইল' : 'Phone']: m.phone,
-          [isBn ? 'সদস্যের মোট জমা (৳)' : 'Member Deposit (৳)']: memberBalance,
-          [isBn ? 'জমার অনুপাত (%)' : 'Ratio (%)']: (shareRatio * 100).toFixed(2) + '%',
-          [isBn ? 'বণ্টনকৃত লাভ (৳)' : 'Distributed Profit (৳)']: Math.round(profitShare),
+          [isBn ? 'সদস্য নং' : 'Member No']: item.memberNo,
+          [isBn ? 'নাম' : 'Name']: item.memberName,
+          [isBn ? 'সদস্যের মোট জমা (৳)' : 'Member Deposit (৳)']: item.depositSnapshot,
+          [isBn ? 'জমার অনুপাত (%)' : 'Ratio (%)']: item.weightPercentage.toFixed(2) + '%',
+          [isBn ? 'বণ্টনকৃত লাভ (৳)' : 'Distributed Profit (৳)']: item.allocatedProfit.toFixed(2),
         };
       });
       fileName = `dividend_distribution_${profitToDistribute}taka.xlsx`;
@@ -499,33 +504,23 @@ export const ReportsView: React.FC = () => {
 
         {/* 5. Dividend / Profit Distribution by Savings Balance */}
         {activeReport === 'dividend' && (() => {
-          // Calculate total eligible deposit base
-          const totalDepositBase = members.reduce((sum, m) => {
-            if (distributionCriteria === 'general_savings') return sum + (m.savingsBalance || 0);
-            if (distributionCriteria === 'share_capital') return sum + ((m.totalShares || 0) * (settings.shareValue || 100));
-            // 'total_deposit' = general savings + scheme deposits
-            return sum + (m.savingsBalance || 0);
-          }, 0);
-
-          const membersWithProfit = members.map((m) => {
+          // Calculate deposit snapshots for all members using current eligible balances
+          const memberSnapshots: MemberDepositSnapshotItem[] = members.map((m) => {
             const memberBalance = distributionCriteria === 'share_capital' 
               ? (m.totalShares || 0) * (settings.shareValue || 100)
-              : (m.savingsBalance || 0);
-            
-            const shareRatio = totalDepositBase > 0 ? (memberBalance / totalDepositBase) : 0;
-            const profitShare = profitToDistribute * shareRatio;
-            const percentage = (shareRatio * 100).toFixed(2);
-
+              : getMemberSavingsBalance(m);
             return {
-              ...m,
-              memberBalance,
-              shareRatio,
-              percentage,
-              profitShare
+              memberId: m.id,
+              memberNo: m.memberNo,
+              memberName: m.name,
+              depositAmount: memberBalance,
             };
           });
 
-          const totalDistributed = membersWithProfit.reduce((s, m) => s + m.profitShare, 0);
+          // Single source of truth calculation with guaranteed exact rounding
+          const distribution = calculateProportionalProfit(profitToDistribute, memberSnapshots);
+          const totalDepositBase = distribution.totalDeposit;
+          const totalDistributed = distribution.totalDistributed;
 
           return (
             <div className="space-y-6">
@@ -654,50 +649,53 @@ export const ReportsView: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {membersWithProfit.length === 0 ? (
+                    {distribution.memberShares.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="py-8 text-center text-slate-400">{isBn ? 'কোনো সদস্য পাওয়া যায়নি' : 'No members found'}</td>
                       </tr>
                     ) : (
-                      membersWithProfit.map((m) => (
-                        <tr key={m.id} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="py-2.5 px-3 font-mono font-bold text-slate-700">{m.memberNo}</td>
-                          <td className="py-2.5 px-3">
-                            <div className="font-bold text-slate-800">{m.name}</div>
-                            <div className="text-[10px] text-slate-400">{m.phone}</div>
-                          </td>
-                          <td className="py-2.5 px-3 text-right font-bold text-blue-900">
-                            {formatCurrency(m.memberBalance, isBn && useBengaliDigits)}
-                          </td>
-                          <td className="py-2.5 px-3 text-center">
-                            <span className="px-2 py-0.5 bg-slate-100 text-slate-800 font-mono font-bold rounded-md text-[11px]">
-                              {isBn || useBengaliDigits ? toBengaliNumber(m.percentage) : m.percentage}%
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3 text-right font-black text-emerald-700 text-sm">
-                            {formatCurrency(Math.round(m.profitShare), isBn && useBengaliDigits)}
-                          </td>
-                          <td className="py-2.5 px-3 text-center text-slate-300">
-                            ................................
-                          </td>
-                        </tr>
-                      ))
+                      distribution.memberShares.map((m) => {
+                        const originalMember = members.find(mem => mem.id === m.memberId);
+                        return (
+                          <tr key={m.memberId} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="py-2.5 px-3 font-mono font-bold text-slate-700">{m.memberNo}</td>
+                            <td className="py-2.5 px-3">
+                              <div className="font-bold text-slate-800">{m.memberName}</div>
+                              <div className="text-[10px] text-slate-400">{originalMember?.phone}</div>
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-bold text-blue-900 font-mono">
+                              ৳{formatCurrency(m.depositSnapshot, isBn && useBengaliDigits)}
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              <span className="px-2 py-0.5 bg-slate-100 text-slate-800 font-mono font-bold rounded-md text-[11px]">
+                                {isBn || useBengaliDigits ? toBengaliNumber(m.weightPercentage.toFixed(2)) : m.weightPercentage.toFixed(2)}%
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-black text-emerald-700 font-mono text-sm">
+                              +৳{formatCurrency(m.allocatedProfit, isBn && useBengaliDigits)}
+                            </td>
+                            <td className="py-2.5 px-3 text-center text-slate-300">
+                              ................................
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                   <tfoot className="bg-slate-100 font-extrabold text-xs text-slate-900 border-t-2 border-slate-300">
                     <tr>
                       <td colSpan={2} className="py-3 px-3">{isBn ? 'সর্বমোট (Total):' : 'Grand Total:'}</td>
-                      <td className="py-3 px-3 text-right text-blue-900">
-                        {formatCurrency(totalDepositBase, isBn && useBengaliDigits)}
+                      <td className="py-3 px-3 text-right text-blue-900 font-mono">
+                        ৳{formatCurrency(totalDepositBase, isBn && useBengaliDigits)}
                       </td>
-                      <td className="py-3 px-3 text-center text-slate-700">
+                      <td className="py-3 px-3 text-center text-slate-700 font-mono">
                         {isBn || useBengaliDigits ? '১০০.০০%' : '100.00%'}
                       </td>
-                      <td className="py-3 px-3 text-right text-emerald-800 text-sm">
-                        {formatCurrency(Math.round(totalDistributed), isBn && useBengaliDigits)}
+                      <td className="py-3 px-3 text-right text-emerald-800 font-mono text-sm">
+                        ৳{formatCurrency(totalDistributed, isBn && useBengaliDigits)}
                       </td>
                       <td className="py-3 px-3 text-center text-emerald-700 font-semibold">
-                        {isBn ? '✓ পূর্ণ বণ্টন সম্পন্ন' : '✓ Full Distributed'}
+                        {isBn ? '✓ পূর্ণ বণ্টন সম্পন্ন (১০০%)' : '✓ Full Distributed (100%)'}
                       </td>
                     </tr>
                   </tfoot>

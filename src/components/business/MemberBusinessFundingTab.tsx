@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Briefcase, Plus, TrendingUp, DollarSign, Calendar, Clock, CheckCircle2, AlertCircle, Lock, Building, FileText, ChevronRight, Check, X as XIcon, Edit, Trash2 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { Member, BusinessFunding, BusinessProfitRecord, MonthlyProfitDistribution, PaymentMethod } from '../../types';
+import { Member, BusinessFunding, BusinessProfitRecord, MonthlyProfitDistribution, PaymentMethod, MemberProfitShareItem } from '../../types';
 import { formatCurrency, toBengaliNumber, formatBengaliDate } from '../../utils/bengaliUtils';
 import { BusinessApplyModal } from './BusinessApplyModal';
 import { BusinessProfitRecordModal } from './BusinessProfitRecordModal';
@@ -79,16 +79,26 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
   const myFundings = businessFundings.filter(f => f.memberId === member.id);
   const myProfitRecords = businessProfitRecords.filter(r => r.memberId === member.id);
 
-  // Filter distributions where this member received a profit share
-  const myDistributions = profitDistributions
-    .map(dist => {
-      const myShare = dist.memberDistributions?.find(m => m.memberId === member.id);
-      return {
-        dist,
-        myShare,
-      };
-    })
-    .filter(item => item.myShare && item.myShare.allocatedProfit > 0);
+  // Filter distributions where this member received a profit share (deduplicated by month/distributionNo)
+  const myDistributionsMap = new Map<string, { dist: MonthlyProfitDistribution; myShare: MemberProfitShareItem }>();
+  profitDistributions.forEach(dist => {
+    const key = dist.distributionNo || `${dist.year}-${dist.month}`;
+    const myShare = dist.memberDistributions?.find(m => m.memberId === member.id);
+    if (myShare && myShare.allocatedProfit > 0) {
+      // If multiple exists for the same month, retain the latest valid one (prefer one with totalSavingsPool or newer createdAt)
+      const existing = myDistributionsMap.get(key);
+      if (!existing) {
+        myDistributionsMap.set(key, { dist, myShare });
+      } else {
+        const existingHasSavings = (existing.dist.totalSavingsPool || 0) > 0;
+        const currentHasSavings = (dist.totalSavingsPool || 0) > 0;
+        if ((currentHasSavings && !existingHasSavings) || (dist.createdAt || '') > (existing.dist.createdAt || '')) {
+          myDistributionsMap.set(key, { dist, myShare });
+        }
+      }
+    }
+  });
+  const myDistributions = Array.from(myDistributionsMap.values());
 
   // Totals
   const totalActiveFunding = myFundings
@@ -452,9 +462,7 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
                             <th className="py-2 px-3">{isBn ? 'মাস' : 'Month'}</th>
                             <th className="py-2 px-3 text-right">{isBn ? 'মোট ব্যবসা লাভ' : 'Total Profit'}</th>
                             <th className="py-2 px-3 text-right text-emerald-700">
-                              {isBn
-                                ? `সমিতির লভ্যাংশ (${toBengaliNumber(funding.somitiProfitSharePercent)}%)`
-                                : `Somiti Share (${funding.somitiProfitSharePercent}%)`}
+                              {isBn ? 'সমিতির লভ্যাংশ' : 'Somiti Profit'}
                             </th>
                             <th className="py-2 px-3 text-center">{isBn ? 'বণ্টন অবস্থা' : 'Distribution Status'}</th>
                             <th className="py-2 px-3 text-right">{isBn ? 'তারিখ' : 'Date'}</th>
@@ -522,14 +530,14 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
             <TrendingUp className="w-4 h-4 text-indigo-600" />
             <span>
               {isBn
-                ? 'সমিতির লাভ বণ্টন হতে অর্জিত লভ্যাংশ (Daily Weighted Balance ভিত্তিতে)'
-                : 'Somiti Profit Distributions Received (Daily Weighted Balance Basis)'}
+                ? 'সমিতির লাভ বণ্টন হতে অর্জিত লভ্যাংশ (মোট সঞ্চয় জমার ভিত্তিতে)'
+                : 'Somiti Profit Distributions Received (Total Savings Basis)'}
             </span>
           </h4>
           <p className="text-xs text-slate-500 mt-0.5">
             {isBn
-              ? 'প্রতি মাসে সমিতির ব্যবসা ফান্ডিং হতে প্রাপ্ত লাভের অংশ যা সদস্যের দৈনিক জমার অনুপাতে প্রাপ্ত হয়েছে'
-              : 'Monthly profits shared from Somiti business pool credited to member savings based on daily weighted balance'}
+              ? 'প্রতি মাসে সমিতির ব্যবসা ফান্ডিং হতে প্রাপ্ত লাভের অংশ যা সদস্যের মোট সঞ্চয় জমার অনুপাতে প্রাপ্ত হয়েছে'
+              : 'Monthly profits shared from Somiti business pool credited to member savings based on total savings'}
           </p>
         </div>
 
@@ -545,8 +553,8 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
               <thead className="bg-slate-50 text-[10px] text-slate-500 uppercase border-b border-slate-200">
                 <tr>
                   <th className="py-2.5 px-4 font-bold">{isBn ? 'বণ্টন নং / মাস' : 'Distribution # / Month'}</th>
-                  <th className="py-2.5 px-4 font-bold text-right">{isBn ? 'সদস্যের ওয়েটেড ডিপোজিট' : 'Weighted Deposit'}</th>
-                  <th className="py-2.5 px-4 font-bold text-right">{isBn ? 'সমিতিতে অংশ হার (%)' : 'Weight %'}</th>
+                  <th className="py-2.5 px-4 font-bold text-right">{isBn ? 'সদস্যের মোট জমা' : 'Total Savings'}</th>
+                  <th className="py-2.5 px-4 font-bold text-right">{isBn ? 'অংশ হার (%)' : 'Share %'}</th>
                   <th className="py-2.5 px-4 font-bold text-right text-indigo-800">{isBn ? 'প্রাপ্ত লভ্যাংশ' : 'Allocated Profit'}</th>
                   <th className="py-2.5 px-4 font-bold text-center">{isBn ? 'স্ট্যাটাস' : 'Status'}</th>
                   {isUserAdmin && (
@@ -555,23 +563,27 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
-                {myDistributions.map(({ dist, myShare }) => (
-                  <tr key={dist.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-2.5 px-4">
-                      <div className="font-bold text-slate-800">{dist.monthName || `${dist.year}-${dist.month}`}</div>
-                      <div className="text-[10px] text-slate-400 font-mono">{dist.distributionNo}</div>
-                    </td>
-                    <td className="py-2.5 px-4 text-right font-mono text-slate-700">
-                      {isBn ? toBengaliNumber(Math.round(myShare?.dailyWeightedDeposit || 0)) : Math.round(myShare?.dailyWeightedDeposit || 0).toLocaleString()}
-                    </td>
-                    <td className="py-2.5 px-4 text-right">
-                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold text-[11px]">
-                        {isBn ? `${toBengaliNumber(myShare?.weightPercentage || 0)}%` : `${myShare?.weightPercentage || 0}%`}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-4 text-right font-bold text-indigo-700 text-sm">
-                      {formatCurrency(myShare?.allocatedProfit, isBn && useBengaliDigits)}
-                    </td>
+                {myDistributions.map(({ dist, myShare }) => {
+                  const memberSavingsSnapshot = myShare?.totalSavingsSnapshot !== undefined 
+                    ? myShare.totalSavingsSnapshot 
+                    : (myShare?.dailyWeightedDeposit || 0);
+                  return (
+                    <tr key={dist.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2.5 px-4">
+                        <div className="font-bold text-slate-800">{dist.monthName || `${dist.year}-${dist.month}`}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">{dist.distributionNo}</div>
+                      </td>
+                      <td className="py-2.5 px-4 text-right font-mono text-slate-700">
+                        {isBn ? toBengaliNumber(Math.round(memberSavingsSnapshot)) : Math.round(memberSavingsSnapshot).toLocaleString()}
+                      </td>
+                      <td className="py-2.5 px-4 text-right">
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold text-[11px]">
+                          {isBn ? `${toBengaliNumber(myShare?.weightPercentage || 0)}%` : `${myShare?.weightPercentage || 0}%`}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-4 text-right font-bold text-indigo-700 text-sm">
+                        {formatCurrency(myShare?.allocatedProfit, isBn && useBengaliDigits)}
+                      </td>
                     <td className="py-2.5 px-4 text-center">
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                         <CheckCircle2 className="w-3 h-3" />
@@ -591,7 +603,8 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
                       </td>
                     )}
                   </tr>
-                ))}
+                );
+              })}
               </tbody>
             </table>
           </div>

@@ -4,6 +4,7 @@ import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { formatCurrency, toBengaliNumber } from '../../utils/bengaliUtils';
 import { BusinessProfitRecord, BusinessFunding } from '../../types';
+import { calculateProportionalProfit, MemberDepositSnapshotItem } from '../../utils/profitCalculation';
 
 interface BusinessProfitEditModalProps {
   isOpen: boolean;
@@ -12,6 +13,16 @@ interface BusinessProfitEditModalProps {
   onSuccess?: () => void;
 }
 
+const BENGALI_MONTHS = [
+  'জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
+  'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'
+];
+
+const ENGLISH_MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
 export const BusinessProfitEditModal: React.FC<BusinessProfitEditModalProps> = ({
   isOpen,
   onClose,
@@ -19,25 +30,57 @@ export const BusinessProfitEditModal: React.FC<BusinessProfitEditModalProps> = (
   onSuccess,
 }) => {
   const {
+    members,
     businessFundings,
+    businessProfitRecords,
     updateBusinessProfitRecord,
-    calculateDailyWeightedDeposits,
+    getMemberSavingsBalance,
     useBengaliDigits,
   } = useSomiti();
   const { language } = useLanguage();
   const isBn = language === 'bn';
 
-  const [month, setMonth] = useState<string>('');
+  const today = new Date();
+  const [selectedDay, setSelectedDay] = useState<number>(today.getDate());
+  const [selectedMonth, setSelectedMonth] = useState<number>(today.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(today.getFullYear());
   const [totalProfit, setTotalProfit] = useState<number | ''>('');
   const [notes, setNotes] = useState<string>('');
   const [showMemberBreakdown, setShowMemberBreakdown] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
+  const month = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
+  const fullDateStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
+
+  const handleDateChange = (dateVal: string) => {
+    if (!dateVal) return;
+    const parts = dateVal.split('-').map(Number);
+    if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
+      setSelectedYear(parts[0]);
+      setSelectedMonth(parts[1]);
+      setSelectedDay(parts[2]);
+    }
+  };
+
   useEffect(() => {
     if (record) {
-      setMonth(record.month || new Date().toISOString().slice(0, 7));
-      setTotalProfit(record.totalBusinessProfit || 0);
+      if (record.date) {
+        const parts = record.date.split('-').map(Number);
+        if (parts.length === 3) {
+          setSelectedYear(parts[0]);
+          setSelectedMonth(parts[1]);
+          setSelectedDay(parts[2]);
+        }
+      } else if (record.month) {
+        const parts = record.month.split('-').map(Number);
+        if (parts.length === 2) {
+          setSelectedYear(parts[0]);
+          setSelectedMonth(parts[1]);
+          setSelectedDay(1);
+        }
+      }
+      setTotalProfit(record.somitiProfitAmount || record.totalBusinessProfit || 0);
       setNotes(record.notes || '');
       setErrorMsg('');
     }
@@ -48,45 +91,42 @@ export const BusinessProfitEditModal: React.FC<BusinessProfitEditModalProps> = (
     return businessFundings.find(f => f.id === record.businessFundingId || f.applicationNo === record.applicationNo);
   }, [businessFundings, record]);
 
-  const memberPct = targetFunding?.memberProfitSharePercent !== undefined ? targetFunding.memberProfitSharePercent : (record?.memberProfitPercent ?? 50);
-  const somitiPct = targetFunding?.somitiProfitSharePercent !== undefined ? targetFunding.somitiProfitSharePercent : (record?.somitiProfitPercent ?? 50);
+  const somitiShareAmount = Number(totalProfit) || 0;
+  const numTotalProfit = somitiShareAmount;
 
-  const numTotalProfit = Number(totalProfit) || 0;
-  const memberShareAmount = Math.round(numTotalProfit * (memberPct / 100));
-  const somitiShareAmount = numTotalProfit - memberShareAmount;
+  // Compute snapshots: if record already has historical deposit snapshots, preserve or recompute
+  const memberSnapshots: MemberDepositSnapshotItem[] = useMemo(() => {
+    if (record?.memberDistributions && record.memberDistributions.length > 0) {
+      return record.memberDistributions.map(d => ({
+        memberId: d.memberId,
+        memberNo: d.memberNo,
+        memberName: d.memberName,
+        depositAmount: d.depositSnapshot,
+      }));
+    }
+    return members.map(m => ({
+      memberId: m.id,
+      memberNo: m.memberNo,
+      memberName: m.name,
+      depositAmount: getMemberSavingsBalance(m),
+    }));
+  }, [record, members, getMemberSavingsBalance]);
 
-  // Calculate weighted deposit distribution preview for selected month
-  const { items, totalWeightedDeposit } = useMemo(() => {
-    if (!month) return { items: [], totalWeightedDeposit: 0 };
-    const [yStr, mStr] = month.split('-');
-    const y = parseInt(yStr, 10) || new Date().getFullYear();
-    const m = parseInt(mStr, 10) || (new Date().getMonth() + 1);
-    return calculateDailyWeightedDeposits(y, m);
-  }, [month, calculateDailyWeightedDeposits]);
+  // Calculate profit distribution based on members' total savings using the proportional engine
+  const distributionResult = useMemo(() => {
+    return calculateProportionalProfit(somitiShareAmount, memberSnapshots);
+  }, [somitiShareAmount, memberSnapshots]);
 
   const previewItems = useMemo(() => {
     if (!somitiShareAmount || somitiShareAmount <= 0) return [];
-    const eligible = items.filter(item => (item.dailyWeightedDeposit > 0 || (item.member.totalSavings || 0) > 0));
-    const effectiveTotalWeight = totalWeightedDeposit > 0
-      ? totalWeightedDeposit
-      : eligible.reduce((sum, item) => sum + (item.dailyWeightedDeposit || (item.member.totalSavings || 0)), 0);
-
-    if (effectiveTotalWeight <= 0) return [];
-
-    return eligible.map(item => {
-      const weight = item.dailyWeightedDeposit > 0 ? item.dailyWeightedDeposit : (item.member.totalSavings || 0);
-      const allocated = Math.round((weight / effectiveTotalWeight) * somitiShareAmount);
-      return {
-        ...item,
-        allocated,
-      };
-    }).filter(item => item.allocated > 0);
-  }, [items, totalWeightedDeposit, somitiShareAmount]);
+    return distributionResult.memberShares.filter(item => item.depositSnapshot > 0 && item.allocatedProfit > 0);
+  }, [distributionResult, somitiShareAmount]);
 
   if (!isOpen || !record) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setErrorMsg('');
 
     if (!numTotalProfit || numTotalProfit <= 0) {
@@ -94,16 +134,13 @@ export const BusinessProfitEditModal: React.FC<BusinessProfitEditModalProps> = (
       return;
     }
 
-    if (!month) {
-      setErrorMsg(isBn ? 'লাভের মাস নির্বাচন করুন' : 'Please select a month');
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       await updateBusinessProfitRecord(record.id, {
         month,
-        totalBusinessProfit: numTotalProfit,
+        date: fullDateStr,
+        somitiProfitAmount: somitiShareAmount,
+        totalBusinessProfit: somitiShareAmount,
         notes: notes.trim(),
       });
 
@@ -163,31 +200,99 @@ export const BusinessProfitEditModal: React.FC<BusinessProfitEditModalProps> = (
               <span className="text-slate-500 ml-1.5">({targetFunding?.businessName || 'Business'})</span>
             </div>
             <div className="text-right">
-              <span className="text-slate-400 block text-[10px] uppercase font-bold">{isBn ? 'সমিতির লভ্যাংশ চুক্তি' : 'Somiti Profit Share'}</span>
+              <span className="text-slate-400 block text-[10px] uppercase font-bold">{isBn ? 'সমিতির লভ্যাংশ অংশ' : 'Somiti Profit Share'}</span>
               <span className="font-bold text-emerald-700">
-                {isBn ? `${toBengaliNumber(somitiPct)}% অংশ` : `${somitiPct}% Share`}
+                {isBn ? '১০০% অংশ (সম্পূর্ণ)' : '100% Share'}
               </span>
             </div>
           </div>
 
-          {/* Month & Total Profit Input */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                {isBn ? 'লাভের মাস (Month) *' : 'Profit Month *'}
+          {/* Date, Month, Year Selection & Total Profit Input */}
+          <div className="space-y-4">
+            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+              <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-emerald-600" />
+                  {isBn ? 'তারিখ, মাস ও সাল নির্বাচন' : 'Date, Month & Year Selection'} <span className="text-rose-500">*</span>
+                </span>
+                <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded-md border border-emerald-300">
+                  {isBn 
+                    ? `${toBengaliNumber(selectedDay)} ${BENGALI_MONTHS[selectedMonth - 1]} ${toBengaliNumber(selectedYear)}` 
+                    : `${selectedDay} ${ENGLISH_MONTHS[selectedMonth - 1]} ${selectedYear}`}
+                </span>
               </label>
-              <input
-                type="month"
-                value={month}
-                onChange={e => setMonth(e.target.value)}
-                required
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-              />
+
+              <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+                {/* Day */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                    {isBn ? 'কত তারিখ (দিন)' : 'Day / Date'}
+                  </label>
+                  <select
+                    value={selectedDay}
+                    onChange={(e) => setSelectedDay(Number(e.target.value))}
+                    className="w-full px-2.5 py-2 rounded-lg border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  >
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                      <option key={d} value={d}>
+                        {isBn ? `${toBengaliNumber(d)} তারিখ` : `${d}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Month */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                    {isBn ? 'কোন মাস' : 'Month'}
+                  </label>
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                    className="w-full px-2.5 py-2 rounded-lg border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  >
+                    {BENGALI_MONTHS.map((mName, idx) => (
+                      <option key={idx + 1} value={idx + 1}>
+                        {isBn ? mName : ENGLISH_MONTHS[idx]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Year */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                    {isBn ? 'কোন সাল' : 'Year'}
+                  </label>
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(Number(e.target.value))}
+                    className="w-full px-2.5 py-2 rounded-lg border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  >
+                    {[2024, 2025, 2026, 2027, 2028, 2029, 2030].map((yr) => (
+                      <option key={yr} value={yr}>
+                        {isBn ? `${toBengaliNumber(yr)} সাল` : `${yr}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Integrated Calendar input */}
+              <div className="mt-2.5 flex items-center justify-between pt-2 border-t border-slate-200/80 text-[11px] text-slate-600">
+                <span>{isBn ? 'অথবা ক্যালেন্ডার হতে বেছে নিন:' : 'Or pick from calendar:'}</span>
+                <input
+                  type="date"
+                  value={fullDateStr}
+                  onChange={(e) => handleDateChange(e.target.value)}
+                  className="px-2 py-1 rounded-md border border-slate-300 text-xs bg-white focus:ring-1 focus:ring-emerald-500 focus:outline-hidden cursor-pointer"
+                />
+              </div>
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                {isBn ? 'এই মাসে ব্যবসার অর্জিত মোট লাভ (৳) *' : 'Total Business Profit in Month (৳) *'}
+                {isBn ? 'সমিতির অর্জিত নিট লাভ (৳) *' : "Somiti's Net Profit (৳) *"}
               </label>
               <input
                 type="number"
@@ -199,6 +304,9 @@ export const BusinessProfitEditModal: React.FC<BusinessProfitEditModalProps> = (
                 required
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
               />
+              <span className="text-[10px] text-emerald-700 font-medium mt-1 block">
+                {isBn ? '✓ সম্পূর্ণ টাকাই কোনো কর্তন ছাড়া সমিতির লাভ হিসেবে পুনর্বণ্টন হবে' : 'Exact amount without deduction'}
+              </span>
             </div>
           </div>
 
@@ -210,8 +318,8 @@ export const BusinessProfitEditModal: React.FC<BusinessProfitEditModalProps> = (
                 {isBn ? 'সমিতির লভ্যাংশ হিসাব ও পুনর্বণ্টন' : 'Somiti Profit Calculation & Redistribution'}
               </span>
               <span className="text-[11px] font-bold text-slate-600">
-                {isBn ? 'মোট লাভ: ' : 'Total: '}
-                <span className="text-slate-900 font-bold">{formatCurrency(numTotalProfit, isBn && useBengaliDigits)}</span>
+                {isBn ? 'সমিতির অংশ: ' : 'Somiti Share: '}
+                <span className="text-emerald-800 font-bold">১০০% (সম্পূর্ণ)</span>
               </span>
             </div>
 
@@ -219,12 +327,12 @@ export const BusinessProfitEditModal: React.FC<BusinessProfitEditModalProps> = (
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div>
                   <div className="text-xs font-bold text-emerald-900">
-                    {isBn ? `সমিতির অর্জিত লভ্যাংশ (${toBengaliNumber(somitiPct)}%)` : `Somiti Profit Share (${somitiPct}%)`}
+                    {isBn ? 'সমিতিতে অর্জিত মোট লভ্যাংশ' : "Somiti's Profit"}
                   </div>
                   <div className="text-[11px] text-slate-500 mt-0.5">
                     {isBn
-                      ? `মোট লাভ (৳${numTotalProfit}) এর ${toBengaliNumber(somitiPct)}% সমিতিতে জমা হবে`
-                      : `${somitiPct}% of total profit (৳${numTotalProfit}) credited to Somiti`}
+                      ? `সম্পূর্ণ ৳${numTotalProfit} টাকা সদস্যদের মাঝে জমার অনুপাতে পুনর্বণ্টন হবে`
+                      : `Full ৳${numTotalProfit} will be redistributed proportionally`}
                   </div>
                 </div>
                 <div className="text-left sm:text-right">
@@ -270,22 +378,26 @@ export const BusinessProfitEditModal: React.FC<BusinessProfitEditModalProps> = (
                       <thead>
                         <tr className="text-[10px] font-bold uppercase text-slate-400">
                           <th className="pb-1.5">{isBn ? 'সদস্য' : 'Member'}</th>
-                          <th className="pb-1.5 text-right">{isBn ? 'জমার গড়/স্থিতি' : 'Deposit Weight'}</th>
-                          <th className="pb-1.5 text-right text-emerald-700">{isBn ? 'প্রাপ্য লাভ (৳)' : 'Dividend'}</th>
+                          <th className="pb-1.5 text-right">{isBn ? 'মোট জমা (৳)' : 'Total Savings'}</th>
+                          <th className="pb-1.5 text-right">{isBn ? 'জমার অংশ' : 'Share'}</th>
+                          <th className="pb-1.5 text-right text-emerald-700">{isBn ? 'প্রাপ্য লাভ (৳)' : 'Allocated Profit'}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 font-medium">
                         {previewItems.map(item => (
-                          <tr key={item.member.id} className="hover:bg-slate-50">
+                          <tr key={item.memberId} className="hover:bg-slate-50">
                             <td className="py-1.5 font-bold text-slate-800">
-                              {item.member.name}
-                              <span className="text-[10px] text-slate-400 ml-1 font-normal">({item.member.memberNo})</span>
+                              {item.memberName}
+                              <span className="text-[10px] text-slate-400 ml-1 font-normal">({item.memberNo})</span>
                             </td>
-                            <td className="py-1.5 text-right text-slate-600">
-                              {formatCurrency(item.dailyWeightedDeposit > 0 ? item.dailyWeightedDeposit : (item.member.totalSavings || 0), isBn && useBengaliDigits)}
+                            <td className="py-1.5 text-right text-slate-600 font-mono">
+                              ৳{formatCurrency(item.depositSnapshot, isBn && useBengaliDigits)}
                             </td>
-                            <td className="py-1.5 text-right font-bold text-emerald-700">
-                              +{formatCurrency(item.allocated, isBn && useBengaliDigits)}
+                            <td className="py-1.5 text-right text-indigo-600 text-[11px] font-semibold font-mono">
+                              {item.weightPercentage.toFixed(2)}%
+                            </td>
+                            <td className="py-1.5 text-right font-bold text-emerald-700 font-mono">
+                              +৳{item.allocatedProfit.toFixed(2)}
                             </td>
                           </tr>
                         ))}
