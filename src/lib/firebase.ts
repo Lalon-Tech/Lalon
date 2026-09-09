@@ -1,6 +1,14 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, setDoc, DocumentReference, WriteBatch, SetOptions } from 'firebase/firestore';
+import { 
+  initializeFirestore, 
+  getFirestore, 
+  setDoc, 
+  DocumentReference, 
+  WriteBatch, 
+  SetOptions,
+  setLogLevel
+} from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 // Initialize Firebase App
@@ -9,10 +17,23 @@ export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getA
 // Initialize Firebase Authentication
 export const auth = getAuth(app);
 
-// Initialize Cloud Firestore with configured databaseId
-export const db = firebaseConfig.firestoreDatabaseId
-  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
-  : getFirestore(app);
+// Suppress transient offline/retry logging that causes false positive connection alerts
+setLogLevel('error');
+
+// Initialize Cloud Firestore with experimentalForceLongPolling for robust connectivity inside iframes and sandboxed environments
+export const db = (() => {
+  const databaseId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
+    ? firebaseConfig.firestoreDatabaseId
+    : undefined;
+
+  try {
+    return initializeFirestore(app, {
+      experimentalForceLongPolling: true,
+    }, databaseId);
+  } catch {
+    return databaseId ? getFirestore(app, databaseId) : getFirestore(app);
+  }
+})();
 
 /**
  * Deeply removes all `undefined` values from an object or array to prevent

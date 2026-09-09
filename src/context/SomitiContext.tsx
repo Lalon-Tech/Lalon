@@ -27,7 +27,8 @@ import {
   BusinessFundingStatus,
   BusinessProfitRecord,
   MonthlyProfitDistribution,
-  MemberProfitShareItem
+  MemberProfitShareItem,
+  AuditLog
 } from '../types';
 import { 
   initialMembers, 
@@ -47,7 +48,7 @@ import {
   sampleDemoUsers
 } from '../utils/mockData';
 import { calculateProportionalProfit, getMemberSavingsBalance } from '../utils/profitCalculation';
-import { formatBengaliDate } from '../utils/bengaliUtils';
+import { formatBengaliDate, compareTransactionsDesc } from '../utils/bengaliUtils';
 
 // Sanitization helpers to eliminate any NaN or undefined data
 const sanitizeMember = (m: any): Member => {
@@ -86,12 +87,16 @@ const sanitizeMember = (m: any): Member => {
 const sanitizeLoan = (l: any): Loan => {
   const principal = Number(l.principalAmount) || 0;
   const interestRate = Number(l.interestRate) || 0;
-  const totalInterest = Number(l.totalInterest) || (principal * (interestRate / 100));
-  const totalPayable = Number(l.totalPayable) || (principal + totalInterest);
+  const totalInterest = Number(l.totalInterest ?? l.interestAmount) || (principal * (interestRate / 100));
+  const totalAmount = Number(l.totalAmount ?? l.totalPayable) || (principal + totalInterest);
   const paidAmount = Number(l.paidAmount) || 0;
   const remaining = Number(l.remainingAmount) !== undefined && !isNaN(Number(l.remainingAmount)) 
     ? Number(l.remainingAmount) 
-    : Math.max(0, totalPayable - paidAmount);
+    : Math.max(0, totalAmount - paidAmount);
+
+  const sched = Array.isArray(l.schedule) && l.schedule.length > 0
+    ? l.schedule
+    : (Array.isArray(l.installmentSchedule) ? l.installmentSchedule : []);
 
   return {
     ...l,
@@ -99,16 +104,20 @@ const sanitizeLoan = (l: any): Loan => {
     principalAmount: principal,
     interestRate,
     totalInterest,
-    totalPayable,
+    interestAmount: totalInterest,
+    totalAmount,
+    totalPayable: totalAmount,
     installmentAmount: Number(l.installmentAmount) || 0,
-    totalInstallments: Number(l.totalInstallments) || 0,
-    paidInstallments: Number(l.paidInstallments) || 0,
+    totalInstallments: Number(l.totalInstallments) || (sched.length || 1),
+    paidInstallments: Number(l.paidInstallments ?? l.paidInstallmentsCount) || 0,
+    paidInstallmentsCount: Number(l.paidInstallmentsCount ?? l.paidInstallments) || 0,
     paidAmount,
     remainingAmount: remaining,
     fineCollected: Number(l.fineCollected) || 0,
     discountGiven: Number(l.discountGiven) || 0,
-    status: l.status || (remaining <= 0 ? 'paid' : 'active'),
-    installmentSchedule: Array.isArray(l.installmentSchedule) ? l.installmentSchedule : [],
+    status: l.status || (remaining <= 0 ? 'cleared' : 'active'),
+    schedule: sched,
+    installmentSchedule: sched,
   };
 };
 
@@ -140,12 +149,55 @@ const sanitizeTransaction = (t: any): Transaction => {
   return {
     ...t,
     id: t.id || `tx-${Date.now()}`,
+    serialNo: typeof t.serialNo === 'number' && t.serialNo > 0 ? t.serialNo : undefined,
     amount: Number(t.amount) || 0,
     fineAmount: Number(t.fineAmount) || 0,
     discountAmount: Number(t.discountAmount) || 0,
     paymentMethod: t.paymentMethod || 'cash',
     status: t.status || 'completed',
   };
+};
+
+/**
+ * Ensures every transaction has a permanent, unique, strictly monotonic serial number.
+ * Never duplicates existing serial numbers.
+ */
+const ensureTransactionSerials = (rawList: Transaction[]): Transaction[] => {
+  let maxSerial = 0;
+  rawList.forEach(t => {
+    if (typeof t.serialNo === 'number' && t.serialNo > maxSerial) {
+      maxSerial = t.serialNo;
+    }
+  });
+
+  // If no serials exist at all, sort chronologically ascending and assign 1, 2, 3...
+  if (maxSerial === 0 && rawList.length > 0) {
+    const ascending = [...rawList].sort((a, b) => {
+      const timeA = `${a.date || ''} ${a.time || ''}`;
+      const timeB = `${b.date || ''} ${b.time || ''}`;
+      return timeA.localeCompare(timeB);
+    });
+    const serialMap = new Map<string, number>();
+    ascending.forEach((tx, idx) => {
+      serialMap.set(tx.id, idx + 1);
+    });
+    return rawList.map(tx => ({
+      ...tx,
+      serialNo: serialMap.get(tx.id) || 1,
+    }));
+  }
+
+  // If some are missing serialNo, assign next serials starting from maxSerial + 1
+  let next = maxSerial + 1;
+  return rawList.map(tx => {
+    if (typeof tx.serialNo === 'number' && tx.serialNo > 0) {
+      return tx;
+    }
+    return {
+      ...tx,
+      serialNo: next++,
+    };
+  });
 };
 
 const sanitizeUser = (u: any): AppUser => {
@@ -345,6 +397,7 @@ interface SomitiContextType {
 
   updateTransaction: (id: string, updates: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
+  getNextLedgerSerial: () => number;
 
   addLoan: (params: {
     memberId: string;
@@ -362,15 +415,60 @@ interface SomitiContextType {
     processingFee?: number;
   }) => Loan;
 
+  applyForLoan: (params: {
+    memberId: string;
+    principalAmount: number;
+    interestRate: number;
+    termMonths: number;
+    installmentFrequency: 'daily' | 'weekly' | 'monthly';
+    purpose: string;
+    guarantorMemberId?: string;
+    guarantorName?: string;
+    guarantorPhone?: string;
+    guarantorRelation?: string;
+    disbursementMethod?: PaymentMethod;
+    bankAccountId?: string;
+    processingFee?: number;
+  }) => { success: boolean; message: string; loan?: Loan };
+
+  approveLoan: (params: {
+    loanId: string;
+    disbursementMethod?: PaymentMethod;
+    bankAccountId?: string;
+    processingFee?: number;
+    adminComment?: string;
+  }) => { success: boolean; message: string };
+
+  rejectLoan: (params: {
+    loanId: string;
+    reason: string;
+  }) => { success: boolean; message: string };
+
+  updateLoan: (
+    loanId: string, 
+    updatedFields: Partial<Loan>, 
+    auditReason?: string
+  ) => { success: boolean; message: string; loan?: Loan };
+
+  deleteLoan: (
+    loanId: string, 
+    options: { mode: 'safe_reversal' | 'permanent_delete'; reason: string }
+  ) => { success: boolean; message: string };
+
   payLoanInstallment: (params: {
     loanId: string;
-    installmentNo: number;
-    amount: number;
+    installmentNo?: number;
+    amount?: number;
+    collectedAmount?: number;
     fine?: number;
+    lateFee?: number;
     discount?: number;
     paymentMethod: PaymentMethod;
     notes?: string;
-  }) => Transaction;
+  }) => Transaction & { success: boolean; message: string };
+
+  auditLogs: AuditLog[];
+  addAuditLog: (logData: Omit<AuditLog, 'id' | 'timestamp' | 'date' | 'time'>) => AuditLog;
 
   addSavingsScheme: (params: {
     memberId: string;
@@ -463,7 +561,9 @@ interface SomitiContextType {
   businessProfitRecords: BusinessProfitRecord[];
   profitDistributions: MonthlyProfitDistribution[];
   addBusinessFunding: (fundingData: Omit<BusinessFunding, 'id' | 'applicationNo' | 'status' | 'totalProfitRecorded' | 'totalMemberProfitPaid' | 'totalSomitiProfitEarned' | 'createdAt'>) => Promise<BusinessFunding>;
-  updateBusinessFundingStatus: (id: string, status: BusinessFundingStatus, approvedAmount?: number, notes?: string) => Promise<void>;
+  updateBusinessFundingStatus: (id: string, status: BusinessFundingStatus, approvedAmount?: number, notes?: string, rejectionReason?: string) => Promise<void>;
+  approveBusinessFunding: (params: { fundingId: string; approvedAmount?: number; notes?: string }) => Promise<{ success: boolean; message: string }>;
+  rejectBusinessFunding: (params: { fundingId: string; reason: string }) => Promise<{ success: boolean; message: string }>;
   updateBusinessFunding: (id: string, fundingData: Partial<BusinessFunding>) => Promise<void>;
   deleteBusinessFunding: (id: string) => Promise<void>;
   disburseBusinessFunding: (id: string, paymentMethod: PaymentMethod, bankAccountId?: string, notes?: string) => Promise<void>;
@@ -571,17 +671,20 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const [members, setMembers] = useState<Member[]>(() => {
     const raw = safeParse('bondhu_members', initialMembers, true);
-    return raw.map(sanitizeMember);
+    const list = (raw && raw.length > 0) ? raw : sampleDemoMembers;
+    return list.map(sanitizeMember);
   });
 
   const [loans, setLoans] = useState<Loan[]>(() => {
     const raw = safeParse('bondhu_loans', initialLoans, true);
-    return raw.map(sanitizeLoan);
+    const list = (raw && raw.length > 0) ? raw : sampleDemoLoans;
+    return list.map(sanitizeLoan);
   });
 
   const [savingsSchemes, setSavingsSchemes] = useState<SavingsScheme[]>(() => {
     const raw = safeParse('bondhu_savings', initialSavingsSchemes, true);
-    return raw.map(sanitizeSavings);
+    const list = (raw && raw.length > 0) ? raw : sampleDemoSavingsSchemes;
+    return list.map(sanitizeSavings);
   });
 
   const [shareClosures, setShareClosures] = useState<ShareClosure[]>(() => {
@@ -591,11 +694,13 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const raw = safeParse('bondhu_transactions', initialTransactions, true);
-    return raw.map(sanitizeTransaction);
+    const list = (raw && raw.length > 0) ? raw : sampleDemoTransactions;
+    return list.map(sanitizeTransaction).sort(compareTransactionsDesc);
   });
 
   const [vouchers, setVouchers] = useState<IncomeExpenseItem[]>(() => {
-    return safeParse('bondhu_vouchers', initialVouchers, true);
+    const raw = safeParse('bondhu_vouchers', initialVouchers, true);
+    return (raw && raw.length > 0) ? raw : sampleDemoVouchers;
   });
 
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>(() => {
@@ -621,6 +726,10 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [profitDistributions, setProfitDistributions] = useState<MonthlyProfitDistribution[]>(() => {
     const raw = safeParse('bondhu_profit_distributions', [], true);
     return raw.map(sanitizeMonthlyProfitDistribution);
+  });
+
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
+    return safeParse('bondhu_audit_logs', []);
   });
 
   const [currentUser, setCurrentUser] = useState<AppUser>(() => {
@@ -764,6 +873,10 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     localStorage.setItem('bondhu_profit_distributions', JSON.stringify(profitDistributions));
   }, [profitDistributions]);
+
+  useEffect(() => {
+    localStorage.setItem('bondhu_audit_logs', JSON.stringify(auditLogs));
+  }, [auditLogs]);
 
   // Self-healing automatic reconciliation:
   // Whenever the app loads or businessProfitRecords/profitDistributions change, detect and purge any
@@ -980,12 +1093,16 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               const data = docSnap.data();
               list.push(sanitizeTransaction({ ...data, id: docSnap.id }));
             });
-            list.sort((a, b) => b.id.localeCompare(a.id));
+            list.sort(compareTransactionsDesc);
             setTransactions(list);
           } else {
-            if (transactions.length > 0 && !isInitialLoadDone.current) {
+            const listToSeed = transactions.length > 0 ? transactions : sampleDemoTransactions;
+            if (transactions.length === 0) {
+              setTransactions(listToSeed);
+            }
+            if (!isInitialLoadDone.current) {
               const batch = writeBatch(db);
-              transactions.forEach(t => safeBatchSet(batch, doc(db, 'transactions', t.id), t));
+              listToSeed.forEach(t => safeBatchSet(batch, doc(db, 'transactions', t.id), t));
               batch.commit().catch(console.error);
             }
           }
@@ -1306,8 +1423,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       if (!txSnap.empty) {
         const list: Transaction[] = [];
-        txSnap.forEach(d => list.push(d.data() as Transaction));
-        list.sort((a, b) => b.id.localeCompare(a.id));
+        txSnap.forEach(d => list.push(sanitizeTransaction(d.data())));
+        list.sort(compareTransactionsDesc);
         setTransactions(list);
       }
 
@@ -1445,6 +1562,18 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
+  // Unique Serial Generator for Ledger Transactions (never duplicate, strictly monotonic)
+  const getNextLedgerSerial = (sourceList?: Transaction[]): number => {
+    const list = sourceList || transactions;
+    let max = 0;
+    for (const t of list) {
+      if (typeof t.serialNo === 'number' && t.serialNo > max) {
+        max = t.serialNo;
+      }
+    }
+    return max + 1;
+  };
+
   // Add Member
   const addMember = (memberData: Omit<Member, 'id' | 'memberNo' | 'totalSavings' | 'generalSavingsBalance' | 'dpsSavingsBalance' | 'fdrSavingsBalance' | 'activeLoanBalance'>): Member => {
     const nextNo = members.length + 101;
@@ -1469,6 +1598,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const txId = `tx-${Date.now()}`;
       const tx: Transaction = {
         id: txId,
+        serialNo: getNextLedgerSerial(),
         voucherNo: `V-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
         memberId: newMember.id,
         memberName: newMember.name,
@@ -1606,6 +1736,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // 1. Transaction record for financial ledger
     const newTx: Transaction = {
       id: txId,
+      serialNo: getNextLedgerSerial(),
       voucherNo,
       memberId: member.id,
       memberName: member.name,
@@ -1717,6 +1848,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const newTx: Transaction = {
       id: txId,
+      serialNo: getNextLedgerSerial(),
       voucherNo,
       memberId: member.id,
       memberName: member.name,
@@ -1819,6 +1951,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const newTx: Transaction = {
       id: `tx-${Date.now()}`,
+      serialNo: getNextLedgerSerial(),
       voucherNo,
       memberId: params.memberId,
       memberName: member?.name || 'অজ্ঞাত সদস্য',
@@ -1910,6 +2043,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const newTx: Transaction = {
       id: `tx-${Date.now()}`,
+      serialNo: getNextLedgerSerial(),
       voucherNo,
       memberId: params.memberId,
       memberName: member?.name || 'অজ্ঞাত সদস্য',
@@ -2179,7 +2313,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  // Add Loan
+  // Add Loan (সরাসরি ঋণ বিতরণ)
   const addLoan = (params: {
     memberId: string;
     principalAmount: number;
@@ -2195,6 +2329,18 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     bankAccountId?: string;
     processingFee?: number;
   }): Loan => {
+    // 1. Duplicate Loan Check
+    const existingActive = loans.find(l => l.memberId === params.memberId && l.status === 'active' && (l.remainingAmount || 0) > 0);
+    if (existingActive) {
+      alert(`এই সদস্যের ইতিমধ্যে একটি চলমান সক্রিয় ঋণ (#${existingActive.loanNo}, বকেয়া: ৳${existingActive.remainingAmount}) রয়েছে। পূর্বের ঋণ সম্পূর্ণ পরিশোধ না হওয়া পর্যন্ত নতুন ঋণ বিতরণ করা যাবে না।`);
+      throw new Error(`Member already has an active loan #${existingActive.loanNo}`);
+    }
+    const existingPending = loans.find(l => l.memberId === params.memberId && l.status === 'pending');
+    if (existingPending) {
+      alert(`এই সদস্যের একটি ঋণ আবেদন (#${existingPending.loanNo || existingPending.applicationNo}) ইতিমধ্যে অনুমোদনের অপেক্ষমাণ রয়েছে।`);
+      throw new Error(`Member has a pending loan application`);
+    }
+
     const member = members.find(m => m.id === params.memberId);
     const guarantorMember = params.guarantorMemberId ? members.find(m => m.id === params.guarantorMemberId) : null;
 
@@ -2262,9 +2408,11 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return updated;
     }));
 
-    // Record disbursement transaction
+    // Record disbursement transaction with unique serial
+    let nextSerial = getNextLedgerSerial();
     const txDisburse: Transaction = {
       id: `tx-${Date.now()}`,
+      serialNo: nextSerial++,
       voucherNo: `V-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
       memberId: params.memberId,
       memberName: member?.name,
@@ -2288,6 +2436,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (params.processingFee && params.processingFee > 0) {
       const txFee: Transaction = {
         id: `tx-${Date.now() + 2}`,
+        serialNo: nextSerial++,
         voucherNo: `V-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
         memberId: params.memberId,
         memberName: member?.name,
@@ -2322,24 +2471,312 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return newLoan;
   };
 
-  // Pay Loan Installment
+  // Apply for Loan (সদস্যের ঋণ আবেদন — এডমিন অনুমোদনের জন্য অপেক্ষমাণ থাকবে)
+  const applyForLoan = (params: {
+    memberId: string;
+    principalAmount: number;
+    interestRate: number;
+    termMonths: number;
+    installmentFrequency: 'daily' | 'weekly' | 'monthly';
+    purpose: string;
+    guarantorMemberId?: string;
+    guarantorName?: string;
+    guarantorPhone?: string;
+    guarantorRelation?: string;
+    disbursementMethod?: PaymentMethod;
+    bankAccountId?: string;
+    processingFee?: number;
+  }): { success: boolean; message: string; loan?: Loan } => {
+    // 1. Duplicate Loan Check
+    const existingActive = loans.find(l => l.memberId === params.memberId && l.status === 'active' && (l.remainingAmount || 0) > 0);
+    if (existingActive) {
+      return {
+        success: false,
+        message: `এই সদস্যের ইতিমধ্যে একটি চলমান সক্রিয় ঋণ (#${existingActive.loanNo}, বকেয়া: ৳${existingActive.remainingAmount}) রয়েছে। পূর্বের ঋণ সম্পূর্ণ পরিশোধ না হওয়া পর্যন্ত নতুন ঋণ আবেদন গ্রহণযোগ্য নয়।`,
+      };
+    }
+
+    const existingPending = loans.find(l => l.memberId === params.memberId && l.status === 'pending');
+    if (existingPending) {
+      return {
+        success: false,
+        message: `এই সদস্যের একটি ঋণ আবেদন (#${existingPending.loanNo || existingPending.applicationNo}) ইতিমধ্যে অনুমোদনের অপেক্ষমাণ রয়েছে। পূর্বের আবেদনটি নিষ্পত্তি না হওয়া পর্যন্ত নতুন আবেদন করা যাবে না।`,
+      };
+    }
+
+    const member = members.find(m => m.id === params.memberId);
+    if (!member) {
+      return { success: false, message: 'সদস্য খুঁজে পাওয়া যায়নি।' };
+    }
+
+    const totalInterest = Math.round((params.principalAmount * params.interestRate) / 100);
+    const totalAmount = params.principalAmount + totalInterest;
+
+    let totalInstallments = params.termMonths;
+    if (params.installmentFrequency === 'daily') totalInstallments = params.termMonths * 30;
+    if (params.installmentFrequency === 'weekly') totalInstallments = params.termMonths * 4;
+
+    const installmentAmount = Math.ceil(totalAmount / totalInstallments);
+    const principalPerInst = Math.round(params.principalAmount / totalInstallments);
+    const interestPerInst = Math.round(totalInterest / totalInstallments);
+
+    const guarantorMember = params.guarantorMemberId ? members.find(m => m.id === params.guarantorMemberId) : null;
+
+    const schedule: LoanInstallmentSchedule[] = Array.from({ length: totalInstallments }, (_, i) => {
+      const d = new Date();
+      if (params.installmentFrequency === 'daily') d.setDate(d.getDate() + i + 1);
+      else if (params.installmentFrequency === 'weekly') d.setDate(d.getDate() + (i + 1) * 7);
+      else d.setMonth(d.getMonth() + i + 1);
+
+      return {
+        installmentNo: i + 1,
+        dueDate: d.toISOString().split('T')[0],
+        amount: installmentAmount,
+        principal: principalPerInst,
+        interest: interestPerInst,
+        status: 'unpaid',
+      };
+    });
+
+    const newLoanIndex = loans.length + 1;
+    const loanNo = `LN-${new Date().getFullYear()}-${String(newLoanIndex).padStart(3, '0')}`;
+    const applicationNo = `APP-LN-${new Date().getFullYear()}-${String(newLoanIndex).padStart(3, '0')}`;
+
+    const newLoan: Loan = {
+      id: `loan-${Date.now()}`,
+      loanNo,
+      applicationNo,
+      memberId: params.memberId,
+      memberName: member.name,
+      memberPhone: member.phone,
+      memberNo: member.memberNo,
+      principalAmount: params.principalAmount,
+      interestRate: params.interestRate,
+      totalAmount,
+      termMonths: params.termMonths,
+      installmentFrequency: params.installmentFrequency,
+      totalInstallments,
+      installmentAmount,
+      disbursedDate: '',
+      appliedDate: getTodayDateStr(),
+      purpose: params.purpose,
+      guarantorMemberId: params.guarantorMemberId,
+      guarantorName: guarantorMember ? guarantorMember.name : params.guarantorName,
+      guarantorPhone: guarantorMember ? guarantorMember.phone : params.guarantorPhone,
+      guarantorRelation: params.guarantorRelation || 'সমিতি সদস্য',
+      paidAmount: 0,
+      remainingAmount: totalAmount,
+      paidInstallmentsCount: 0,
+      status: 'pending',
+      schedule,
+      disbursementMethod: params.disbursementMethod || 'cash',
+      bankAccountId: params.bankAccountId,
+      processingFee: params.processingFee,
+    };
+
+    setLoans(prev => [newLoan, ...prev]);
+    safeSetDoc(doc(db, 'loans', newLoan.id), newLoan).catch(console.error);
+
+    return {
+      success: true,
+      message: `ঋণ আবেদন (#${applicationNo}) সফলভাবে দাখিল করা হয়েছে। এডমিন অনুমোদনের পর অর্থ বিতরণ করা হবে।`,
+      loan: newLoan,
+    };
+  };
+
+  // Approve Loan (এডমিন কর্তৃক ঋণ আবেদন অনুমোদন ও অর্থ বিতরণ)
+  const approveLoan = (params: {
+    loanId: string;
+    disbursementMethod?: PaymentMethod;
+    bankAccountId?: string;
+    processingFee?: number;
+    adminComment?: string;
+  }): { success: boolean; message: string } => {
+    const loan = loans.find(l => l.id === params.loanId);
+    if (!loan) {
+      return { success: false, message: 'ঋণ রেকর্ডটি খুঁজে পাওয়া যায়নি।' };
+    }
+    if (loan.status !== 'pending') {
+      return { success: false, message: 'এই ঋণটি ইতিমধ্যে প্রক্রিয়াজাত করা হয়েছে।' };
+    }
+
+    // Safety check against duplicate active loan
+    const existingActive = loans.find(l => l.memberId === loan.memberId && l.id !== loan.id && l.status === 'active' && (l.remainingAmount || 0) > 0);
+    if (existingActive) {
+      return {
+        success: false,
+        message: `অনুমোদন ব্যর্থ: সদস্যের পূর্বের ঋণ (#${existingActive.loanNo}) এখনও সক্রিয় রয়েছে।`,
+      };
+    }
+
+    const member = members.find(m => m.id === loan.memberId);
+    const method = params.disbursementMethod || loan.disbursementMethod || 'cash';
+    const bankId = params.bankAccountId || loan.bankAccountId;
+    const fee = params.processingFee !== undefined ? params.processingFee : (loan.processingFee || 0);
+
+    const updatedLoan: Loan = {
+      ...loan,
+      status: 'active',
+      disbursedDate: getTodayDateStr(),
+      disbursementMethod: method,
+      bankAccountId: bankId,
+      approvedBy: currentUser?.name || 'অ্যাডমিন',
+      approvedAt: new Date().toISOString(),
+      adminComment: params.adminComment?.trim() || 'অনুমোদিত ও বিতরণ সম্পন্ন',
+    };
+
+    setLoans(prev => prev.map(l => l.id === loan.id ? updatedLoan : l));
+    safeSetDoc(doc(db, 'loans', loan.id), updatedLoan).catch(console.error);
+
+    // Update Member active loan balance
+    if (loan.memberId) {
+      setMembers(prev => prev.map(m => {
+        if (m.id !== loan.memberId) return m;
+        const updated = { ...m, activeLoanBalance: (m.activeLoanBalance || 0) + loan.totalAmount };
+        safeSetDoc(doc(db, 'members', m.id), updated).catch(console.error);
+        return updated;
+      }));
+    }
+
+    // Record disbursement transaction with unique serial
+    let nextSerial = getNextLedgerSerial();
+    const txDisburse: Transaction = {
+      id: `tx-${Date.now()}`,
+      serialNo: nextSerial++,
+      voucherNo: `V-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      memberId: loan.memberId,
+      memberName: loan.memberName,
+      memberNo: member?.memberNo || loan.memberNo,
+      type: 'loan_disbursed',
+      amount: loan.principalAmount,
+      date: getTodayDateStr(),
+      time: getCurrentTimeStr(),
+      paymentMethod: method,
+      bankAccountId: bankId,
+      loanId: loan.id,
+      collectedBy: currentUser?.name || 'অ্যাডমিন',
+      verifiedBy: currentUser?.name || 'অ্যাডমিন',
+      notes: `ঋণ বিতরণ অনুমোদন: ${loan.purpose} (${loan.loanNo})`,
+      status: 'completed',
+    };
+
+    const newTxs = [txDisburse];
+    safeSetDoc(doc(db, 'transactions', txDisburse.id), txDisburse).catch(console.error);
+
+    if (fee > 0) {
+      const txFee: Transaction = {
+        id: `tx-${Date.now() + 2}`,
+        serialNo: nextSerial++,
+        voucherNo: `V-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        memberId: loan.memberId,
+        memberName: loan.memberName,
+        memberNo: member?.memberNo || loan.memberNo,
+        type: 'income',
+        amount: fee,
+        date: getTodayDateStr(),
+        time: getCurrentTimeStr(),
+        paymentMethod: 'cash',
+        category: 'ঋণ প্রসেসিং ফি',
+        collectedBy: currentUser?.name || 'অ্যাডমিন',
+        verifiedBy: currentUser?.name || 'অ্যাডমিন',
+        notes: `ঋণ ফরম ও প্রসেসিং ফি (${loan.loanNo})`,
+        status: 'completed',
+      };
+      newTxs.push(txFee);
+      safeSetDoc(doc(db, 'transactions', txFee.id), txFee).catch(console.error);
+    }
+
+    setTransactions(prev => [...newTxs, ...prev]);
+
+    // Deduct from bank if bank payment
+    if (method === 'bank' && bankId) {
+      setBankAccounts(prev => prev.map(b => {
+        if (b.id !== bankId) return b;
+        const updated = { ...b, balance: Math.max(0, b.balance - loan.principalAmount) };
+        safeSetDoc(doc(db, 'bankAccounts', b.id), updated).catch(console.error);
+        return updated;
+      }));
+    }
+
+    setActiveReceipt(txDisburse);
+    return { success: true, message: `ঋণ #${loan.loanNo} সফলভাবে অনুমোদিত এবং বিতরণ করা হয়েছে।` };
+  };
+
+  // Reject Loan (এডমিন কর্তৃক ঋণ আবেদন বাতিলকরণ — কারণ বাধ্যতামূলক)
+  const rejectLoan = (params: {
+    loanId: string;
+    reason: string;
+  }): { success: boolean; message: string } => {
+    if (!params.reason || !params.reason.trim()) {
+      return {
+        success: false,
+        message: 'ঋণ আবেদন প্রত্যাখ্যান করার জন্য কারণ (Comment/Reason) উল্লেখ করা বাধ্যতামূলক।',
+      };
+    }
+
+    const loan = loans.find(l => l.id === params.loanId);
+    if (!loan) {
+      return { success: false, message: 'ঋণ রেকর্ডটি খুঁজে পাওয়া যায়নি।' };
+    }
+
+    const updatedLoan: Loan = {
+      ...loan,
+      status: 'rejected',
+      rejectedBy: currentUser?.name || 'অ্যাডমিন',
+      rejectedAt: new Date().toISOString(),
+      rejectionReason: params.reason.trim(),
+      adminComment: params.reason.trim(),
+    };
+
+    setLoans(prev => prev.map(l => l.id === loan.id ? updatedLoan : l));
+    safeSetDoc(doc(db, 'loans', loan.id), updatedLoan).catch(console.error);
+
+    return {
+      success: true,
+      message: `ঋণ আবেদন #${loan.loanNo || loan.applicationNo} সফলভাবে প্রত্যাখ্যান করা হয়েছে। কারণ রেকর্ডভুক্ত হয়েছে।`,
+    };
+  };
+
+  // Audit Logging helper
+  const addAuditLog = (logData: Omit<AuditLog, 'id' | 'timestamp' | 'date' | 'time'>): AuditLog => {
+    const newLog: AuditLog = {
+      ...logData,
+      id: `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toISOString(),
+      date: getTodayDateStr(),
+      time: getCurrentTimeStr(),
+    };
+    setAuditLogs(prev => [newLog, ...prev]);
+    safeSetDoc(doc(db, 'audit_logs', newLog.id), newLog).catch(console.error);
+    return newLog;
+  };
+
+  // Pay Loan Installment (Enhanced with flexible input, safe schedule fallback, and audit logging)
   const payLoanInstallment = (params: {
     loanId: string;
-    installmentNo: number;
-    amount: number;
+    installmentNo?: number;
+    amount?: number;
+    collectedAmount?: number;
     fine?: number;
+    lateFee?: number;
     discount?: number;
     paymentMethod: PaymentMethod;
     notes?: string;
-  }): Transaction => {
+  }): Transaction & { success: boolean; message: string } => {
     const loan = loans.find(l => l.id === params.loanId);
     const member = members.find(m => m.id === loan?.memberId);
     const voucherNo = `V-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const totalCollected = params.amount + (params.fine || 0) - (params.discount || 0);
+    const payAmount = Number(params.amount ?? params.collectedAmount ?? 0);
+    const fineAmount = Number(params.fine ?? params.lateFee ?? 0);
+    const discountAmount = Number(params.discount ?? 0);
+    const totalCollected = Math.max(0, payAmount + fineAmount - discountAmount);
+
+    const actualInstallmentNo = params.installmentNo || (loan ? (loan.paidInstallmentsCount || 0) + 1 : 1);
 
     const newTx: Transaction = {
       id: `tx-${Date.now()}`,
+      serialNo: getNextLedgerSerial(),
       voucherNo,
       memberId: loan?.memberId,
       memberName: loan?.memberName,
@@ -2350,67 +2787,379 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       time: getCurrentTimeStr(),
       paymentMethod: params.paymentMethod,
       loanId: params.loanId,
-      installmentNo: params.installmentNo,
-      fineAmount: params.fine,
-      discountAmount: params.discount,
-      collectedBy: currentUser.name,
-      verifiedBy: currentUser.name,
-      notes: params.notes || `ঋণ কিস্তি #${params.installmentNo} আদায় (${loan?.loanNo})`,
+      installmentNo: actualInstallmentNo,
+      fineAmount: fineAmount,
+      discountAmount: discountAmount,
+      collectedBy: currentUser?.name || 'অ্যাডমিন',
+      verifiedBy: currentUser?.name || 'অ্যাডমিন',
+      notes: params.notes || `ঋণ কিস্তি #${actualInstallmentNo} আদায় (${loan?.loanNo || ''})`,
       status: 'completed',
     };
 
     setTransactions(prev => [newTx, ...prev]);
     safeSetDoc(doc(db, 'transactions', newTx.id), newTx).catch(console.error);
 
-    // Update Loan Schedule
-    setLoans(prev => prev.map(l => {
-      if (l.id !== params.loanId) return l;
-      const updatedSchedule = l.schedule.map(s => {
-        if (s.installmentNo === params.installmentNo) {
-          return {
-            ...s,
-            status: 'paid' as const,
-            paidDate: getTodayDateStr(),
-            paidAmount: params.amount,
-            fine: params.fine,
-            receiptNo: voucherNo,
-          };
-        }
-        return s;
-      });
+    // Update Loan Schedule & Loan Record
+    if (loan) {
+      const scheduleList: LoanInstallmentSchedule[] = Array.isArray(loan.schedule) && loan.schedule.length > 0
+        ? [...loan.schedule]
+        : (Array.isArray((loan as any).installmentSchedule) && (loan as any).installmentSchedule.length > 0
+            ? [...(loan as any).installmentSchedule]
+            : []);
+
+      let updatedSchedule: LoanInstallmentSchedule[];
+      if (scheduleList.length > 0) {
+        let matched = false;
+        updatedSchedule = scheduleList.map(s => {
+          if (s.installmentNo === actualInstallmentNo || (!matched && s.status !== 'paid' && !params.installmentNo)) {
+            matched = true;
+            return {
+              ...s,
+              status: 'paid' as const,
+              paidDate: getTodayDateStr(),
+              paidAmount: payAmount,
+              fine: fineAmount,
+              receiptNo: voucherNo,
+            };
+          }
+          return s;
+        });
+      } else {
+        updatedSchedule = [{
+          installmentNo: actualInstallmentNo,
+          dueDate: getTodayDateStr(),
+          amount: payAmount,
+          principal: payAmount,
+          interest: 0,
+          status: 'paid',
+          paidDate: getTodayDateStr(),
+          paidAmount: payAmount,
+          fine: fineAmount,
+          receiptNo: voucherNo,
+        }];
+      }
 
       const paidCount = updatedSchedule.filter(s => s.status === 'paid').length;
-      const newPaidAmount = l.paidAmount + params.amount;
-      const newRemaining = Math.max(0, l.totalAmount - newPaidAmount);
-      const isCleared = newRemaining <= 0 || paidCount >= l.totalInstallments;
+      const newPaidAmount = (Number(loan.paidAmount) || 0) + payAmount;
+      const newRemaining = Math.max(0, (Number(loan.totalAmount) || 0) - newPaidAmount);
+      const isCleared = newRemaining <= 0 || paidCount >= (loan.totalInstallments || 1);
 
-      const updated = {
-        ...l,
+      const updatedLoan: Loan = {
+        ...loan,
         paidAmount: newPaidAmount,
         remainingAmount: newRemaining,
         paidInstallmentsCount: paidCount,
-        status: isCleared ? ('cleared' as const) : ('active' as const),
+        status: isCleared ? 'cleared' : 'active',
         schedule: updatedSchedule,
+        installmentSchedule: updatedSchedule,
       };
-      safeSetDoc(doc(db, 'loans', l.id), updated).catch(console.error);
-      return updated;
-    }));
 
-    // Update Member balance
-    if (loan?.memberId) {
-      setMembers(prev => prev.map(m => {
-        if (m.id !== loan.memberId) return m;
-        const updated = {
-          ...m,
-          activeLoanBalance: Math.max(0, m.activeLoanBalance - params.amount),
-        };
-        safeSetDoc(doc(db, 'members', m.id), updated).catch(console.error);
-        return updated;
-      }));
+      setLoans(prev => prev.map(l => l.id === params.loanId ? updatedLoan : l));
+      safeSetDoc(doc(db, 'loans', loan.id), updatedLoan).catch(console.error);
+
+      // Recalculate member active loan balance from single source of truth (all active loans)
+      if (loan.memberId) {
+        setMembers(prev => prev.map(m => {
+          if (m.id !== loan.memberId) return m;
+          const remainingForMember = loans
+            .map(l => l.id === params.loanId ? updatedLoan : l)
+            .filter(l => l.memberId === loan.memberId && l.status === 'active')
+            .reduce((sum, l) => sum + (Number(l.remainingAmount) || 0), 0);
+
+          const updatedM = { ...m, activeLoanBalance: Math.max(0, remainingForMember) };
+          safeSetDoc(doc(db, 'members', m.id), updatedM).catch(console.error);
+          return updatedM;
+        }));
+      }
+
+      // Add audit log
+      addAuditLog({
+        action: 'installment',
+        entityType: 'loan',
+        entityId: loan.id,
+        entityTitle: `${loan.loanNo} (${loan.memberName})`,
+        performedBy: currentUser?.name || 'অ্যাডমিন',
+        userRole: currentUser?.role || 'admin',
+        details: `কিস্তি #${actualInstallmentNo} আদায়: ৳${payAmount} (জরিমানা: ৳${fineAmount}, ছাড়: ৳${discountAmount}). অবশিষ্ট বকেয়া: ৳${newRemaining}`,
+      });
     }
 
     setActiveReceipt(newTx);
-    return newTx;
+    return Object.assign(newTx, { 
+      success: true, 
+      message: `ঋণ কিস্তি #${actualInstallmentNo} বাবদ ৳${totalCollected} সফলভাবে আদায় ও সংরক্ষণ সম্পন্ন হয়েছে!` 
+    });
+  };
+
+  // Update Loan (Edit Loan with automatic recalculation across all stats, member balances, and audit logs)
+  const updateLoan = (
+    loanId: string,
+    updatedFields: Partial<Loan>,
+    auditReason?: string
+  ): { success: boolean; message: string; loan?: Loan } => {
+    const oldLoan = loans.find(l => l.id === loanId);
+    if (!oldLoan) {
+      return { success: false, message: 'ঋণ হিসাব খুঁজে পাওয়া যায়নি।' };
+    }
+
+    const principalAmount = Number(updatedFields.principalAmount ?? oldLoan.principalAmount) || 0;
+    const interestRate = Number(updatedFields.interestRate ?? oldLoan.interestRate) || 0;
+    const totalInterest = Number(updatedFields.interestAmount ?? (principalAmount * (interestRate / 100))) || 0;
+    const totalAmount = Number(updatedFields.totalAmount ?? (principalAmount + totalInterest)) || 0;
+    const termMonths = Number(updatedFields.termMonths ?? oldLoan.termMonths) || 1;
+    const installmentFrequency = updatedFields.installmentFrequency ?? oldLoan.installmentFrequency ?? 'monthly';
+    const totalInstallments = Number(updatedFields.totalInstallments ?? oldLoan.totalInstallments) || 1;
+
+    // Calculate regular installment amount
+    const installmentAmount = updatedFields.installmentAmount 
+      ? Number(updatedFields.installmentAmount) 
+      : Math.round(totalAmount / Math.max(1, totalInstallments));
+
+    // Sum actual installment payments collected
+    const existingTx = transactions.filter(t => t.loanId === loanId && t.type === 'loan_installment' && t.status === 'completed');
+    const calculatedPaidAmount = existingTx.length > 0 
+      ? existingTx.reduce((sum, t) => sum + (Number(t.amount) - (Number(t.fineAmount) || 0) + (Number(t.discountAmount) || 0)), 0)
+      : Number(updatedFields.paidAmount ?? oldLoan.paidAmount ?? 0);
+    
+    const paidInstallmentsCount = existingTx.length > 0 
+      ? existingTx.length 
+      : Number(updatedFields.paidInstallmentsCount ?? oldLoan.paidInstallmentsCount ?? 0);
+
+    const remainingAmount = Math.max(0, totalAmount - calculatedPaidAmount);
+    const isCleared = remainingAmount <= 0;
+    const status = updatedFields.status 
+      ? updatedFields.status 
+      : (isCleared ? 'cleared' : (oldLoan.status === 'pending' ? 'pending' : (oldLoan.status === 'rejected' ? 'rejected' : 'active')));
+
+    // Rebuild schedule preserving paid history
+    const oldSchedule = (Array.isArray(oldLoan.schedule) && oldLoan.schedule.length > 0) 
+      ? oldLoan.schedule 
+      : ((oldLoan as any).installmentSchedule || []);
+
+    const newSchedule: LoanInstallmentSchedule[] = [];
+    const remainingSlots = Math.max(1, totalInstallments - paidInstallmentsCount);
+    const perSlotAmount = Math.round(remainingAmount / remainingSlots);
+
+    for (let i = 1; i <= totalInstallments; i++) {
+      const existingSlot = oldSchedule.find((s: any) => s.installmentNo === i);
+      if (existingSlot && existingSlot.status === 'paid') {
+        newSchedule.push(existingSlot);
+      } else {
+        const principalPart = Math.round(principalAmount / Math.max(1, totalInstallments));
+        const interestPart = Math.round(totalInterest / Math.max(1, totalInstallments));
+        newSchedule.push({
+          installmentNo: i,
+          dueDate: existingSlot?.dueDate || getTodayDateStr(),
+          amount: perSlotAmount,
+          principal: principalPart,
+          interest: interestPart,
+          status: 'unpaid',
+        });
+      }
+    }
+
+    const updatedLoan: Loan = {
+      ...oldLoan,
+      ...updatedFields,
+      principalAmount,
+      interestRate,
+      interestAmount: totalInterest,
+      totalAmount,
+      termMonths,
+      installmentFrequency,
+      totalInstallments,
+      installmentAmount,
+      paidAmount: calculatedPaidAmount,
+      remainingAmount,
+      paidInstallmentsCount,
+      status,
+      schedule: newSchedule,
+      installmentSchedule: newSchedule,
+    };
+
+    const newLoans = loans.map(l => l.id === loanId ? updatedLoan : l);
+    setLoans(newLoans);
+    safeSetDoc(doc(db, 'loans', loanId), updatedLoan).catch(console.error);
+
+    // Update disbursement transaction if principal amount changed
+    if (principalAmount !== oldLoan.principalAmount) {
+      setTransactions(prev => {
+        const updatedTxs = prev.map(t => {
+          if (t.loanId === loanId && t.type === 'loan_disbursed') {
+            const updatedT = { ...t, amount: principalAmount };
+            safeSetDoc(doc(db, 'transactions', t.id), updatedT).catch(console.error);
+            return updatedT;
+          }
+          return t;
+        });
+        return updatedTxs;
+      });
+    }
+
+    // Recalculate Member activeLoanBalance accurately
+    const memberId = oldLoan.memberId;
+    if (memberId) {
+      const memberActiveLoanBal = newLoans
+        .filter(l => l.memberId === memberId && l.status === 'active')
+        .reduce((sum, l) => sum + (Number(l.remainingAmount) || 0), 0);
+
+      setMembers(prev => prev.map(m => {
+        if (m.id !== memberId) return m;
+        const updatedM = { ...m, activeLoanBalance: memberActiveLoanBal };
+        safeSetDoc(doc(db, 'members', m.id), updatedM).catch(console.error);
+        return updatedM;
+      }));
+    }
+
+    // Record Audit Log
+    addAuditLog({
+      action: 'update',
+      entityType: 'loan',
+      entityId: loanId,
+      entityTitle: `${oldLoan.loanNo} (${oldLoan.memberName})`,
+      performedBy: currentUser?.name || 'অ্যাডমিন',
+      userRole: currentUser?.role || 'admin',
+      details: auditReason ? `ঋণ হিসাব তথ্য সংশোধন: ${auditReason}` : `ঋণ #${oldLoan.loanNo} হিসাব সংশোধন করা হয়েছে।`,
+      changes: {
+        principalAmount: { old: oldLoan.principalAmount, new: principalAmount },
+        totalAmount: { old: oldLoan.totalAmount, new: totalAmount },
+        remainingAmount: { old: oldLoan.remainingAmount, new: remainingAmount },
+        status: { old: oldLoan.status, new: status },
+      },
+    });
+
+    return {
+      success: true,
+      message: `ঋণ হিসাব #${oldLoan.loanNo} সফলভাবে আপডেট ও রিক্যালকুলেট করা হয়েছে।`,
+      loan: updatedLoan,
+    };
+  };
+
+  // Delete Loan (Safe Reversal or Permanent Deletion with automatic balance & ledger reconciliation)
+  const deleteLoan = (
+    loanId: string,
+    options: { mode: 'safe_reversal' | 'permanent_delete'; reason: string }
+  ): { success: boolean; message: string } => {
+    const isAuthorized = 
+      currentUser?.role === 'admin' || 
+      currentUser?.role === 'president' || 
+      currentUser?.role === 'secretary';
+
+    if (!isAuthorized) {
+      return {
+        success: false,
+        message: 'অনুমতি নেই: শুধুমাত্র অনুমোদিত অ্যাডমিন বা কর্মকর্তা ঋণ হিসাব ডিলিট বা রিভার্স করতে পারবেন।',
+      };
+    }
+
+    const loan = loans.find(l => l.id === loanId);
+    if (!loan) {
+      return { success: false, message: 'ঋণ হিসাবটি পাওয়া যায়নি।' };
+    }
+
+    const memberId = loan.memberId;
+    const reason = options.reason?.trim() || 'কোনো কারণ উল্লেখ করা হয়নি';
+
+    if (options.mode === 'safe_reversal') {
+      const reversedLoan: Loan = {
+        ...loan,
+        status: 'rejected',
+        isReversed: true,
+        reversalReason: reason,
+        reversedAt: new Date().toISOString(),
+        reversedBy: currentUser?.name || 'অ্যাডমিন',
+        remainingAmount: 0,
+        adminComment: `[রিভার্সড/বাতিল]: ${reason}`,
+      };
+
+      const newLoans = loans.map(l => l.id === loanId ? reversedLoan : l);
+      setLoans(newLoans);
+      safeSetDoc(doc(db, 'loans', loanId), reversedLoan).catch(console.error);
+
+      // Mark related transactions cancelled
+      setTransactions(prev => prev.map(t => {
+        if (t.loanId === loanId) {
+          const updatedT: Transaction = {
+            ...t,
+            status: 'cancelled',
+            notes: `[রিভার্সড]: ${t.notes || ''} (${reason})`,
+          };
+          safeSetDoc(doc(db, 'transactions', t.id), updatedT).catch(console.error);
+          return updatedT;
+        }
+        return t;
+      }));
+
+      // Recalculate member activeLoanBalance
+      if (memberId) {
+        const newBal = newLoans
+          .filter(l => l.memberId === memberId && l.status === 'active')
+          .reduce((sum, l) => sum + (Number(l.remainingAmount) || 0), 0);
+
+        setMembers(prev => prev.map(m => {
+          if (m.id !== memberId) return m;
+          const updatedM = { ...m, activeLoanBalance: newBal };
+          safeSetDoc(doc(db, 'members', m.id), updatedM).catch(console.error);
+          return updatedM;
+        }));
+      }
+
+      addAuditLog({
+        action: 'reversal',
+        entityType: 'loan',
+        entityId: loanId,
+        entityTitle: `${loan.loanNo} (${loan.memberName})`,
+        performedBy: currentUser?.name || 'অ্যাডমিন',
+        userRole: currentUser?.role || 'admin',
+        details: `নিরাপদ রিভার্সাল সম্পন্ন: ${reason}. মূল ঋণ ছিল: ৳${loan.principalAmount}`,
+      });
+
+      return {
+        success: true,
+        message: `ঋণ #${loan.loanNo} নিরাপদভাবে রিভার্স ও ব্যালেন্স সমন্বয় করা হয়েছে।`,
+      };
+    } else {
+      // Permanent Delete
+      const newLoans = loans.filter(l => l.id !== loanId);
+      setLoans(newLoans);
+      deleteDoc(doc(db, 'loans', loanId)).catch(console.error);
+
+      // Clean up transactions
+      const relatedTxs = transactions.filter(t => t.loanId === loanId);
+      relatedTxs.forEach(t => {
+        deleteDoc(doc(db, 'transactions', t.id)).catch(console.error);
+      });
+      setTransactions(prev => prev.filter(t => t.loanId !== loanId));
+
+      // Recalculate member activeLoanBalance
+      if (memberId) {
+        const newBal = newLoans
+          .filter(l => l.memberId === memberId && l.status === 'active')
+          .reduce((sum, l) => sum + (Number(l.remainingAmount) || 0), 0);
+
+        setMembers(prev => prev.map(m => {
+          if (m.id !== memberId) return m;
+          const updatedM = { ...m, activeLoanBalance: newBal };
+          safeSetDoc(doc(db, 'members', m.id), updatedM).catch(console.error);
+          return updatedM;
+        }));
+      }
+
+      addAuditLog({
+        action: 'delete',
+        entityType: 'loan',
+        entityId: loanId,
+        entityTitle: `${loan.loanNo} (${loan.memberName})`,
+        performedBy: currentUser?.name || 'অ্যাডমিন',
+        userRole: currentUser?.role || 'admin',
+        details: `স্থায়ীভাবে ঋণ হিসাব ও সম্পর্কিত লেজার অপসারিত: ${reason}. মূল ঋণ: ৳${loan.principalAmount}`,
+      });
+
+      return {
+        success: true,
+        message: `ঋণ #${loan.loanNo} এবং সম্পর্কিত সকল হিসাব স্থায়ীভাবে অপসারিত হয়েছে।`,
+      };
+    }
   };
 
   // Add Savings Scheme
@@ -2457,6 +3206,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Initial deposit transaction
     const tx: Transaction = {
       id: `tx-${Date.now()}`,
+      serialNo: getNextLedgerSerial(),
       voucherNo: `V-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
       memberId: params.memberId,
       memberName: member?.name,
@@ -2512,6 +3262,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Record in transactions list
     const tx: Transaction = {
       id: `tx-${Date.now()}`,
+      serialNo: getNextLedgerSerial(),
       voucherNo,
       type: voucherData.type === 'income' ? 'income' : 'expense',
       amount: voucherData.amount,
@@ -2578,6 +3329,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const desc = `${params.fromType === 'vault' ? 'নগদ ক্যাশ ভল্ট' : 'ব্যাংক'} থেকে ${params.toType === 'vault' ? 'ক্যাশ ভল্ট' : 'ব্যাংক'}-এ স্থানান্তর`;
     const tx: Transaction = {
       id: `tx-${Date.now()}`,
+      serialNo: getNextLedgerSerial(),
       voucherNo: `TRF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
       type: 'income',
       amount: params.amount,
@@ -2902,6 +3654,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const newTransactions: Transaction[] = [];
     const profitMap: Record<string, number> = {};
     let totalCredited = 0;
+    let profitSerial = getNextLedgerSerial();
 
     members.forEach((m, idx) => {
       const memberBalance = params.criteria === 'share_capital'
@@ -2919,6 +3672,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         const tx: Transaction = {
           id: `tx-${Date.now()}-${idx}`,
+          serialNo: profitSerial++,
           voucherNo: `PR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
           memberId: m.id,
           memberName: m.name,
@@ -2997,17 +3751,65 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     id: string,
     status: BusinessFundingStatus,
     approvedAmount?: number,
-    notes?: string
+    notes?: string,
+    rejectionReason?: string
   ): Promise<void> => {
     const updateData: Partial<BusinessFunding> = {
       status,
       ...(approvedAmount !== undefined ? { approvedAmount } : {}),
       ...(notes ? { notes } : {}),
-      ...(status === 'approved' ? { approvedBy: currentUser.name } : {}),
+      ...(status === 'approved' ? { 
+        approvedBy: currentUser?.name || 'অ্যাডমিন',
+        approvedAt: new Date().toISOString(),
+      } : {}),
+      ...(status === 'rejected' ? {
+        rejectedBy: currentUser?.name || 'অ্যাডমিন',
+        rejectedAt: new Date().toISOString(),
+        rejectionReason: rejectionReason || notes || '',
+        adminComment: rejectionReason || notes || '',
+      } : {}),
     };
 
     setBusinessFundings(prev => prev.map(f => f.id === id ? { ...f, ...updateData } : f));
     await safeSetDoc(doc(db, 'businessFundings', id), updateData, { merge: true });
+  };
+
+  const approveBusinessFunding = async (params: {
+    fundingId: string;
+    approvedAmount?: number;
+    notes?: string;
+  }): Promise<{ success: boolean; message: string }> => {
+    const funding = businessFundings.find(f => f.id === params.fundingId);
+    if (!funding) {
+      return { success: false, message: 'ব্যবসা ফান্ডিং রেকর্ডটি খুঁজে পাওয়া যায়নি।' };
+    }
+    const finalAmount = params.approvedAmount !== undefined ? params.approvedAmount : funding.amountRequested;
+    await updateBusinessFundingStatus(params.fundingId, 'approved', finalAmount, params.notes);
+    return {
+      success: true,
+      message: `ব্যবসা ফান্ডিং আবেদন #${funding.applicationNo} সফলভাবে অনুমোদিত হয়েছে।`,
+    };
+  };
+
+  const rejectBusinessFunding = async (params: {
+    fundingId: string;
+    reason: string;
+  }): Promise<{ success: boolean; message: string }> => {
+    if (!params.reason || !params.reason.trim()) {
+      return {
+        success: false,
+        message: 'ব্যবসা ফান্ডিং আবেদন প্রত্যাখ্যান করতে কারণ (Comment/Reason) উল্লেখ করা বাধ্যতামূলক।',
+      };
+    }
+    const funding = businessFundings.find(f => f.id === params.fundingId);
+    if (!funding) {
+      return { success: false, message: 'ব্যবসা ফান্ডিং রেকর্ডটি খুঁজে পাওয়া যায়নি।' };
+    }
+    await updateBusinessFundingStatus(params.fundingId, 'rejected', undefined, params.reason.trim(), params.reason.trim());
+    return {
+      success: true,
+      message: `ব্যবসা ফান্ডিং আবেদন #${funding.applicationNo} সফলভাবে প্রত্যাখ্যান করা হয়েছে।`,
+    };
   };
 
   const updateBusinessFunding = async (
@@ -3276,12 +4078,14 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (data.distributeSomitiProfitNow !== false && calcResult.totalDistributed > 0) {
         const profitMap = new Map<string, number>();
         const newTransactions: Transaction[] = [];
+        let curSerial = getNextLedgerSerial();
 
         memberDistributions.forEach(item => {
           if (item.allocatedProfit > 0) {
             profitMap.set(item.memberId, item.allocatedProfit);
             const tx: Transaction = {
               id: item.transactionId || `tx-${recordId}-${item.memberId}`,
+              serialNo: curSerial++,
               voucherNo: `PR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
               memberId: item.memberId,
               memberName: item.memberName,
@@ -3777,6 +4581,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       const memberDistributions: MemberProfitShareItem[] = [];
       const newTransactions: Transaction[] = [];
+      let execSerial = getNextLedgerSerial();
 
       const uniqueDistId = data.distributionId || (recordTag ? `pd-${recordTag}` : `pd-${data.year}-${String(data.month).padStart(2, '0')}-${Date.now()}`);
 
@@ -3791,6 +4596,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (!txAlreadyExists) {
             const tx: Transaction = {
               id: txId,
+              serialNo: execSerial++,
               voucherNo: `PR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
               memberId: item.member.id,
               memberName: item.member.name,
@@ -4202,8 +5008,16 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         addWithdrawal,
         updateTransaction,
         deleteTransaction,
+        getNextLedgerSerial,
         addLoan,
+        applyForLoan,
+        approveLoan,
+        rejectLoan,
+        updateLoan,
+        deleteLoan,
         payLoanInstallment,
+        auditLogs,
+        addAuditLog,
         addSavingsScheme,
         addVoucher,
         deleteVoucher,
@@ -4253,6 +5067,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         profitDistributions,
         addBusinessFunding,
         updateBusinessFundingStatus,
+        approveBusinessFunding,
+        rejectBusinessFunding,
         updateBusinessFunding,
         deleteBusinessFunding,
         disburseBusinessFunding,

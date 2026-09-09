@@ -22,6 +22,7 @@ import {
   Edit,
   Trash2,
   BarChart3,
+  Eye,
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -33,6 +34,7 @@ import { MonthlyProfitDistributionModal } from './MonthlyProfitDistributionModal
 import { BusinessFundingEditModal } from './BusinessFundingEditModal';
 import { BusinessProfitEditModal } from './BusinessProfitEditModal';
 import { ProfitReportsAndSandbox } from './ProfitReportsAndSandbox';
+import { BusinessFundingDetailsModal } from './BusinessFundingDetailsModal';
 
 export const BusinessFundingView: React.FC = () => {
   const { language } = useLanguage();
@@ -81,6 +83,9 @@ export const BusinessFundingView: React.FC = () => {
   const [disburseMethod, setDisburseMethod] = useState<PaymentMethod>('cash');
   const [disburseNotes, setDisburseNotes] = useState<string>('');
   const [isProcessingDisburse, setIsProcessingDisburse] = useState<boolean>(false);
+
+  // Business funding details & decision modal state
+  const [fundingForDetailsModal, setFundingForDetailsModal] = useState<BusinessFunding | null>(null);
 
   // Filter based on user role (Admin sees all; Member sees only their own)
   const isMemberUser = !isUserAdmin && currentUser.memberId;
@@ -503,25 +508,19 @@ export const BusinessFundingView: React.FC = () => {
                         {isUserAdmin && (
                           <td className="py-3 px-4 text-center">
                             <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                              {f.status === 'pending' && (
-                                <>
-                                  <button
-                                    onClick={() => updateBusinessFundingStatus(f.id, 'approved')}
-                                    className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1"
-                                    title={isBn ? 'অনুমোদন করুন' : 'Approve'}
-                                  >
-                                    <Check className="w-3 h-3" />
-                                    <span>{isBn ? 'অনুমোদন' : 'Approve'}</span>
-                                  </button>
-                                  <button
-                                    onClick={() => updateBusinessFundingStatus(f.id, 'rejected')}
-                                    className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-[11px] font-bold transition-all cursor-pointer border border-rose-200"
-                                    title={isBn ? 'বাতিল করুন' : 'Reject'}
-                                  >
-                                    {isBn ? 'বাতিল' : 'Reject'}
-                                  </button>
-                                </>
-                              )}
+                              {/* Details & Review/Decision Modal Button */}
+                              <button
+                                onClick={() => setFundingForDetailsModal(f)}
+                                className={`rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                                  f.status === 'pending'
+                                    ? 'px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold shadow-xs'
+                                    : 'p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600'
+                                }`}
+                                title={isBn ? 'আবেদনের পূর্ণাঙ্গ বিবরণ ও সিদ্ধান্ত' : 'View Application Details & Actions'}
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                {f.status === 'pending' && <span>{isBn ? 'যাচাই ও সিদ্ধান্ত' : 'Review & Decide'}</span>}
+                              </button>
 
                               {f.status === 'approved' && (
                                 <button
@@ -1242,6 +1241,14 @@ export const BusinessFundingView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Business Funding Application Details & Decision Modal */}
+      <BusinessFundingDetailsModal
+        funding={fundingForDetailsModal}
+        isOpen={!!fundingForDetailsModal}
+        onClose={() => setFundingForDetailsModal(null)}
+        onSuccess={() => setFundingForDetailsModal(null)}
+      />
     </div>
   );
 };

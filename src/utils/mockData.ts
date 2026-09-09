@@ -638,7 +638,7 @@ export const sampleDemoMembers: Member[] = [
   },
 ];
 
-export const initialMembers: Member[] = [];
+export const initialMembers: Member[] = sampleDemoMembers;
 
 export const sampleDemoSavingsSchemes: SavingsScheme[] = [
   {
@@ -736,7 +736,7 @@ export const sampleDemoSavingsSchemes: SavingsScheme[] = [
   },
 ];
 
-export const initialSavingsSchemes: SavingsScheme[] = [];
+export const initialSavingsSchemes: SavingsScheme[] = sampleDemoSavingsSchemes;
 
 export const sampleDemoLoans: Loan[] = [
   {
@@ -883,13 +883,49 @@ export const sampleDemoLoans: Loan[] = [
       };
     }),
   },
+  {
+    id: 'loan-pending-1',
+    loanNo: 'LN-2026-009',
+    applicationNo: 'APP-LN-2026-001',
+    memberId: 'mem-103',
+    memberName: 'হাসান আহমেদ',
+    memberPhone: '01752012365',
+    memberNo: 'BS-103',
+    principalAmount: 50000,
+    interestRate: 10,
+    totalAmount: 55000,
+    termMonths: 10,
+    installmentFrequency: 'monthly',
+    totalInstallments: 10,
+    installmentAmount: 5500,
+    disbursedDate: '',
+    appliedDate: '2026-02-18',
+    purpose: 'ফার্মেসি ব্যবসা সম্প্রসারণ ও নতুন ওষুধ স্টক',
+    guarantorMemberId: 'mem-101',
+    guarantorName: 'জুনাঈদ হাসান',
+    guarantorPhone: '01925999774',
+    guarantorRelation: 'ব্যবসায়িক বন্ধু ও সমিতি সদস্য',
+    paidAmount: 0,
+    remainingAmount: 55000,
+    paidInstallmentsCount: 0,
+    status: 'pending',
+    schedule: Array.from({ length: 10 }, (_, i) => ({
+      installmentNo: i + 1,
+      dueDate: `2026-${String(i + 3).padStart(2, '0')}-01`,
+      amount: 5500,
+      principal: 5000,
+      interest: 500,
+      status: 'unpaid',
+    })),
+  },
 ];
 
-export const initialLoans: Loan[] = [];
+export const initialLoans: Loan[] = sampleDemoLoans;
 
 export const sampleDemoTransactions: Transaction[] = [
   {
     id: 'tx-101',
+    serialNo: 11,
     voucherNo: 'V-2026-0089',
     memberId: 'mem-107',
     memberName: 'জাফর ইসলাম',
@@ -906,6 +942,7 @@ export const sampleDemoTransactions: Transaction[] = [
   },
   {
     id: 'tx-102',
+    serialNo: 10,
     voucherNo: 'V-2026-0088',
     memberId: 'mem-108',
     memberName: 'আবু তৈয়ব',
@@ -922,6 +959,7 @@ export const sampleDemoTransactions: Transaction[] = [
   },
   {
     id: 'tx-103',
+    serialNo: 9,
     voucherNo: 'V-2026-0087',
     memberId: 'mem-108',
     memberName: 'আবু তৈয়ব',
@@ -938,6 +976,7 @@ export const sampleDemoTransactions: Transaction[] = [
   },
   {
     id: 'tx-104',
+    serialNo: 8,
     voucherNo: 'V-2026-0086',
     memberId: 'mem-108',
     memberName: 'আবু তৈয়ব',
@@ -954,6 +993,7 @@ export const sampleDemoTransactions: Transaction[] = [
   },
   {
     id: 'tx-105',
+    serialNo: 7,
     voucherNo: 'V-2026-0085',
     memberId: 'mem-108',
     memberName: 'আবু তৈয়ব',
@@ -970,6 +1010,7 @@ export const sampleDemoTransactions: Transaction[] = [
   },
   {
     id: 'tx-106',
+    serialNo: 6,
     voucherNo: 'V-2026-0084',
     memberId: 'mem-109',
     memberName: 'মুনিমুল ইসলাম',
@@ -986,6 +1027,7 @@ export const sampleDemoTransactions: Transaction[] = [
   },
   {
     id: 'tx-107',
+    serialNo: 5,
     voucherNo: 'V-2026-0083',
     memberId: 'mem-109',
     memberName: 'মুনিমুল ইসলাম',
@@ -1002,6 +1044,7 @@ export const sampleDemoTransactions: Transaction[] = [
   },
   {
     id: 'tx-108',
+    serialNo: 4,
     voucherNo: 'V-2026-0082',
     memberId: 'mem-109',
     memberName: 'মুনিমুল ইসলাম',
@@ -1018,6 +1061,7 @@ export const sampleDemoTransactions: Transaction[] = [
   },
   {
     id: 'tx-109',
+    serialNo: 3,
     voucherNo: 'V-2026-0081',
     memberId: 'mem-108',
     memberName: 'আবু তৈয়ব',
@@ -1034,6 +1078,7 @@ export const sampleDemoTransactions: Transaction[] = [
   },
   {
     id: 'tx-110',
+    serialNo: 2,
     voucherNo: 'V-2026-0080',
     memberId: 'mem-101',
     memberName: 'জুনাঈদ হাসান',
@@ -1050,6 +1095,7 @@ export const sampleDemoTransactions: Transaction[] = [
   },
   {
     id: 'tx-111',
+    serialNo: 1,
     voucherNo: 'V-2026-0079',
     memberId: 'mem-103',
     memberName: 'হাসান আহমেদ',
@@ -1067,7 +1113,7 @@ export const sampleDemoTransactions: Transaction[] = [
   },
 ];
 
-export const initialTransactions: Transaction[] = [];
+export const initialTransactions: Transaction[] = sampleDemoTransactions;
 
 export const sampleDemoVouchers: IncomeExpenseItem[] = [
   {
@@ -1146,5 +1192,5 @@ export const sampleDemoVouchers: IncomeExpenseItem[] = [
   },
 ];
 
-export const initialVouchers: IncomeExpenseItem[] = [];
+export const initialVouchers: IncomeExpenseItem[] = sampleDemoVouchers;
 

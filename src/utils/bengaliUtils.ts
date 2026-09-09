@@ -238,3 +238,109 @@ export function formatBengaliNumber(n: number | string | undefined | null, useBe
 export function getTodayDateStr(): string {
   return new Date().toISOString().split('T')[0];
 }
+
+/**
+ * Robustly parses a transaction's creation time or date/time into milliseconds since epoch
+ * to ensure correct descending serial order (newest first).
+ */
+export function parseTransactionTimestamp(tx: { 
+  id?: string; 
+  date?: string; 
+  time?: string; 
+  createdAt?: string; 
+}): number {
+  if (!tx) return 0;
+  
+  // 1. Explicit createdAt ISO timestamp (highest precision)
+  if (tx.createdAt) {
+    const parsed = new Date(tx.createdAt).getTime();
+    if (!isNaN(parsed) && parsed > 0) return parsed;
+  }
+
+  // 2. Parse date + time
+  if (tx.date) {
+    let hours = 12;
+    let minutes = 0;
+    let seconds = 0;
+    
+    if (tx.time) {
+      const cleanTime = tx.time.trim();
+      const match = cleanTime.match(/(\d{1,2})[:.](\d{2})(?:[:.](\d{2}))?\s*(AM|PM|am|pm)?/i);
+      if (match) {
+        hours = parseInt(match[1], 10);
+        minutes = parseInt(match[2], 10);
+        seconds = match[3] ? parseInt(match[3], 10) : 0;
+        const meridian = match[4] ? match[4].toUpperCase() : null;
+        if (meridian === 'PM' && hours < 12) hours += 12;
+        if (meridian === 'AM' && hours === 12) hours = 0;
+      }
+    }
+
+    const parts = tx.date.split('-').map(p => parseInt(p, 10));
+    if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+      const dateObj = new Date(parts[0], parts[1] - 1, parts[2], hours, minutes, seconds);
+      const t = dateObj.getTime();
+      if (!isNaN(t) && t > 0) {
+        // If ID has timestamp milliseconds like tx-1725839200123, use it if on the same day
+        if (tx.id) {
+          const idDigitsMatch = tx.id.match(/tx-(\d{10,})/);
+          if (idDigitsMatch) {
+            const idTime = parseInt(idDigitsMatch[1], 10);
+            if (!isNaN(idTime) && idTime > 0) {
+              return idTime;
+            }
+          }
+        }
+        return t;
+      }
+    }
+  }
+
+  // 3. Fallback check for ID timestamp (tx-1725839200000)
+  if (tx.id) {
+    const idDigitsMatch = tx.id.match(/\d{10,}/);
+    if (idDigitsMatch) {
+      const idTime = parseInt(idDigitsMatch[0], 10);
+      if (!isNaN(idTime) && idTime > 0) return idTime;
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * Sorts transactions in strict descending order (newest/latest at the top).
+ * Prioritizes unique Ledger serial number (highest serial at top), then date/timestamp.
+ */
+export function compareTransactionsDesc<T extends { id: string; serialNo?: number; date?: string; time?: string; createdAt?: string }>(a: T, b: T): number {
+  // 1. Monotonic unique serial number comparison (highest serial first)
+  if (typeof a.serialNo === 'number' && typeof b.serialNo === 'number' && a.serialNo !== b.serialNo) {
+    return b.serialNo - a.serialNo;
+  }
+
+  // 2. Date string check (e.g., "2026-09-08" vs "2026-09-07")
+  if (a.date && b.date && a.date !== b.date) {
+    return b.date.localeCompare(a.date);
+  }
+
+  // 3. Comprehensive timestamp check (Time + Date + Milliseconds)
+  const timeA = parseTransactionTimestamp(a);
+  const timeB = parseTransactionTimestamp(b);
+  if (timeA !== timeB) {
+    return timeB - timeA;
+  }
+
+  // 4. Fallback to ID string reverse
+  return (b.id || '').localeCompare(a.id || '');
+}
+
+/**
+ * Formats a transaction ledger serial number consistently for display
+ */
+export function formatLedgerSerial(serialNo?: number, isBn: boolean = true, useBengaliDigits: boolean = true): string {
+  if (serialNo === undefined || serialNo === null || serialNo <= 0) return '-';
+  const numStr = (isBn && useBengaliDigits) ? toBengaliNumber(serialNo) : String(serialNo);
+  return `#${numStr}`;
+}
+
+

@@ -27,6 +27,7 @@ interface NewDepositModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialMemberId?: string;
+  isEmbedded?: boolean;
 }
 
 const BENGALI_MONTHS = [
@@ -49,7 +50,8 @@ const GENERATED_YEARS = Array.from({ length: 51 }, (_, i) => 2000 + i); // 2000 
 export const NewDepositModal: React.FC<NewDepositModalProps> = ({ 
   isOpen, 
   onClose,
-  initialMemberId 
+  initialMemberId,
+  isEmbedded = false
 }) => {
   const { language } = useLanguage();
   const isBn = language === 'bn';
@@ -379,9 +381,8 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden animate-in fade-in-50 zoom-in-95 my-4">
+  const modalContent = (
+    <div className={`bg-white rounded-2xl ${isEmbedded ? 'border border-slate-200 shadow-2xs w-full max-w-2xl mx-auto' : 'shadow-2xl border border-slate-200 w-full max-w-xl'} overflow-hidden animate-in fade-in-50 zoom-in-95 my-4`}>
         {/* Header */}
         <div className="bg-emerald-700 text-white px-5 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -1026,6 +1027,15 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
           </div>
         </form>
       </div>
+  );
+
+  if (isEmbedded) {
+    return modalContent;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+      {modalContent}
     </div>
   );
 };

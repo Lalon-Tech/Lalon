@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Receipt, 
   Printer, 
@@ -21,7 +21,8 @@ import {
   formatCurrency, 
   formatBengaliDate, 
   getTransactionTypeName, 
-  toBengaliNumber 
+  toBengaliNumber,
+  compareTransactionsDesc 
 } from '../../utils/bengaliUtils';
 import { TransactionType } from '../../types';
 
@@ -71,10 +72,15 @@ export const ReceiptsView: React.FC = () => {
   const totalCreditAmount = creditReceipts.reduce((s, t) => s + t.amount, 0);
   const totalDebitAmount = debitReceipts.reduce((s, t) => s + t.amount, 0);
 
+  const sortedTransactions = useMemo(() => {
+    return [...filteredTransactions].sort(compareTransactionsDesc);
+  }, [filteredTransactions]);
+
   const exportToExcel = () => {
-    const dataToExport = filteredTransactions.map(t => {
+    const dataToExport = sortedTransactions.map((t, idx) => {
       const typeInfo = getTransactionTypeName(t.type, isBn);
       return {
+        [isBn ? 'ক্রমিক' : 'SL']: idx + 1,
         [isBn ? 'ভাউচার নং' : 'Voucher No']: t.voucherNo,
         [isBn ? 'তারিখ' : 'Date']: t.date,
         [isBn ? 'সময়' : 'Time']: t.time,
@@ -254,6 +260,7 @@ export const ReceiptsView: React.FC = () => {
           <table className="w-full text-left text-sm text-slate-600">
             <thead className="bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
               <tr>
+                <th className="py-3 px-3 text-center w-14">{isBn ? 'ক্রমিক' : 'SL #'}</th>
                 <th className="py-3 px-4">{isBn ? 'ভাউচার ও তারিখ' : 'Voucher & Date'}</th>
                 <th className="py-3 px-4">{isBn ? 'সদস্যের তথ্য' : 'Member Info'}</th>
                 <th className="py-3 px-4">{isBn ? 'রসিদের ধরন' : 'Receipt Type'}</th>
@@ -263,18 +270,30 @@ export const ReceiptsView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredTransactions.length === 0 ? (
+              {sortedTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
                     <Receipt className="w-10 h-10 mx-auto text-slate-300 mb-2" />
                     <p>{isBn ? 'কোনো মানি রসিদ খুঁজে পাওয়া যায়নি।' : 'No receipts found.'}</p>
                   </td>
                 </tr>
               ) : (
-                filteredTransactions.map((tx) => {
+                sortedTransactions.map((tx, idx) => {
                   const typeInfo = getTransactionTypeName(tx.type, isBn);
                   return (
                     <tr key={tx.id} className="hover:bg-slate-50/80 transition-colors">
+                      {/* Serial Number */}
+                      <td className="py-3 px-3 text-center font-bold text-slate-600 font-mono">
+                        <div className="flex items-center justify-center gap-1">
+                          <span className="text-xs">{isBn || useBengaliDigits ? toBengaliNumber(idx + 1) : (idx + 1)}</span>
+                          {idx === 0 && !searchTerm && typeFilter === 'all' && !dateFilter && (
+                            <span className="text-[9px] font-black uppercase px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full border border-emerald-300 shadow-2xs">
+                              {isBn ? 'নতুন' : 'NEW'}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
                       {/* Voucher & Date */}
                       <td className="py-3 px-4">
                         <div className="font-mono font-bold text-slate-800 text-xs">

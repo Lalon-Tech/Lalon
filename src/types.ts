@@ -84,9 +84,11 @@ export interface LoanInstallmentSchedule {
 export interface Loan {
   id: string;
   loanNo: string;
+  applicationNo?: string;
   memberId: string;
   memberName: string;
   memberPhone: string;
+  memberNo?: string;
   principalAmount: number;
   interestRate: number; // percentage
   totalAmount: number; // principal + total interest
@@ -95,6 +97,7 @@ export interface Loan {
   totalInstallments: number;
   installmentAmount: number;
   disbursedDate: string;
+  appliedDate?: string;
   purpose: string;
   guarantorMemberId?: string;
   guarantorName?: string;
@@ -103,8 +106,23 @@ export interface Loan {
   paidAmount: number;
   remainingAmount: number;
   paidInstallmentsCount: number;
-  status: 'active' | 'cleared' | 'defaulted';
+  status: 'pending' | 'approved' | 'active' | 'rejected' | 'cleared' | 'defaulted';
   schedule: LoanInstallmentSchedule[];
+  disbursementMethod?: PaymentMethod;
+  bankAccountId?: string;
+  processingFee?: number;
+  interestAmount?: number;
+  totalPayable?: number;
+  isReversed?: boolean;
+  reversalReason?: string;
+  reversedAt?: string;
+  reversedBy?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedBy?: string;
+  rejectedAt?: string;
+  adminComment?: string;
+  rejectionReason?: string;
 }
 
 export interface Member {
@@ -143,6 +161,7 @@ export interface Member {
 
 export interface Transaction {
   id: string;
+  serialNo?: number; // Unique sequential serial number for Ledger
   voucherNo: string;
   memberId?: string;
   memberName?: string;
@@ -173,6 +192,7 @@ export interface Transaction {
   category?: string;
   notes?: string;
   status: 'completed' | 'pending' | 'cancelled';
+  createdAt?: string;
 }
 
 export interface IncomeExpenseItem {
@@ -268,6 +288,11 @@ export interface BusinessFunding {
   repaidPrincipal?: number;
   notes?: string;
   approvedBy?: string;
+  approvedAt?: string;
+  rejectedBy?: string;
+  rejectedAt?: string;
+  rejectionReason?: string;
+  adminComment?: string;
   createdAt: string;
 }
 
@@ -327,5 +352,20 @@ export interface MonthlyProfitDistribution {
   memberDistributions: MemberProfitShareItem[];
   notes?: string;
   createdAt: string;
+}
+
+export interface AuditLog {
+  id: string;
+  action: 'create' | 'update' | 'delete' | 'reversal' | 'installment';
+  entityType: 'loan' | 'member' | 'savings' | 'transaction' | 'voucher';
+  entityId: string;
+  entityTitle: string;
+  performedBy: string;
+  userRole?: string;
+  timestamp: string;
+  date: string;
+  time: string;
+  details: string;
+  changes?: Record<string, { old: any; new: any }>;
 }
 

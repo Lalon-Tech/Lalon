@@ -24,18 +24,20 @@ import {
   FolderDown,
   Calculator,
   UserPlus,
-  Briefcase
+  Briefcase,
+  HandCoins
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { toBengaliNumber } from '../../utils/bengaliUtils';
 
 interface MenuItem {
   id: string;
   label: string;
   icon: React.ElementType;
   badge?: string;
-  subItems?: { id: string; label: string; action?: () => void }[];
+  subItems?: { id: string; label: string; badge?: string; action?: () => void }[];
 }
 
 export const Sidebar: React.FC<{ 
@@ -49,6 +51,8 @@ export const Sidebar: React.FC<{
     setActiveTab, 
     settings, 
     members,
+    loans,
+    useBengaliDigits,
     selectedMemberId,
     setSelectedMemberId,
     setShowNewMemberModal,
@@ -58,11 +62,18 @@ export const Sidebar: React.FC<{
     setShowQuickKistiModal
   } = useSomiti();
 
+  const isBn = language === 'bn';
+  const pendingLoanCount = loans ? loans.filter(l => l.status === 'pending').length : 0;
+  const formattedPendingBadge = pendingLoanCount > 0 
+    ? (isBn || useBengaliDigits ? toBengaliNumber(pendingLoanCount) : pendingLoanCount.toString()) 
+    : undefined;
+
   const { user: firebaseUser, logOut } = useAuth();
 
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
     members: true,
     transactions: false,
+    loans: false,
     savings: false,
     reports: false,
   });
@@ -106,9 +117,9 @@ export const Sidebar: React.FC<{
         },
         { 
           id: 'new_member', 
-          label: t('new_member'), 
+          label: isBn ? 'নতুন সদস্য ভর্তি' : 'New Member Admission', 
           action: () => {
-            setShowNewMemberModal(true);
+            setActiveTab('new_member');
           }
         },
         { 
@@ -136,11 +147,27 @@ export const Sidebar: React.FC<{
       label: t('transactions'),
       icon: BadgePercent,
       subItems: [
-        { id: 'tx_deposit', label: t('tx_deposit'), action: () => { setShowQuickDepositModal(true); setActiveTab('transactions'); } },
-        { id: 'tx_withdraw', label: t('tx_withdraw'), action: () => { setShowQuickWithdrawModal(true); setActiveTab('transactions'); } },
-        { id: 'tx_loan', label: t('tx_loan'), action: () => { setShowQuickLoanModal(true); setActiveTab('loans'); } },
-        { id: 'tx_kisti', label: t('tx_kisti'), action: () => { setShowQuickKistiModal(true); setActiveTab('loans'); } },
-        { id: 'tx_history', label: language === 'bn' ? 'লেনদেন হিস্ট্রি' : 'Transaction History', action: () => setActiveTab('transactions') },
+        { id: 'tx_deposit', label: t('tx_deposit'), action: () => setActiveTab('tx_deposit') },
+        { id: 'tx_withdraw', label: t('tx_withdraw'), action: () => setActiveTab('tx_withdraw') },
+        { id: 'tx_history', label: isBn ? 'লেনদেন লেজার ও হিস্ট্রি' : 'Transaction Ledger', action: () => setActiveTab('transactions') },
+      ],
+    },
+    {
+      id: 'loans',
+      label: isBn ? 'ঋণ ও কিস্তি' : 'Loans & Installments',
+      icon: HandCoins,
+      badge: formattedPendingBadge,
+      subItems: [
+        { id: 'loans_list', label: isBn ? 'ঋণ খতিয়ান ও তালিকা' : 'Loan Accounts', action: () => setActiveTab('loans') },
+        { id: 'loans_apply', label: isBn ? 'নতুন ঋণের আবেদন' : 'Apply For Loan', action: () => setActiveTab('loans_apply') },
+        { 
+          id: 'loans_pending', 
+          label: isBn ? 'অনুমোদন পেন্ডিং' : 'Pending Approvals', 
+          badge: formattedPendingBadge,
+          action: () => setActiveTab('loans_pending') 
+        },
+        { id: 'loans_kisti', label: isBn ? 'কিস্তি আদায় (POS)' : 'Collect Kisti (POS)', action: () => setActiveTab('loans_kisti') },
+        { id: 'loans_calculator', label: isBn ? 'ঋণ ক্যালকুলেটর' : 'Loan Calculator', action: () => setActiveTab('loans_calculator') },
       ],
     },
     {
@@ -250,8 +277,16 @@ export const Sidebar: React.FC<{
 
           {menuItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            const isExpanded = expandedMenus[item.id];
+            const isParentActive = 
+              activeTab === item.id || 
+              (item.subItems && item.subItems.some(sub => sub.id === activeTab)) ||
+              (item.id === 'members' && (activeTab.startsWith('member') || activeTab === 'new_member' || activeTab === 'all_members' || activeTab === 'active_members')) ||
+              (item.id === 'transactions' && (activeTab.startsWith('tx_') || activeTab.startsWith('transactions'))) ||
+              (item.id === 'loans' && activeTab.startsWith('loans')) ||
+              (item.id === 'savings' && activeTab.startsWith('savings')) ||
+              (item.id === 'reports' && activeTab.startsWith('report'));
+
+            const isExpanded = expandedMenus[item.id] || isParentActive;
             const hasSub = item.subItems && item.subItems.length > 0;
 
             return (
@@ -260,25 +295,32 @@ export const Sidebar: React.FC<{
                   id={`nav-${item.id}`}
                   onClick={() => handleMenuClick(item)}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all group cursor-pointer ${
-                    isActive
+                    isParentActive
                       ? 'bg-blue-600 text-white shadow-md'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                   }`}
                 >
-                  <div className="flex items-center gap-3 truncate">
-                    <Icon className={`w-4.5 h-4.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-blue-400'}`} />
+                  <div className="flex items-center gap-3 truncate min-w-0">
+                    <Icon className={`w-4.5 h-4.5 shrink-0 ${isParentActive ? 'text-white' : 'text-slate-400 group-hover:text-blue-400'}`} />
                     <span className="truncate">{item.label}</span>
                   </div>
 
-                  {hasSub && (
-                    <span className="text-slate-400">
-                      {isExpanded ? (
-                        <ChevronDown className="w-4 h-4" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4" />
-                      )}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {item.badge && (
+                      <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white shadow-xs">
+                        {item.badge}
+                      </span>
+                    )}
+                    {hasSub && (
+                      <span className="text-slate-400">
+                        {isExpanded ? (
+                          <ChevronDown className="w-4 h-4" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4" />
+                        )}
+                      </span>
+                    )}
+                  </div>
                 </button>
 
                 {/* Sub-menu items */}
@@ -287,9 +329,14 @@ export const Sidebar: React.FC<{
                     {item.subItems!.map((sub) => {
                       const isSubActive = 
                         activeTab === sub.id || 
+                        (sub.id === 'tx_history' && (activeTab === 'transactions' || activeTab === 'tx_history' || activeTab === 'transactions_history')) ||
+                        (sub.id === 'tx_deposit' && (activeTab === 'tx_deposit' || activeTab === 'transactions_deposit')) ||
+                        (sub.id === 'tx_withdraw' && (activeTab === 'tx_withdraw' || activeTab === 'transactions_withdraw')) ||
                         (sub.id === 'all_members' && (activeTab === 'members' || activeTab === 'all_members' || activeTab === 'members_all') && !selectedMemberId) ||
                         (sub.id === 'active_members' && (activeTab === 'active_members' || activeTab === 'members_active')) ||
-                        (sub.id === 'member_profile' && (activeTab === 'member_profile' || activeTab === 'members_profile' || (selectedMemberId !== null && (activeTab === 'members' || activeTab.startsWith('members_')))));
+                        (sub.id === 'new_member' && (activeTab === 'new_member' || activeTab === 'members_new')) ||
+                        (sub.id === 'member_profile' && (activeTab === 'member_profile' || activeTab === 'members_profile' || (selectedMemberId !== null && (activeTab === 'members' || activeTab.startsWith('members_'))))) ||
+                        (sub.id === 'loans_list' && (activeTab === 'loans' || activeTab === 'loans_list'));
 
                       return (
                         <button
@@ -310,8 +357,17 @@ export const Sidebar: React.FC<{
                               : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
                           }`}
                         >
-                          <span className={`w-1.5 h-1.5 rounded-full ${isSubActive ? 'bg-blue-400' : 'bg-slate-500'}`}></span>
-                          <span className="truncate">{sub.label}</span>
+                          <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center gap-2 truncate min-w-0">
+                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isSubActive ? 'bg-blue-400' : 'bg-slate-500'}`}></span>
+                              <span className="truncate">{sub.label}</span>
+                            </div>
+                            {sub.badge && (
+                              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-500 text-white shrink-0 ml-1">
+                                {sub.badge}
+                              </span>
+                            )}
+                          </div>
                         </button>
                       );
                     })}

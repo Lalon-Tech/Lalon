@@ -21,6 +21,8 @@ import { useSomiti } from '../../context/SomitiContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { LanguageSwitcher } from '../common/LanguageSwitcher';
+import { getAllPendingApprovals } from '../../utils/approvalRegistry';
+import { toBengaliNumber } from '../../utils/bengaliUtils';
 
 interface HeaderProps {
   onToggleSidebar?: () => void;
@@ -42,8 +44,14 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
     setShowQuickKistiModal,
     setActiveTab,
     setSelectedMemberId,
-    members
+    members,
+    loans,
+    businessFundings
   } = useSomiti();
+
+  const pendingApprovalsCount = React.useMemo(() => {
+    return getAllPendingApprovals({ loans, businessFundings, members }).length;
+  }, [loans, businessFundings, members]);
 
   const { user: firebaseUser, logOut } = useAuth();
 
@@ -189,6 +197,39 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
           </div>
         )}
 
+        {/* Admin Approvals Notification Bell */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('dashboard');
+            setTimeout(() => {
+              const el = document.getElementById('approval-notification-center');
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth' });
+              }
+            }, 100);
+          }}
+          className={`relative p-2 rounded-xl transition-all cursor-pointer ${
+            pendingApprovalsCount > 0
+              ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200'
+              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+          }`}
+          title={
+            language === 'bn'
+              ? pendingApprovalsCount > 0
+                ? `${toBengaliNumber(pendingApprovalsCount)}টি প্রশাসনিক অনুমোদন অপেক্ষমাণ`
+                : 'কোনো অনুমোদন অপেক্ষমাণ নেই'
+              : `${pendingApprovalsCount} pending approvals`
+          }
+        >
+          <Bell className="w-5 h-5" />
+          {pendingApprovalsCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-rose-600 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center border-2 border-white shadow-xs animate-pulse">
+              {language === 'bn' ? toBengaliNumber(pendingApprovalsCount) : pendingApprovalsCount}
+            </span>
+          )}
+        </button>
+
         {/* Language Selector: Bangla | English */}
         <LanguageSwitcher variant="segmented" />
 
@@ -211,7 +252,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
               </div>
               <button
                 onClick={() => {
-                  setShowNewMemberModal(true);
+                  setActiveTab('new_member');
                   setShowAddMenu(false);
                 }}
                 className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
@@ -221,7 +262,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
               </button>
               <button
                 onClick={() => {
-                  setShowQuickDepositModal(true);
+                  setActiveTab('tx_deposit');
                   setShowAddMenu(false);
                 }}
                 className="w-full px-3 py-2 text-left text-sm hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2.5 transition-colors cursor-pointer"
@@ -231,7 +272,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
               </button>
               <button
                 onClick={() => {
-                  setShowQuickWithdrawModal(true);
+                  setActiveTab('tx_withdraw');
                   setShowAddMenu(false);
                 }}
                 className="w-full px-3 py-2 text-left text-sm hover:bg-rose-50 hover:text-rose-700 flex items-center gap-2.5 transition-colors cursor-pointer"
@@ -241,7 +282,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
               </button>
               <button
                 onClick={() => {
-                  setShowQuickKistiModal(true);
+                  setActiveTab('loans_kisti');
                   setShowAddMenu(false);
                 }}
                 className="w-full px-3 py-2 text-left text-sm hover:bg-teal-50 hover:text-teal-700 flex items-center gap-2.5 transition-colors cursor-pointer"
@@ -251,7 +292,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
               </button>
               <button
                 onClick={() => {
-                  setShowQuickLoanModal(true);
+                  setActiveTab('loans_apply');
                   setShowAddMenu(false);
                 }}
                 className="w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2.5 transition-colors cursor-pointer"

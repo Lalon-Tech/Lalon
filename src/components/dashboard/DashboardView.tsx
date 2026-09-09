@@ -14,7 +14,8 @@ import {
   Calendar,
   Layers,
   Sparkles,
-  Building
+  Building,
+  Clock
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -25,6 +26,7 @@ import {
   getTransactionTypeName,
   toBengaliNumber 
 } from '../../utils/bengaliUtils';
+import { ApprovalNotificationCenter } from './ApprovalNotificationCenter';
 
 export const DashboardView: React.FC = () => {
   const { language, t } = useLanguage();
@@ -94,6 +96,9 @@ export const DashboardView: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Central Approval Notification Center */}
+      <ApprovalNotificationCenter />
 
       {/* Main 3-Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

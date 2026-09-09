@@ -228,7 +228,7 @@ export const MemberList: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setShowNewMemberModal(true)}
+            onClick={() => setActiveTab('new_member')}
             className="flex items-center gap-1.5 px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-xs hover:shadow-md transition-all cursor-pointer"
           >
             <UserPlus className="w-4 h-4" />

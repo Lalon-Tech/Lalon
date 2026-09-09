@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LanguageProvider } from './context/LanguageContext';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { SomitiProvider, useSomiti } from './context/SomitiContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Sidebar } from './components/layout/Sidebar';
@@ -32,6 +32,7 @@ import { Loader2 } from 'lucide-react';
 
 const AppContent: React.FC = () => {
   const { user, loading } = useAuth();
+  const { language } = useLanguage();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
@@ -78,8 +79,24 @@ const AppContent: React.FC = () => {
       case 'all_members':
       case 'members_active':
       case 'active_members':
-      case 'members_new':
         return <MemberList />;
+
+      case 'members_new':
+      case 'new_member':
+        return (
+          <div className="space-y-4 pb-12">
+            <div className="flex items-center justify-between pb-1">
+              <button
+                type="button"
+                onClick={() => setActiveTab('all_members')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                ← {language === 'bn' ? 'সকল সদস্য তালিকায় ফিরে যান' : 'Back to Member List'}
+              </button>
+            </div>
+            <NewMemberModal isOpen={true} isEmbedded={true} onClose={() => setActiveTab('all_members')} />
+          </div>
+        );
 
       case 'members_profile':
       case 'member_profile':
@@ -96,6 +113,8 @@ const AppContent: React.FC = () => {
 
       case 'transactions':
       case 'tx_history':
+      case 'tx_deposit':
+      case 'tx_withdraw':
       case 'transactions_deposit':
       case 'transactions_withdraw':
       case 'transactions_history':
@@ -115,7 +134,9 @@ const AppContent: React.FC = () => {
         return <SavingsView />;
 
       case 'loans':
+      case 'loans_list':
       case 'loans_apply':
+      case 'loans_pending':
       case 'loans_active':
       case 'loans_kisti':
       case 'loans_closed':

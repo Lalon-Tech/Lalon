@@ -12,7 +12,7 @@ export const NewLoanModal: React.FC<{ isOpen: boolean; onClose: () => void }> = 
   const { 
     members, 
     bankAccounts, 
-    addLoan, 
+    applyForLoan, 
     settings, 
     useBengaliDigits 
   } = useSomiti();
@@ -52,7 +52,7 @@ export const NewLoanModal: React.FC<{ isOpen: boolean; onClose: () => void }> = 
       return;
     }
 
-    addLoan({
+    const res = applyForLoan({
       memberId,
       principalAmount: Number(principalAmount),
       interestRate: Number(interestRate),
@@ -68,6 +68,12 @@ export const NewLoanModal: React.FC<{ isOpen: boolean; onClose: () => void }> = 
       processingFee: Number(processingFee) || 0,
     });
 
+    if (!res.success) {
+      alert(res.message);
+      return;
+    }
+
+    alert(isBn ? 'ঋণের আবেদন সফলভাবে জমা হয়েছে! আবেদনটি পেন্ডিং অবস্থায় আছে, অ্যাডমিন অনুমোদন করার পর ঋণ বিতরণ কার্যকর হবে।' : 'Loan application submitted successfully! It is now pending and will be disbursed once approved by Admin.');
     onClose();
   };
 
@@ -82,10 +88,10 @@ export const NewLoanModal: React.FC<{ isOpen: boolean; onClose: () => void }> = 
             </div>
             <div>
               <h3 className="text-base font-bold">
-                {isBn ? 'নতুন ঋণ অনুমোদন ও বিতরণ' : 'New Loan Approval & Disbursement'}
+                {isBn ? 'নতুন ঋণের আবেদন (Loan Application)' : 'New Loan Application'}
               </h3>
               <p className="text-xs text-indigo-200">
-                {isBn ? 'ঋণ হিসাব ও কিস্তি শিডিউল তৈরি' : 'Loan Account & Installment Schedule Creation'}
+                {isBn ? 'আবেদন জমাদানের পর অ্যাডমিন অনুমোদনের অপেক্ষায় থাকবে' : 'Application will be pending until Admin approval'}
               </p>
             </div>
           </div>
@@ -334,7 +340,7 @@ export const NewLoanModal: React.FC<{ isOpen: boolean; onClose: () => void }> = 
               className="px-5 py-2.5 bg-indigo-900 hover:bg-indigo-950 text-white rounded-lg text-xs font-bold shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2"
             >
               <CheckCircle className="w-4 h-4" />
-              <span>{isBn ? 'ঋণ অনুমোদন ও বিতরণ সম্পন্ন করুন ✓' : 'Approve & Disburse Loan ✓'}</span>
+              <span>{isBn ? 'ঋণের আবেদন জমা দিন ✓' : 'Submit Loan Application ✓'}</span>
             </button>
           </div>
         </form>

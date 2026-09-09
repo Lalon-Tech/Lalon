@@ -49,7 +49,9 @@ import {
   formatInteger, 
   formatBengaliDate, 
   getTransactionTypeName, 
-  toBengaliNumber 
+  toBengaliNumber,
+  compareTransactionsDesc,
+  formatLedgerSerial
 } from '../../utils/bengaliUtils';
 
 export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void }> = ({ memberId, onBack }) => {
@@ -209,6 +211,10 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
       return true;
     });
   }, [memberTransactions, passbookFilter, passbookSearch, isBn]);
+
+  const sortedMemberTransactions = useMemo(() => {
+    return [...filteredMemberTransactions].sort(compareTransactionsDesc);
+  }, [filteredMemberTransactions]);
 
   const passbookTotals = useMemo(() => {
     return filteredMemberTransactions.reduce(
@@ -636,6 +642,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                 <table className="w-full text-left text-xs text-slate-600 border-collapse">
                   <thead className="bg-slate-100/95 backdrop-blur-xs font-bold text-slate-700 border-b border-slate-200 sticky top-0 z-10 shadow-2xs">
                     <tr>
+                      <th className="py-2.5 px-2.5 text-center whitespace-nowrap bg-slate-100">{isBn ? 'লেজার ক্রমিক' : 'Ledger Serial'}</th>
                       <th className="py-2.5 px-3 whitespace-nowrap bg-slate-100">{isBn ? 'তারিখ ও সময়' : 'Date & Time'}</th>
                       <th className="py-2.5 px-3 whitespace-nowrap bg-slate-100">{isBn ? 'ভাউচার নং' : 'Voucher No'}</th>
                       <th className="py-2.5 px-3 whitespace-nowrap bg-slate-100">{isBn ? 'বিবরণ / ধরন' : 'Type / Description'}</th>
@@ -647,17 +654,29 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredMemberTransactions.length === 0 ? (
+                    {sortedMemberTransactions.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-12 text-center text-slate-400">
+                        <td colSpan={9} className="py-12 text-center text-slate-400">
                           {isBn ? 'কোনো লেনদেন পাওয়া যায়নি।' : 'No transaction records found.'}
                         </td>
                       </tr>
                     ) : (
-                      filteredMemberTransactions.map((tx) => {
+                      sortedMemberTransactions.map((tx, idx) => {
                         const typeInfo = getTransactionTypeName(tx.type, isBn);
                         return (
                           <tr key={tx.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="py-2.5 px-2.5 text-center font-bold text-slate-700 font-mono whitespace-nowrap">
+                              <div className="flex items-center justify-center gap-1">
+                                <span className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-800 text-xs font-bold">
+                                  {tx.serialNo ? formatLedgerSerial(tx.serialNo, isBn, useBengaliDigits) : (isBn || useBengaliDigits ? toBengaliNumber(idx + 1) : (idx + 1))}
+                                </span>
+                                {idx === 0 && !passbookSearch && passbookFilter === 'all' && (
+                                  <span className="text-[8px] font-black uppercase px-1 py-0.2 bg-emerald-100 text-emerald-700 rounded-sm">
+                                    {isBn ? 'নতুন' : 'NEW'}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
                             <td className="py-2.5 px-3 font-medium whitespace-nowrap">
                               {formatBengaliDate(tx.date, isBn)}
                               <span className="block text-[10px] text-slate-400 font-mono">{tx.time}</span>
@@ -709,13 +728,13 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                     )}
                   </tbody>
                   {/* Sticky Footer with Totals */}
-                  {filteredMemberTransactions.length > 0 && (
+                  {sortedMemberTransactions.length > 0 && (
                     <tfoot className="bg-slate-100 font-bold border-t-2 border-slate-300 text-xs sticky bottom-0 z-10 shadow-2xs">
                       <tr>
-                        <td colSpan={4} className="py-2.5 px-3 text-slate-800 font-black bg-slate-100">
+                        <td colSpan={5} className="py-2.5 px-3 text-slate-800 font-black bg-slate-100">
                           {isBn ? 'মোট যোগফল (Total Summary)' : 'Total Summary'}
                           <span className="text-[10px] font-normal text-slate-500 ml-2">
-                            ({displayCount(filteredMemberTransactions.length)} {isBn ? 'টি এন্ট্রি' : 'entries'})
+                            ({displayCount(sortedMemberTransactions.length)} {isBn ? 'টি এন্ট্রি' : 'entries'})
                           </span>
                         </td>
                         <td className="py-2.5 px-3 text-right font-black text-emerald-700 bg-slate-100">

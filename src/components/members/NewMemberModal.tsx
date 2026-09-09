@@ -5,7 +5,13 @@ import { useSomiti } from '../../context/SomitiContext';
 import { Gender } from '../../types';
 import { PhotoUploadField } from '../common/PhotoUploadField';
 
-export const NewMemberModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+interface NewMemberModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  isEmbedded?: boolean;
+}
+
+export const NewMemberModal: React.FC<NewMemberModalProps> = ({ isOpen, onClose, isEmbedded = false }) => {
   const { addMember, settings, setSelectedMemberId, setActiveTab } = useSomiti();
 
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
@@ -111,9 +117,10 @@ export const NewMemberModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
     setActiveTab('members');
   };
 
-  return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden animate-in fade-in-50 zoom-in-95 my-8">
+  if (!isOpen) return null;
+
+  const modalContent = (
+    <div className={`bg-white rounded-2xl ${isEmbedded ? 'border border-slate-200 shadow-2xs w-full max-w-4xl mx-auto' : 'shadow-2xl border border-slate-200 w-full max-w-3xl'} overflow-hidden animate-in fade-in-50 zoom-in-95 my-4`}>
         {/* Header */}
         <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -635,6 +642,15 @@ export const NewMemberModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
           </div>
         </form>
       </div>
+  );
+
+  if (isEmbedded) {
+    return modalContent;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+      {modalContent}
     </div>
   );
 };

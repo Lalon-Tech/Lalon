@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   BadgePercent, 
   Search, 
@@ -19,12 +19,16 @@ import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { Transaction } from '../../types';
 import { EditTransactionModal } from './EditTransactionModal';
+import { NewDepositModal } from './NewDepositModal';
+import { NewWithdrawModal } from './NewWithdrawModal';
 import { 
   formatCurrency, 
   formatInteger, 
   formatBengaliDate, 
   getTransactionTypeName,
-  toBengaliNumber 
+  toBengaliNumber,
+  compareTransactionsDesc,
+  formatLedgerSerial
 } from '../../utils/bengaliUtils';
 
 export const TransactionManager: React.FC = () => {
@@ -32,6 +36,8 @@ export const TransactionManager: React.FC = () => {
   const isBn = language === 'bn';
 
   const { 
+    activeTab,
+    setActiveTab,
     transactions, 
     useBengaliDigits, 
     openReceiptForTx,
@@ -41,6 +47,24 @@ export const TransactionManager: React.FC = () => {
     setShowQuickKistiModal
   } = useSomiti();
 
+  type TxTab = 'ledger' | 'deposit' | 'withdraw';
+  const getInitialTab = (): TxTab => {
+    if (activeTab === 'tx_deposit' || activeTab === 'transactions_deposit') return 'deposit';
+    if (activeTab === 'tx_withdraw' || activeTab === 'transactions_withdraw') return 'withdraw';
+    return 'ledger';
+  };
+  const [currentTab, setCurrentTab] = useState<TxTab>(getInitialTab);
+
+  useEffect(() => {
+    if (activeTab === 'tx_deposit' || activeTab === 'transactions_deposit') {
+      setCurrentTab('deposit');
+    } else if (activeTab === 'tx_withdraw' || activeTab === 'transactions_withdraw') {
+      setCurrentTab('withdraw');
+    } else {
+      setCurrentTab('ledger');
+    }
+  }, [activeTab]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('');
@@ -49,12 +73,28 @@ export const TransactionManager: React.FC = () => {
   const displayCount = (num: number) => (isBn || useBengaliDigits ? toBengaliNumber(num) : num.toString());
 
   const filteredTransactions = transactions.filter((tx) => {
-    const q = (searchTerm || '').toLowerCase();
+    const q = (searchTerm || '').trim().toLowerCase();
+    if (!q) {
+      if (typeFilter !== 'all') {
+        if (typeFilter === 'deposit_all' && !['deposit', 'dps_deposit', 'fdr_deposit'].includes(tx.type)) return false;
+        if (typeFilter === 'loan_all' && !['loan_disbursed', 'loan_installment'].includes(tx.type)) return false;
+        if (typeFilter !== 'deposit_all' && typeFilter !== 'loan_all' && tx.type !== typeFilter) return false;
+      }
+      if (dateFilter && tx.date !== dateFilter) return false;
+      return true;
+    }
+
+    const cleanQ = q.replace('#', '');
+    const bnSerial = tx.serialNo !== undefined ? toBengaliNumber(tx.serialNo) : '';
+
     const matchesSearch = 
       ((tx.memberName ?? '').toLowerCase().includes(q)) ||
+      ((tx.memberNo ?? '').toLowerCase().includes(q)) ||
       ((tx.voucherNo ?? '').toLowerCase().includes(q)) ||
       ((tx.notes ?? '').toLowerCase().includes(q)) ||
-      ((tx.collectedBy ?? '').toLowerCase().includes(q));
+      ((tx.collectedBy ?? '').toLowerCase().includes(q)) ||
+      (tx.serialNo !== undefined && String(tx.serialNo).includes(cleanQ)) ||
+      (bnSerial && bnSerial.includes(cleanQ));
 
     if (!matchesSearch) return false;
 
@@ -69,10 +109,15 @@ export const TransactionManager: React.FC = () => {
     return true;
   });
 
+  const sortedTransactions = useMemo(() => {
+    return [...filteredTransactions].sort(compareTransactionsDesc);
+  }, [filteredTransactions]);
+
   const exportToExcel = () => {
-    const dataToExport = filteredTransactions.map(tx => {
+    const dataToExport = sortedTransactions.map((tx, idx) => {
       const typeInfo = getTransactionTypeName(tx.type, isBn);
       return {
+        [isBn ? 'লেজার ক্রমিক' : 'Ledger Serial']: tx.serialNo ? formatLedgerSerial(tx.serialNo, isBn, useBengaliDigits) : (idx + 1),
         [isBn ? 'ভাউচার নং' : 'Voucher No']: tx.voucherNo,
         [isBn ? 'তারিখ' : 'Date']: tx.date,
         [isBn ? 'সময়' : 'Time']: tx.time,
@@ -94,7 +139,7 @@ export const TransactionManager: React.FC = () => {
   return (
     <div className="space-y-6 pb-12">
       {/* Top Action Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-blue-50 text-blue-700 rounded-lg">
             <BadgePercent className="w-5 h-5" />
@@ -109,30 +154,66 @@ export const TransactionManager: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* Tab switcher buttons */}
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl flex-wrap">
           <button
-            onClick={() => setShowQuickDepositModal(true)}
-            className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+            type="button"
+            onClick={() => {
+              setCurrentTab('ledger');
+              setActiveTab('transactions');
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              currentTab === 'ledger'
+                ? 'bg-white text-blue-700 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            {isBn ? 'লেজার বিবরণী' : 'Ledger'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setCurrentTab('deposit');
+              setActiveTab('tx_deposit');
+            }}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              currentTab === 'deposit'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
           >
             <ArrowDownRight className="w-3.5 h-3.5" />
-            <span>{isBn ? 'টাকা জমা' : 'Deposit'}</span>
+            <span>{isBn ? 'টাকা জমা এন্ট্রি' : 'Deposit'}</span>
           </button>
           <button
-            onClick={() => setShowQuickWithdrawModal(true)}
-            className="flex items-center gap-1 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+            type="button"
+            onClick={() => {
+              setCurrentTab('withdraw');
+              setActiveTab('tx_withdraw');
+            }}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              currentTab === 'withdraw'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
           >
             <ArrowUpRight className="w-3.5 h-3.5" />
-            <span>{isBn ? 'উত্তোলন' : 'Withdraw'}</span>
+            <span>{isBn ? 'উত্তোলন ভাউচার' : 'Withdraw'}</span>
           </button>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => setShowQuickKistiModal(true)}
+            type="button"
+            onClick={() => setActiveTab('loans_kisti')}
             className="flex items-center gap-1 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
           >
             <Coins className="w-3.5 h-3.5" />
             <span>{isBn ? 'কিস্তি আদায়' : 'Collect Kisti'}</span>
           </button>
           <button
-            onClick={() => setShowQuickLoanModal(true)}
+            type="button"
+            onClick={() => setActiveTab('loans_apply')}
             className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
           >
             <CreditCard className="w-3.5 h-3.5" />
@@ -141,6 +222,50 @@ export const TransactionManager: React.FC = () => {
         </div>
       </div>
 
+      {currentTab === 'deposit' && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between pb-1 border-b border-slate-200">
+            <button
+              type="button"
+              onClick={() => {
+                setCurrentTab('ledger');
+                setActiveTab('transactions');
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              ← {isBn ? 'লেনদেন লেজারে ফিরে যান' : 'Back to Ledger'}
+            </button>
+          </div>
+          <NewDepositModal isOpen={true} isEmbedded={true} onClose={() => {
+            setCurrentTab('ledger');
+            setActiveTab('transactions');
+          }} />
+        </div>
+      )}
+
+      {currentTab === 'withdraw' && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between pb-1 border-b border-slate-200">
+            <button
+              type="button"
+              onClick={() => {
+                setCurrentTab('ledger');
+                setActiveTab('transactions');
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              ← {isBn ? 'লেনদেন লেজারে ফিরে যান' : 'Back to Ledger'}
+            </button>
+          </div>
+          <NewWithdrawModal isOpen={true} isEmbedded={true} onClose={() => {
+            setCurrentTab('ledger');
+            setActiveTab('transactions');
+          }} />
+        </div>
+      )}
+
+      {currentTab === 'ledger' && (
+        <>
       {/* Filter and Search Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-3">
         <div className="flex items-center gap-3 w-full md:w-auto flex-1 max-w-xl">
@@ -207,6 +332,7 @@ export const TransactionManager: React.FC = () => {
           <table className="w-full text-left text-xs text-slate-600">
             <thead className="bg-slate-50 font-bold text-slate-700 border-b border-slate-200 uppercase tracking-wider">
               <tr>
+                <th className="py-3 px-3 text-center">{isBn ? 'লেজার ক্রমিক' : 'Ledger Serial'}</th>
                 <th className="py-3 px-4">{isBn ? 'তারিখ ও সময়' : 'Date & Time'}</th>
                 <th className="py-3 px-4">{isBn ? 'ভাউচার নং' : 'Voucher No'}</th>
                 <th className="py-3 px-4">{isBn ? 'গ্রাহক / সদস্য' : 'Member / Customer'}</th>
@@ -219,14 +345,14 @@ export const TransactionManager: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredTransactions.length === 0 ? (
+              {sortedTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-slate-400">
+                  <td colSpan={10} className="py-8 text-center text-slate-400">
                     {isBn ? 'কোনো লেনদেন পাওয়া যায়নি।' : 'No transactions found.'}
                   </td>
                 </tr>
               ) : (
-                filteredTransactions.map((tx) => {
+                sortedTransactions.map((tx, idx) => {
                   const typeInfo = getTransactionTypeName(tx.type, isBn);
                   return (
                     <tr
@@ -234,6 +360,19 @@ export const TransactionManager: React.FC = () => {
                       className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                       onClick={() => openReceiptForTx(tx)}
                     >
+                      <td className="py-3 px-3 text-center font-bold text-slate-700 font-mono">
+                        <div className="flex items-center justify-center gap-1">
+                          <span className="text-xs px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-800 font-bold">
+                            {tx.serialNo ? formatLedgerSerial(tx.serialNo, isBn, useBengaliDigits) : (isBn || useBengaliDigits ? toBengaliNumber(idx + 1) : (idx + 1))}
+                          </span>
+                          {idx === 0 && !searchTerm && typeFilter === 'all' && !dateFilter && (
+                            <span className="text-[9px] font-black uppercase px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full border border-emerald-300 shadow-2xs">
+                              {isBn ? 'নতুন' : 'NEW'}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
                       <td className="py-3 px-4 font-medium text-slate-700">
                         {formatBengaliDate(tx.date, isBn)}
                         <span className="block text-[10px] text-slate-400">{tx.time}</span>
@@ -312,6 +451,8 @@ export const TransactionManager: React.FC = () => {
           </table>
         </div>
       </div>
+      </>
+      )}
 
       <EditTransactionModal
         isOpen={!!editingTx}
