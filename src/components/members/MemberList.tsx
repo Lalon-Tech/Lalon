@@ -17,13 +17,15 @@ import {
   Trash2,
   Lock,
   ShieldCheck,
-  Edit3
+  Edit3,
+  FileText
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { EditMemberModal } from './EditMemberModal';
 import { DeleteMemberModal } from './DeleteMemberModal';
+import { MemberDataCollectionModal } from './MemberDataCollectionModal';
 import { Member } from '../../types';
 import { 
   formatCurrency, 
@@ -53,6 +55,7 @@ export const MemberList: React.FC = () => {
 
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
+  const [showDataCollectionModal, setShowDataCollectionModal] = useState(false);
   const [deleteSuccessMsg, setDeleteSuccessMsg] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'has_loan'>(() => {
@@ -212,6 +215,16 @@ export const MemberList: React.FC = () => {
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
             <span>{isBn ? 'এক্সেল' : 'Excel'}</span>
+          </button>
+
+          {/* Member Admission Form & Messenger Data Collector */}
+          <button
+            onClick={() => setShowDataCollectionModal(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold transition-all cursor-pointer"
+            title={isBn ? 'মেসেঞ্জার গ্রুপে দেওয়ার টেক্সট ও Word (.doc) ফরম ডাউনলোড' : 'Messenger text and Word form download'}
+          >
+            <FileText className="w-3.5 h-3.5 text-indigo-600" />
+            <span>{isBn ? 'ভর্তি ফরম (Word/মেসেঞ্জার)' : 'Admission Form (Word)'}</span>
           </button>
 
           <button
@@ -446,6 +459,12 @@ export const MemberList: React.FC = () => {
           setDeleteSuccessMsg(isBn ? 'সদস্য সফলভাবে মুছে ফেলা হয়েছে।' : 'Member successfully deleted.');
           setTimeout(() => setDeleteSuccessMsg(null), 4000);
         }}
+      />
+
+      {/* Member Data Collection / Admission Form Modal (Word & Messenger) */}
+      <MemberDataCollectionModal
+        isOpen={showDataCollectionModal}
+        onClose={() => setShowDataCollectionModal(false)}
       />
     </div>
   );

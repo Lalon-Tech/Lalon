@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   ArrowLeft, 
   Printer, 
@@ -28,7 +28,10 @@ import {
   TrendingUp,
   PieChart,
   Edit3,
-  Trash2
+  Trash2,
+  PiggyBank,
+  Layers,
+  Search
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -165,6 +168,63 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
   const totalMemberProfitEarned = totalMemberProfitFromPool > 0
     ? totalMemberProfitFromPool
     : totalProfitFromTxs;
+
+  // Pure principal deposit (Total deposit collected minus withdrawals + term deposits, excluding any distributed profit)
+  const pureBaseDeposit = useMemo(() => {
+    if (!member) return 0;
+    const completedTxs = memberTransactions.filter(t => t.status === 'completed');
+    const depAmount = completedTxs.filter(t => t.type === 'deposit').reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    const withdrAmount = completedTxs.filter(t => t.type === 'withdraw').reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    const dpsFdr = (Number(member.dpsSavingsBalance) || 0) + (Number(member.fdrSavingsBalance) || 0);
+
+    if (depAmount > 0 || withdrAmount > 0) {
+      return Math.max(0, Number((depAmount - withdrAmount + dpsFdr).toFixed(2)));
+    }
+    const rawSavings = Number(member.totalSavings ?? member.generalSavingsBalance ?? 0);
+    return Math.max(0, Number((rawSavings - totalMemberProfitEarned).toFixed(2)));
+  }, [memberTransactions, member, totalMemberProfitEarned]);
+
+  const [passbookFilter, setPassbookFilter] = useState<'all' | 'deposit' | 'withdraw' | 'profit_share' | 'loan'>('all');
+  const [passbookSearch, setPassbookSearch] = useState<string>('');
+
+  const filteredMemberTransactions = useMemo(() => {
+    return memberTransactions.filter(tx => {
+      if (passbookFilter !== 'all') {
+        if (passbookFilter === 'deposit' && tx.type !== 'deposit') return false;
+        if (passbookFilter === 'withdraw' && tx.type !== 'withdraw') return false;
+        if (passbookFilter === 'profit_share' && tx.type !== 'profit_share') return false;
+        if (passbookFilter === 'loan' && !['loan_disbursement', 'loan_installment', 'loan_fee'].includes(tx.type)) return false;
+      }
+      if (passbookSearch.trim()) {
+        const q = passbookSearch.toLowerCase();
+        const vNo = (tx.voucherNo || '').toLowerCase();
+        const notes = (tx.notes || '').toLowerCase();
+        const method = (tx.paymentMethod || '').toLowerCase();
+        const typeInfo = getTransactionTypeName(tx.type, isBn);
+        const typeLabel = (typeInfo.label || '').toLowerCase();
+        if (!vNo.includes(q) && !notes.includes(q) && !method.includes(q) && !typeLabel.includes(q)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [memberTransactions, passbookFilter, passbookSearch, isBn]);
+
+  const passbookTotals = useMemo(() => {
+    return filteredMemberTransactions.reduce(
+      (acc, tx) => {
+        const typeInfo = getTransactionTypeName(tx.type, isBn);
+        const amt = Number(tx.amount) || 0;
+        if (typeInfo.isCredit) {
+          acc.credit = Number((acc.credit + amt).toFixed(2));
+        } else {
+          acc.debit = Number((acc.debit + amt).toFixed(2));
+        }
+        return acc;
+      },
+      { credit: 0, debit: 0 }
+    );
+  }, [filteredMemberTransactions, isBn]);
 
   const printPassbook = () => {
     window.print();
@@ -344,26 +404,72 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
             {/* Quick Balance Header Badges */}
             <div className="shrink-0">
               {hasFinancialAccess ? (
-                <div className="grid grid-cols-3 gap-2.5">
-                  <div className="bg-white/10 backdrop-blur-xs p-2.5 sm:p-3 rounded-xl border border-white/10 text-center min-w-[95px]">
-                    <span className="text-[11px] text-blue-200 block">{isBn ? 'মোট সঞ্চয় স্থিতি' : 'Total Savings'}</span>
-                    <span className="text-sm sm:text-base font-bold text-emerald-300">
-                      {formatCurrency(member.totalSavings, isBn && useBengaliDigits)}
+                <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-2.5">
+                  {/* Card 1: Total Deposit (Pure principal deposit without profit) */}
+                  <div 
+                    className="bg-white/10 backdrop-blur-xs p-2.5 sm:p-3 rounded-xl border border-white/10 text-center min-w-[105px] transition-all hover:bg-white/15"
+                    title={isBn ? 'সদস্যের আসল সঞ্চয় জমা (লাভ ব্যতীত প্রকৃত মূল আমানত)' : 'Actual pure deposit deposited (excluding profit)'}
+                  >
+                    <span className="text-[11px] text-cyan-200 block flex items-center justify-center gap-1 font-medium">
+                      <PiggyBank className="w-3.5 h-3.5 text-cyan-300 inline shrink-0" />
+                      <span>{isBn ? 'আসল সঞ্চয় জমা' : 'Total Deposit'}</span>
+                    </span>
+                    <span className="text-sm sm:text-base font-bold text-cyan-300 block mt-0.5">
+                      ৳{formatCurrency(pureBaseDeposit, isBn && useBengaliDigits)}
+                    </span>
+                    <span className="text-[9px] text-cyan-200/70 block mt-0.5">
+                      {isBn ? 'প্রকৃত মূল জমা' : 'Pure Principal'}
                     </span>
                   </div>
-                  <div className="bg-white/10 backdrop-blur-xs p-2.5 sm:p-3 rounded-xl border border-white/10 text-center min-w-[95px]">
-                    <span className="text-[11px] text-amber-200 block flex items-center justify-center gap-1">
-                      <TrendingUp className="w-3 h-3 text-amber-300 inline" />
+
+                  {/* Card 2: Total Savings (Deposit + Profit) */}
+                  <div 
+                    className="bg-white/10 backdrop-blur-xs p-2.5 sm:p-3 rounded-xl border border-white/10 text-center min-w-[105px] transition-all hover:bg-white/15"
+                    title={isBn ? 'মোট সঞ্চয় স্থিতি (আসল জমা + অর্জিত লভ্যাংশ)' : 'Total Savings balance (Deposit + Profit)'}
+                  >
+                    <span className="text-[11px] text-emerald-200 block flex items-center justify-center gap-1 font-medium">
+                      <Layers className="w-3.5 h-3.5 text-emerald-300 inline shrink-0" />
+                      <span>{isBn ? 'মোট সঞ্চয় স্থিতি' : 'Total Savings'}</span>
+                    </span>
+                    <span className="text-sm sm:text-base font-bold text-emerald-300 block mt-0.5">
+                      ৳{formatCurrency(member.totalSavings, isBn && useBengaliDigits)}
+                    </span>
+                    <span className="text-[9px] text-emerald-200/70 block mt-0.5">
+                      {isBn ? 'আমানত + লাভ' : 'Deposit + Profit'}
+                    </span>
+                  </div>
+
+                  {/* Card 3: Total Profit */}
+                  <div 
+                    className="bg-white/10 backdrop-blur-xs p-2.5 sm:p-3 rounded-xl border border-white/10 text-center min-w-[105px] transition-all hover:bg-white/15"
+                    title={isBn ? 'সমিতি থেকে অর্জিত মোট লভ্যাংশ' : 'Total dividend & profit earned'}
+                  >
+                    <span className="text-[11px] text-amber-200 block flex items-center justify-center gap-1 font-medium">
+                      <TrendingUp className="w-3.5 h-3.5 text-amber-300 inline shrink-0" />
                       <span>{isBn ? 'অর্জিত মোট লাভ' : 'Total Profit'}</span>
                     </span>
-                    <span className="text-sm sm:text-base font-bold text-amber-300">
-                      {formatCurrency(totalMemberProfitEarned, isBn && useBengaliDigits)}
+                    <span className="text-sm sm:text-base font-bold text-amber-300 block mt-0.5">
+                      +৳{formatCurrency(totalMemberProfitEarned, isBn && useBengaliDigits)}
+                    </span>
+                    <span className="text-[9px] text-amber-200/70 block mt-0.5">
+                      {isBn ? 'বণ্টনকৃত লাভ' : 'Earned Profit'}
                     </span>
                   </div>
-                  <div className="bg-white/10 backdrop-blur-xs p-2.5 sm:p-3 rounded-xl border border-white/10 text-center min-w-[95px]">
-                    <span className="text-[11px] text-blue-200 block">{isBn ? 'চলতি বকেয়া ঋণ' : 'Active Loan Due'}</span>
-                    <span className="text-sm sm:text-base font-bold text-rose-300">
-                      {formatCurrency(member.activeLoanBalance, isBn && useBengaliDigits)}
+
+                  {/* Card 4: Active Loan Due */}
+                  <div 
+                    className="bg-white/10 backdrop-blur-xs p-2.5 sm:p-3 rounded-xl border border-white/10 text-center min-w-[105px] transition-all hover:bg-white/15"
+                    title={isBn ? 'চলতি ঋণ বকেয়া কিস্তিসহ' : 'Active loan due balance'}
+                  >
+                    <span className="text-[11px] text-rose-200 block flex items-center justify-center gap-1 font-medium">
+                      <CreditCard className="w-3.5 h-3.5 text-rose-300 inline shrink-0" />
+                      <span>{isBn ? 'চলতি বকেয়া ঋণ' : 'Active Loan Due'}</span>
+                    </span>
+                    <span className="text-sm sm:text-base font-bold text-rose-300 block mt-0.5">
+                      ৳{formatCurrency(member.activeLoanBalance, isBn && useBengaliDigits)}
+                    </span>
+                    <span className="text-[9px] text-rose-200/70 block mt-0.5">
+                      {member.activeLoanBalance > 0 ? (isBn ? 'পরিশোধ বাকি' : 'Outstanding') : (isBn ? 'কোনো ঋণ নেই' : 'No Due')}
                     </span>
                   </div>
                 </div>
@@ -382,8 +488,8 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex border-b border-slate-200 bg-slate-50 overflow-x-auto">
+        {/* Tab Navigation (Frozen / Sticky on scroll) */}
+        <div className="flex border-b border-slate-200 bg-slate-50/95 backdrop-blur-xs overflow-x-auto sticky top-[57px] z-20 shadow-2xs">
           <button
             onClick={() => setActiveTab('passbook')}
             className={`px-5 py-3 text-xs font-bold border-b-2 flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
@@ -468,47 +574,95 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
           !hasFinancialAccess ? (
             renderPrivacyProtectedNotice()
           ) : (
-            <div className="p-6 space-y-4">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-bold text-slate-800">
-                  {isBn ? 'সদস্যের পাসবুক ও সার্বিক লেজার বিবরণী' : 'Member Passbook & General Ledger'}
-                </h3>
-                <span className="text-xs text-slate-500">
-                  {isBn ? `সর্বমোট লেনদেন: ${displayCount(memberTransactions.length)} টি` : `Total transactions: ${displayCount(memberTransactions.length)}`}
-                </span>
+            <div className="p-4 sm:p-6 space-y-3">
+              {/* Frozen / Sticky Header up to Passbook & General Ledger */}
+              <div className="sticky top-[105px] z-10 bg-white/95 backdrop-blur-xs py-2.5 px-3.5 border border-slate-200 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold shrink-0">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 leading-tight">
+                      {isBn ? 'সদস্যের পাসবুক ও সার্বিক লেজার বিবরণী' : 'Member Passbook & General Ledger'}
+                    </h3>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {isBn ? 'সমস্ত ক্রেডিট (জমা) ও ডেবিট (উত্তোলন) লেনদেনের অডিট লেজার' : 'Full credit & debit audit ledger of this member'}
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200/70 px-2.5 py-0.5 rounded-full ml-1">
+                    {isBn ? `মোট লেনদেন: ${displayCount(filteredMemberTransactions.length)} টি` : `Total transactions: ${displayCount(filteredMemberTransactions.length)}`}
+                  </span>
+                </div>
+
+                {/* Filter & Search Bar */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Type Filter */}
+                  <select
+                    value={passbookFilter}
+                    onChange={(e) => setPassbookFilter(e.target.value as any)}
+                    className="text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-hidden focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                  >
+                    <option value="all">{isBn ? 'সকল লেনদেন' : 'All Types'}</option>
+                    <option value="deposit">{isBn ? 'শুধুমাত্র জমা (Deposit)' : 'Deposit only'}</option>
+                    <option value="withdraw">{isBn ? 'শুধুমাত্র উত্তোলন (Withdraw)' : 'Withdraw only'}</option>
+                    <option value="profit_share">{isBn ? 'লভ্যাংশ (Profit Share)' : 'Profit Share'}</option>
+                    <option value="loan">{isBn ? 'ঋণ সংক্রান্ত' : 'Loan related'}</option>
+                  </select>
+
+                  {/* Search Input */}
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={passbookSearch}
+                      onChange={(e) => setPassbookSearch(e.target.value)}
+                      placeholder={isBn ? 'ভাউচার / বিবরণ খুঁজুন...' : 'Search voucher/notes...'}
+                      className="text-xs bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 w-36 sm:w-44 focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:bg-white"
+                    />
+                    {passbookSearch && (
+                      <button
+                        onClick={() => setPassbookSearch('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <table className="w-full text-left text-xs text-slate-600">
-                  <thead className="bg-slate-50 font-bold text-slate-700 border-b border-slate-200">
+              {/* Scrollable Transaction Table Container with Sticky Column Headers */}
+              <div className="passbook-scroll-container border border-slate-200 rounded-xl overflow-x-auto overflow-y-auto max-h-[520px] shadow-2xs relative bg-white">
+                <table className="w-full text-left text-xs text-slate-600 border-collapse">
+                  <thead className="bg-slate-100/95 backdrop-blur-xs font-bold text-slate-700 border-b border-slate-200 sticky top-0 z-10 shadow-2xs">
                     <tr>
-                      <th className="py-2.5 px-3">{isBn ? 'তারিখ ও সময়' : 'Date & Time'}</th>
-                      <th className="py-2.5 px-3">{isBn ? 'ভাউচার নং' : 'Voucher No'}</th>
-                      <th className="py-2.5 px-3">{isBn ? 'বিবরণ / ধরন' : 'Type / Description'}</th>
-                      <th className="py-2.5 px-3">{isBn ? 'মাধ্যম' : 'Method'}</th>
-                      <th className="py-2.5 px-3 text-right">{isBn ? 'আদায় / জমা (৳)' : 'Credit / Deposit (৳)'}</th>
-                      <th className="py-2.5 px-3 text-right">{isBn ? 'উত্তোলন / বিতরণ (৳)' : 'Debit / Paid (৳)'}</th>
-                      <th className="py-2.5 px-3">{isBn ? 'কালেক্টর' : 'Collector'}</th>
-                      <th className="py-2.5 px-3 text-center">{isBn ? 'রসিদ' : 'Receipt'}</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap bg-slate-100">{isBn ? 'তারিখ ও সময়' : 'Date & Time'}</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap bg-slate-100">{isBn ? 'ভাউচার নং' : 'Voucher No'}</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap bg-slate-100">{isBn ? 'বিবরণ / ধরন' : 'Type / Description'}</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap bg-slate-100">{isBn ? 'মাধ্যম' : 'Method'}</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap bg-slate-100 text-emerald-800">{isBn ? 'আদায় / জমা (৳)' : 'Credit / Deposit (৳)'}</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap bg-slate-100 text-rose-700">{isBn ? 'উত্তোলন / বিতরণ (৳)' : 'Debit / Paid (৳)'}</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap bg-slate-100">{isBn ? 'কালেক্টর' : 'Collector'}</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap bg-slate-100">{isBn ? 'রসিদ' : 'Receipt'}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {memberTransactions.length === 0 ? (
+                    {filteredMemberTransactions.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-8 text-center text-slate-400">
-                          {isBn ? 'এখনো কোনো লেনদেনের রেকর্ড নেই।' : 'No transaction records yet.'}
+                        <td colSpan={8} className="py-12 text-center text-slate-400">
+                          {isBn ? 'কোনো লেনদেন পাওয়া যায়নি।' : 'No transaction records found.'}
                         </td>
                       </tr>
                     ) : (
-                      memberTransactions.map((tx) => {
+                      filteredMemberTransactions.map((tx) => {
                         const typeInfo = getTransactionTypeName(tx.type, isBn);
                         return (
                           <tr key={tx.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="py-2.5 px-3 font-medium">
+                            <td className="py-2.5 px-3 font-medium whitespace-nowrap">
                               {formatBengaliDate(tx.date, isBn)}
-                              <span className="block text-[10px] text-slate-400">{tx.time}</span>
+                              <span className="block text-[10px] text-slate-400 font-mono">{tx.time}</span>
                             </td>
-                            <td className="py-2.5 px-3 font-mono font-semibold text-slate-700">
+                            <td className="py-2.5 px-3 font-mono font-semibold text-slate-700 whitespace-nowrap">
                               {tx.voucherNo}
                             </td>
                             <td className="py-2.5 px-3">
@@ -517,19 +671,19 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                               </span>
                               {tx.notes && <span className="block text-[10px] text-slate-400 truncate max-w-xs">{tx.notes}</span>}
                             </td>
-                            <td className="py-2.5 px-3 uppercase font-medium text-slate-500">
+                            <td className="py-2.5 px-3 uppercase font-medium text-slate-500 whitespace-nowrap">
                               {tx.paymentMethod}
                             </td>
-                            <td className="py-2.5 px-3 text-right font-bold text-emerald-700">
+                            <td className="py-2.5 px-3 text-right font-bold text-emerald-700 whitespace-nowrap">
                               {typeInfo.isCredit ? formatCurrency(tx.amount, isBn && useBengaliDigits) : '-'}
                             </td>
-                            <td className="py-2.5 px-3 text-right font-bold text-rose-600">
+                            <td className="py-2.5 px-3 text-right font-bold text-rose-600 whitespace-nowrap">
                               {!typeInfo.isCredit ? formatCurrency(tx.amount, isBn && useBengaliDigits) : '-'}
                             </td>
-                            <td className="py-2.5 px-3 text-slate-500">
+                            <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">
                               {tx.collectedBy}
                             </td>
-                            <td className="py-2.5 px-3 text-center">
+                            <td className="py-2.5 px-3 text-center whitespace-nowrap">
                               <div className="flex items-center justify-center gap-1">
                                 <button
                                   onClick={() => openReceiptForTx(tx)}
@@ -554,6 +708,31 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                       })
                     )}
                   </tbody>
+                  {/* Sticky Footer with Totals */}
+                  {filteredMemberTransactions.length > 0 && (
+                    <tfoot className="bg-slate-100 font-bold border-t-2 border-slate-300 text-xs sticky bottom-0 z-10 shadow-2xs">
+                      <tr>
+                        <td colSpan={4} className="py-2.5 px-3 text-slate-800 font-black bg-slate-100">
+                          {isBn ? 'মোট যোগফল (Total Summary)' : 'Total Summary'}
+                          <span className="text-[10px] font-normal text-slate-500 ml-2">
+                            ({displayCount(filteredMemberTransactions.length)} {isBn ? 'টি এন্ট্রি' : 'entries'})
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-black text-emerald-700 bg-slate-100">
+                          ৳{formatCurrency(passbookTotals.credit, isBn && useBengaliDigits)}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-black text-rose-600 bg-slate-100">
+                          ৳{formatCurrency(passbookTotals.debit, isBn && useBengaliDigits)}
+                        </td>
+                        <td colSpan={2} className="py-2.5 px-3 text-center text-slate-700 font-bold bg-slate-100">
+                          <span className="text-[10px] text-slate-500 mr-1">{isBn ? 'নীট স্থিতি:' : 'Net:'}</span>
+                          <span className={passbookTotals.credit >= passbookTotals.debit ? 'text-emerald-700 font-black' : 'text-rose-600 font-black'}>
+                            ৳{formatCurrency(passbookTotals.credit - passbookTotals.debit, isBn && useBengaliDigits)}
+                          </span>
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               </div>
             </div>
@@ -566,7 +745,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
             renderPrivacyProtectedNotice()
           ) : (
             <div className="p-6 space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
                 <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl relative overflow-hidden">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-semibold text-amber-900 block">
@@ -594,6 +773,22 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                       {isBn ? 'বৃদ্ধি / ক্রয়' : 'Buy More'}
                     </button>
                   </div>
+                </div>
+
+                {/* Pure Base Deposit Card */}
+                <div className="bg-cyan-50 border border-cyan-200 p-3.5 rounded-xl">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-semibold text-cyan-900 block">
+                      {isBn ? 'আসল সঞ্চয় আমানত' : 'Base Deposit'}
+                    </span>
+                    <PiggyBank className="w-3.5 h-3.5 text-cyan-600" />
+                  </div>
+                  <div className="text-lg font-bold text-cyan-950">
+                    ৳{formatCurrency(pureBaseDeposit, isBn && useBengaliDigits)}
+                  </div>
+                  <span className="text-[10px] text-cyan-700 mt-1 block truncate">
+                    {isBn ? 'লাভ ব্যতীত আসল জমা' : 'Principal without profit'}
+                  </span>
                 </div>
 
                 <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-xl">
