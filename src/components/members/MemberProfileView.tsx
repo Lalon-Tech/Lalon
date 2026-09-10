@@ -85,6 +85,9 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
   const [activeTab, setActiveTab] = useState<'passbook' | 'savings' | 'shares' | 'loans' | 'business' | 'nominee' | 'agreement'>('passbook');
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [newPhotoUrl, setNewPhotoUrl] = useState('');
+  const [showNomineePhotoModal, setShowNomineePhotoModal] = useState(false);
+  const [selectedNomineeId, setSelectedNomineeId] = useState<string>('');
+  const [newNomineePhotoUrl, setNewNomineePhotoUrl] = useState('');
   const [showShareClosureModal, setShowShareClosureModal] = useState(false);
   const [showBuyShareModal, setShowBuyShareModal] = useState(false);
   const [showEditMemberModal, setShowEditMemberModal] = useState(false);
@@ -362,7 +365,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                 <img
                   src={member.photoUrl}
                   alt={member.name}
-                  className="w-20 h-20 rounded-full object-cover ring-4 ring-white/20 shadow-md bg-slate-800"
+                  className="w-20 h-20 rounded-full object-cover object-top ring-4 ring-white/20 shadow-md bg-slate-800"
                 />
                 {isUserAdmin && (
                   <button
@@ -1254,17 +1257,32 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                 {member.nominees.map((nom) => (
                   <div key={nom.id} className="p-5 border border-slate-200 rounded-xl bg-slate-50 space-y-3">
                     <div className="flex items-center gap-3">
-                      {nom.photoUrl ? (
-                        <img
-                          src={nom.photoUrl}
-                          alt={nom.name}
-                          className="w-12 h-12 rounded-full object-cover border border-slate-300 shrink-0"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-base shrink-0">
-                          {nom.name[0]}
-                        </div>
-                      )}
+                      <div className="relative group shrink-0">
+                        {nom.photoUrl ? (
+                          <img
+                            src={nom.photoUrl}
+                            alt={nom.name}
+                            className="w-12 h-12 rounded-full object-cover object-top border border-slate-300 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-base shrink-0">
+                            {nom.name[0]}
+                          </div>
+                        )}
+                        {isUserAdmin && (
+                          <button
+                            onClick={() => {
+                              setSelectedNomineeId(nom.id);
+                              setNewNomineePhotoUrl(nom.photoUrl || '');
+                              setShowNomineePhotoModal(true);
+                            }}
+                            title={isBn ? "নমিনির ছবি পরিবর্তন বা আপলোড করুন" : "Change or Upload Nominee Photo"}
+                            className="absolute -bottom-1 -right-1 p-1 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-xs border border-white transition-all cursor-pointer hover:scale-110"
+                          >
+                            <Camera className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+                      </div>
                       <div>
                         <h5 className="font-bold text-sm text-slate-800">{nom.name}</h5>
                         <span className="text-xs text-blue-600 font-semibold">{isBn ? `সম্পর্ক: ${nom.relation}` : `Relation: ${nom.relation}`}</span>
@@ -1429,6 +1447,63 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                       updateMember(member.id, { photoUrl: newPhotoUrl });
                       setShowPhotoModal(false);
                     }
+                  }}
+                  className="flex items-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{isBn ? 'সংরক্ষণ করুন' : 'Save Photo'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Nominee Photo Change Modal */}
+      {showNomineePhotoModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in-50 zoom-in-95">
+            <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-2 font-bold text-sm">
+                <Camera className="w-4 h-4 text-blue-400" />
+                <span>
+                  {isBn 
+                    ? `${member.nominees.find(n => n.id === selectedNomineeId)?.name || 'নমিনি'} - এর ছবি পরিবর্তন ও আপলোড` 
+                    : `Change Nominee Photo - ${member.nominees.find(n => n.id === selectedNomineeId)?.name || 'Nominee'}`}
+                </span>
+              </div>
+              <button
+                onClick={() => setShowNomineePhotoModal(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <PhotoUploadField
+                label={isBn ? "নমিনির নতুন ছবি নির্বাচন বা আপলোড করুন" : "Select or Upload Nominee Photo"}
+                value={newNomineePhotoUrl}
+                onChange={setNewNomineePhotoUrl}
+                helperText={isBn ? "গ্যালারি/ক্যামেরা থেকে ফাইল বেছে নিন বা নমুনা ছবি নির্বাচন করুন" : "Pick from device or select avatar preset"}
+              />
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setShowNomineePhotoModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  {isBn ? 'বাতিল' : 'Cancel'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const updated = member.nominees.map(n => 
+                      n.id === selectedNomineeId ? { ...n, photoUrl: newNomineePhotoUrl } : n
+                    );
+                    updateMember(member.id, { nominees: updated });
+                    setShowNomineePhotoModal(false);
                   }}
                   className="flex items-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
                 >

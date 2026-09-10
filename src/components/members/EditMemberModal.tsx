@@ -85,6 +85,7 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
   const [nomineeNid, setNomineeNid] = useState('');
   const [nomineeAddress, setNomineeAddress] = useState('');
   const [nomineePercentage, setNomineePercentage] = useState<number>(100);
+  const [nomineePhotoUrl, setNomineePhotoUrl] = useState('');
 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -129,6 +130,7 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
       setNomineeNid(nom?.nid || '');
       setNomineeAddress(nom?.address || member.presentAddress || '');
       setNomineePercentage(nom?.percentage || 100);
+      setNomineePhotoUrl(nom?.photoUrl || '');
 
       setSavedSuccess(false);
       setErrorMessage('');
@@ -180,6 +182,7 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
         nid: nomineeNid.trim() || member.nominees[0].nid,
         address: nomineeAddress.trim() || member.nominees[0].address || presentAddress,
         percentage: Number(nomineePercentage) || 100,
+        photoUrl: nomineePhotoUrl.trim(),
       },
       ...member.nominees.slice(1)
     ] : [
@@ -191,6 +194,7 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
         nid: nomineeNid.trim(),
         address: nomineeAddress.trim() || presentAddress,
         percentage: Number(nomineePercentage) || 100,
+        photoUrl: nomineePhotoUrl.trim(),
       }
     ];
 
@@ -703,6 +707,15 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
                   </div>
                 )}
               </div>
+
+              <div className="border-t border-slate-200 pt-4">
+                <PhotoUploadField
+                  label={isBn ? 'নমিনির ছবি (Nominee Photo)' : 'Nominee Photo'}
+                  value={nomineePhotoUrl}
+                  onChange={setNomineePhotoUrl}
+                  helperText={isBn ? 'নমিনির ছবি পরিবর্তন বা আপলোড করুন' : 'Upload or change nominee photo'}
+                />
+              </div>
             </div>
           )}
 
@@ -781,6 +794,15 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
                     value={nomineePercentage}
                     onChange={(e) => setNomineePercentage(Number(e.target.value))}
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  />
+                </div>
+
+                <div className="sm:col-span-2 pt-2 border-t border-slate-200">
+                  <PhotoUploadField
+                    label={isBn ? 'নমিনির ছবি আপলোড বা পরিবর্তন (Nominee Photo)' : 'Nominee Photo'}
+                    value={nomineePhotoUrl}
+                    onChange={setNomineePhotoUrl}
+                    helperText={isBn ? 'নমিনির পাসপোর্ট সাইজ ছবি, ডিভাইস থেকে আপলোড করুন বা স্যাম্পল ছবি বেছে নিন' : 'Upload nominee photo from device or choose avatar preset'}
                   />
                 </div>
               </div>

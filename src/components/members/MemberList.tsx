@@ -291,7 +291,7 @@ export const MemberList: React.FC = () => {
                         <img
                           src={member.photoUrl}
                           alt={member.name}
-                          className="w-10 h-10 rounded-full object-cover border border-slate-200 shrink-0"
+                          className="w-10 h-10 rounded-full object-cover object-top border border-slate-200 shrink-0"
                         />
                         <div>
                           <div className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">

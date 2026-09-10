@@ -193,7 +193,7 @@ export const NomineesView: React.FC = () => {
                         <img
                           src={nominee.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
                           alt={nominee.name}
-                          className="w-10 h-10 rounded-full object-cover border border-slate-200 shrink-0 bg-slate-100"
+                          className="w-10 h-10 rounded-full object-cover object-top border border-slate-200 shrink-0 bg-slate-100"
                         />
                         <div>
                           <div className="font-bold text-slate-800">

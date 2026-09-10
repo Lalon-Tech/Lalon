@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Upload, Link, Check, RefreshCw, X, Image as ImageIcon } from 'lucide-react';
-import { resizeImageFileToBase64 } from '../../utils/imageUtils';
+import { Camera, Upload, Link, Check, RefreshCw, X, Image as ImageIcon, Move, Sliders, Sparkles } from 'lucide-react';
+import { resizeImageFileToBase64, readFileAsDataUrl } from '../../utils/imageUtils';
+import { PhotoPositionModal } from './PhotoPositionModal';
 
 interface PhotoUploadFieldProps {
   label: string;
@@ -11,12 +12,12 @@ interface PhotoUploadFieldProps {
 }
 
 const DEFAULT_SAMPLE_AVATARS = [
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=85',
+  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=85',
+  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300&auto=format&fit=crop&q=85',
+  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&auto=format&fit=crop&q=85',
+  'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=300&auto=format&fit=crop&q=85',
+  'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=300&auto=format&fit=crop&q=85',
 ];
 
 export const PhotoUploadField: React.FC<PhotoUploadFieldProps> = ({
@@ -31,14 +32,25 @@ export const PhotoUploadField: React.FC<PhotoUploadFieldProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showPositionModal, setShowPositionModal] = useState<boolean>(false);
+  const [rawImageForPosition, setRawImageForPosition] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (file: File) => {
     try {
       setIsLoading(true);
       setErrorMessage(null);
-      const base64 = await resizeImageFileToBase64(file, 400, 400, 0.85);
-      onChange(base64);
+
+      // Read raw file as Data URL first
+      const rawDataUrl = await readFileAsDataUrl(file);
+      setRawImageForPosition(rawDataUrl);
+
+      // Also create an immediate high-res top-anchored fallback in case they close modal
+      const highResDefault = await resizeImageFileToBase64(file, 800, 800, 0.92);
+      onChange(highResDefault);
+
+      // Open interactive positioning editor immediately so user can adjust the head & framing
+      setShowPositionModal(true);
     } catch (err: any) {
       setErrorMessage(err.message || 'ছবি আপলোড করতে ব্যর্থ হয়েছে।');
     } finally {
@@ -59,6 +71,14 @@ export const PhotoUploadField: React.FC<PhotoUploadFieldProps> = ({
     if (urlInput.trim()) {
       onChange(urlInput.trim());
       setUrlInput('');
+    }
+  };
+
+  const handleOpenCurrentPositioner = () => {
+    const currentSrc = value || presetAvatars[0];
+    if (currentSrc) {
+      setRawImageForPosition(currentSrc);
+      setShowPositionModal(true);
     }
   };
 
@@ -99,21 +119,34 @@ export const PhotoUploadField: React.FC<PhotoUploadFieldProps> = ({
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-        {/* Preview image */}
-        <div className="relative group shrink-0 mx-auto sm:mx-0">
-          <img
-            src={value || presetAvatars[0]}
-            alt="Preview"
-            className="w-16 h-16 rounded-full object-cover border-2 border-blue-500 shadow-xs bg-white"
-          />
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+        {/* Preview image and Position button */}
+        <div className="flex flex-col items-center gap-1.5 shrink-0 mx-auto sm:mx-0">
+          <div className="relative group shrink-0">
+            <img
+              src={value || presetAvatars[0]}
+              alt="Preview"
+              className="w-16 h-16 rounded-full object-cover border-2 border-blue-500 shadow-xs bg-white"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute inset-0 rounded-full bg-black/40 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer"
+              title="নতুন ছবি আপলোড করুন"
+            >
+              <Camera className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Quick Position & Crop Button */}
           <button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="absolute inset-0 rounded-full bg-black/40 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer"
-            title="ছবি পরিবর্তন করুন"
+            onClick={handleOpenCurrentPositioner}
+            className="flex items-center gap-1 px-2 py-1 bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-[10px] font-bold shadow-2xs hover:border-blue-400 transition-all cursor-pointer active:scale-95"
+            title="মাথা যাতে কেটে না যায় তার জন্য পজিশন ও জুম অ্যাডজাস্ট করুন"
           >
-            <Camera className="w-5 h-5" />
+            <Move className="w-3 h-3 text-blue-600" />
+            <span>পজিশন ঠিক করুন</span>
           </button>
         </div>
 
@@ -151,9 +184,14 @@ export const PhotoUploadField: React.FC<PhotoUploadFieldProps> = ({
                   {isLoading ? 'ছবি প্রসেস হচ্ছে...' : 'ছবি নির্বাচন করতে ক্লিক করুন বা ড্র্যাগ করুন'}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                PNG, JPG, JPEG ফরম্যাট (স্বয়ংক্রিয় রিসাইজ ও অপ্টিমাইজড)
-              </p>
+              <div className="flex items-center justify-center gap-2 mt-1 text-[11px] text-slate-500">
+                <span className="flex items-center gap-1 text-emerald-600 font-medium">
+                  <Sparkles className="w-3 h-3" />
+                  HD ক্লিয়ার কোয়ালিটি
+                </span>
+                <span>•</span>
+                <span>স্বয়ংক্রিয় পজিশনিং ও ক্রপ সাপোর্ট</span>
+              </div>
             </div>
           )}
 
@@ -210,7 +248,26 @@ export const PhotoUploadField: React.FC<PhotoUploadFieldProps> = ({
           )}
         </div>
       </div>
-      <span className="text-[11px] text-slate-400 block">{helperText}</span>
+
+      <div className="flex items-center justify-between text-[11px] text-slate-400 px-0.5">
+        <span>{helperText}</span>
+        <span className="text-blue-600 font-medium">✨ মাথা কাটার হাত থেকে রক্ষা পেতে "পজিশন ঠিক করুন" ব্যবহার করুন</span>
+      </div>
+
+      {/* Interactive Photo Positioning & HD Crop Modal */}
+      {showPositionModal && rawImageForPosition && (
+        <PhotoPositionModal
+          isOpen={showPositionModal}
+          imageSrc={rawImageForPosition}
+          onClose={() => setShowPositionModal(false)}
+          onSave={(croppedDataUrl) => {
+            onChange(croppedDataUrl);
+            setShowPositionModal(false);
+          }}
+          title={label ? `${label} - পজিশনিং ও ক্রপ` : 'ছবি পজিশনিং ও ক্রপ'}
+        />
+      )}
     </div>
   );
 };
+

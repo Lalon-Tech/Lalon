@@ -217,7 +217,7 @@ export const DashboardView: React.FC = () => {
                       <img
                         src={m.photoUrl}
                         alt={m.name}
-                        className="w-13 h-13 rounded-full object-cover ring-2 ring-blue-500/20 shadow-xs"
+                        className="w-13 h-13 rounded-full object-cover object-top ring-2 ring-blue-500/20 shadow-xs"
                       />
                       <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full"></span>
                     </div>
