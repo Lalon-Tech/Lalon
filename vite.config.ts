@@ -1,12 +1,32 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import fs from 'fs';
 import {defineConfig} from 'vite';
+
+// Plugin to ensure 404.html is automatically generated in dist for Cloudflare / GitHub / Vercel SPA routing
+function spaFallbackPlugin() {
+  return {
+    name: 'spa-fallback',
+    closeBundle() {
+      try {
+        const distDir = path.resolve(__dirname, 'dist');
+        const indexPath = path.join(distDir, 'index.html');
+        const fallbackPath = path.join(distDir, '404.html');
+        if (fs.existsSync(indexPath)) {
+          fs.copyFileSync(indexPath, fallbackPath);
+        }
+      } catch (err) {
+        console.warn('Could not copy 404.html fallback:', err);
+      }
+    },
+  };
+}
 
 export default defineConfig(() => {
   return {
-    base: './',
-    plugins: [react(), tailwindcss()],
+    base: process.env.VITE_BASE_PATH || '/',
+    plugins: [react(), tailwindcss(), spaFallbackPlugin()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
