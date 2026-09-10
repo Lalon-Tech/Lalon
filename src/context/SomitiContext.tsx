@@ -1008,9 +1008,11 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             setFirestoreConnected(true);
             setLastSyncTime(new Date().toLocaleTimeString());
           } else {
-            // If cloud is empty but local state has members, seed local members to Firestore!
             setFirestoreConnected(true);
-            if (members.length > 0 && !isInitialLoadDone.current) {
+            if (isInitialLoadDone.current) {
+              setMembers([]);
+              localStorage.setItem('bondhu_members', JSON.stringify([]));
+            } else if (members.length > 0) {
               const batch = writeBatch(db);
               members.forEach(m => safeBatchSet(batch, doc(db, 'members', m.id), m));
               batch.commit().catch(console.error);
@@ -1031,7 +1033,10 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             });
             setLoans(list);
           } else {
-            if (loans.length > 0 && !isInitialLoadDone.current) {
+            if (isInitialLoadDone.current) {
+              setLoans([]);
+              localStorage.setItem('bondhu_loans', JSON.stringify([]));
+            } else if (loans.length > 0) {
               const batch = writeBatch(db);
               loans.forEach(l => safeBatchSet(batch, doc(db, 'loans', l.id), l));
               batch.commit().catch(console.error);
@@ -1052,7 +1057,10 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             });
             setSavingsSchemes(list);
           } else {
-            if (savingsSchemes.length > 0 && !isInitialLoadDone.current) {
+            if (isInitialLoadDone.current) {
+              setSavingsSchemes([]);
+              localStorage.setItem('bondhu_savings', JSON.stringify([]));
+            } else if (savingsSchemes.length > 0) {
               const batch = writeBatch(db);
               savingsSchemes.forEach(s => safeBatchSet(batch, doc(db, 'savings', s.id), s));
               batch.commit().catch(console.error);
@@ -1074,7 +1082,10 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
             setShareClosures(list);
           } else {
-            if (shareClosures.length > 0 && !isInitialLoadDone.current) {
+            if (isInitialLoadDone.current) {
+              setShareClosures([]);
+              localStorage.setItem('bondhu_share_closures', JSON.stringify([]));
+            } else if (shareClosures.length > 0) {
               const batch = writeBatch(db);
               shareClosures.forEach(c => safeBatchSet(batch, doc(db, 'shareClosures', c.id), c));
               batch.commit().catch(console.error);
@@ -1096,11 +1107,14 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             list.sort(compareTransactionsDesc);
             setTransactions(list);
           } else {
-            const listToSeed = transactions.length > 0 ? transactions : sampleDemoTransactions;
-            if (transactions.length === 0) {
-              setTransactions(listToSeed);
-            }
-            if (!isInitialLoadDone.current) {
+            if (isInitialLoadDone.current) {
+              setTransactions([]);
+              localStorage.setItem('bondhu_transactions', JSON.stringify([]));
+            } else {
+              const listToSeed = transactions.length > 0 ? transactions : sampleDemoTransactions;
+              if (transactions.length === 0) {
+                setTransactions(listToSeed);
+              }
               const batch = writeBatch(db);
               listToSeed.forEach(t => safeBatchSet(batch, doc(db, 'transactions', t.id), t));
               batch.commit().catch(console.error);
@@ -1118,7 +1132,10 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             snapshot.forEach(docSnap => list.push(docSnap.data() as IncomeExpenseItem));
             setVouchers(list);
           } else {
-            if (vouchers.length > 0 && !isInitialLoadDone.current) {
+            if (isInitialLoadDone.current) {
+              setVouchers([]);
+              localStorage.setItem('bondhu_vouchers', JSON.stringify([]));
+            } else if (vouchers.length > 0) {
               const batch = writeBatch(db);
               vouchers.forEach(v => safeBatchSet(batch, doc(db, 'incomeExpenses', v.id), v));
               batch.commit().catch(console.error);
@@ -3513,13 +3530,21 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Reset & Backup
   const clearAllData = async () => {
+    isInitialLoadDone.current = true;
     setMembers([]);
     setLoans([]);
     setSavingsSchemes([]);
     setShareClosures([]);
     setTransactions([]);
     setVouchers([]);
-    setUsers(initialUsers);
+    setBusinessFundings([]);
+    setBusinessProfitRecords([]);
+    setProfitDistributions([]);
+    
+    // Preserve existing admin/staff users so user doesn't get locked out
+    const preservedUsers = users.length > 0 ? users : initialUsers;
+    setUsers(preservedUsers);
+    
     const cleanBank: BankAccount[] = [
       {
         id: 'bank-1',
@@ -3537,19 +3562,44 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Clear localStorage
     const storageKeys = [
       'bondhu_members', 'bondhu_loans', 'bondhu_savings', 'bondhu_share_closures', 'bondhu_transactions',
-      'bondhu_vouchers', 'bondhu_bank_accounts', 'bondhu_users', 'bondhu_somiti_members',
+      'bondhu_vouchers', 'bondhu_somiti_members',
       'bondhu_somiti_loans', 'bondhu_somiti_savings', 'bondhu_somiti_transactions',
-      'bondhu_somiti_income_expense', 'bondhu_somiti_bank_accounts', 'bondhu_somiti_users'
+      'bondhu_somiti_income_expense',
+      'bondhu_business_fundings', 'bondhu_business_profit_records', 'bondhu_profit_distributions'
     ];
     storageKeys.forEach(k => {
       try {
         localStorage.removeItem(k);
       } catch (_) {}
     });
+    try {
+      localStorage.setItem('bondhu_members', JSON.stringify([]));
+      localStorage.setItem('bondhu_loans', JSON.stringify([]));
+      localStorage.setItem('bondhu_savings', JSON.stringify([]));
+      localStorage.setItem('bondhu_share_closures', JSON.stringify([]));
+      localStorage.setItem('bondhu_transactions', JSON.stringify([]));
+      localStorage.setItem('bondhu_vouchers', JSON.stringify([]));
+      localStorage.setItem('bondhu_business_fundings', JSON.stringify([]));
+      localStorage.setItem('bondhu_business_profit_records', JSON.stringify([]));
+      localStorage.setItem('bondhu_profit_distributions', JSON.stringify([]));
+      localStorage.setItem('bondhu_bank_accounts', JSON.stringify(cleanBank));
+      localStorage.setItem('bondhu_users', JSON.stringify(preservedUsers));
+    } catch (_) {}
 
     // Clear Firestore documents if connected
     try {
-      const collectionsToClear = ['members', 'loans', 'savings', 'shareClosures', 'transactions', 'vouchers', 'systemUsers'];
+      const collectionsToClear = [
+        'members', 
+        'loans', 
+        'savings', 
+        'shareClosures', 
+        'transactions', 
+        'incomeExpenses', 
+        'vouchers', 
+        'businessFundings', 
+        'businessProfitRecords', 
+        'profitDistributions'
+      ];
       for (const col of collectionsToClear) {
         const snap = await getDocs(collection(db, col));
         if (!snap.empty) {
@@ -3564,8 +3614,10 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       safeBatchSet(bankBatch, doc(db, 'bankAccounts', 'bank-1'), cleanBank[0]);
       await bankBatch.commit();
 
-      // Seed clean admin
-      await safeSetDoc(doc(db, 'systemUsers', initialUsers[0].id), initialUsers[0]);
+      // Ensure preserved users exist in systemUsers
+      for (const u of preservedUsers) {
+        await safeSetDoc(doc(db, 'systemUsers', u.id), u);
+      }
     } catch (e) {
       console.warn('Firestore clearing error:', e);
     }
@@ -3598,16 +3650,21 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       vouchers,
       bankAccounts,
       users,
+      businessFundings,
+      businessProfitRecords,
+      profitDistributions,
       exportedAt: new Date().toISOString(),
-      version: '1.0.0',
+      version: '1.2.0',
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `bondhu_somiti_backup_${getTodayDateStr()}.json`;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
   };
 
   const importDatabaseJson = (jsonString: string): boolean => {
@@ -3621,6 +3678,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (data.vouchers) setVouchers(data.vouchers);
       if (data.bankAccounts) setBankAccounts(data.bankAccounts);
       if (data.users) setUsers(data.users);
+      if (data.businessFundings) setBusinessFundings(data.businessFundings);
+      if (data.businessProfitRecords) setBusinessProfitRecords(data.businessProfitRecords);
+      if (data.profitDistributions) setProfitDistributions(data.profitDistributions);
       if (data.settings) setSettings(data.settings);
       syncAllToFirestore();
       return true;
@@ -3914,6 +3974,26 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
     setVouchers(prev => [voucher, ...prev]);
     safeSetDoc(doc(db, 'incomeExpenses', voucher.id), voucher).catch(console.error);
+
+    // Record transaction for Member Ledger and Transaction Management
+    const tx: Transaction = {
+      id: `tx-bf-${funding.id}-${Date.now()}`,
+      voucherNo: voucher.voucherNo,
+      memberId: funding.memberId,
+      memberName: funding.memberName,
+      memberNo: funding.memberNo,
+      type: 'business_funding_disbursed',
+      amount,
+      date: today,
+      time: getCurrentTimeStr(),
+      paymentMethod,
+      bankAccountId: (paymentMethod === 'bank' || paymentMethod === 'bkash' || paymentMethod === 'nagad') ? bankAccountId : undefined,
+      collectedBy: currentUser.name,
+      notes: `ব্যবসা ফান্ডিং বিতরণ (#${funding.applicationNo}) - ${funding.businessName}`,
+      status: 'completed',
+    };
+    setTransactions(prev => [tx, ...prev]);
+    safeSetDoc(doc(db, 'transactions', tx.id), tx).catch(console.error);
   };
 
   const recordBusinessProfit = async (data: {

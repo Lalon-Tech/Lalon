@@ -312,6 +312,8 @@ export const TransactionManager: React.FC = () => {
             <option value="dps_deposit">{isBn ? 'ডিপিএস জমা' : 'DPS Deposit'}</option>
             <option value="fdr_deposit">{isBn ? 'স্থায়ী আমানত (FDR)' : 'Fixed Deposit (FDR)'}</option>
             <option value="admission_fee">{isBn ? 'ভর্তি ফি' : 'Admission Fee'}</option>
+            <option value="business_funding_disbursed">{isBn ? 'ব্যবসা ফান্ডিং বিতরণ' : 'Business Funding Disbursed'}</option>
+            <option value="profit_share">{isBn ? 'লভ্যাংশ জমা' : 'Profit / Dividend Share'}</option>
             <option value="income">{isBn ? 'বিবিধ আয়' : 'Other Income'}</option>
             <option value="expense">{isBn ? 'অফিস খরচ' : 'Office Expense'}</option>
           </select>

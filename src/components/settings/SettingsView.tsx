@@ -14,7 +14,13 @@ import {
   Sparkles,
   Cloud,
   Database,
-  RefreshCw
+  RefreshCw,
+  AlertTriangle,
+  X,
+  Loader2,
+  AlertCircle,
+  ShieldCheck,
+  Check
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useSomiti } from '../../context/SomitiContext';
@@ -27,6 +33,9 @@ export const SettingsView: React.FC = () => {
     updateSettings, 
     useBengaliDigits, 
     setUseBengaliDigits,
+    members,
+    loans,
+    transactions,
     clearAllData,
     resetToDemoData,
     exportDatabaseJson,
@@ -55,6 +64,12 @@ export const SettingsView: React.FC = () => {
 
   const [isSaved, setIsSaved] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+
+  // In-app Modal and Feedback States (avoids sandboxed iframe window.confirm/alert blocks)
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [isProcessingClear, setIsProcessingClear] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
 
   const handlePushToCloud = async () => {
     const success = await syncAllToFirestore();
@@ -103,6 +118,13 @@ export const SettingsView: React.FC = () => {
 
   const exportBackupJson = () => {
     exportDatabaseJson();
+    setActionFeedback({
+      type: 'success',
+      message: language === 'bn' 
+        ? 'সম্পূর্ণ ডাটাবেজ ব্যাকআপ (JSON) সফলভাবে আপনার ডিভাইসে ডাউনলোড হয়েছে।' 
+        : 'Full database backup (JSON) has been downloaded to your device.'
+    });
+    setTimeout(() => setActionFeedback(null), 5000);
   };
 
   const handleImportBackupJson = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -116,36 +138,117 @@ export const SettingsView: React.FC = () => {
         if (content) {
           const success = importDatabaseJson(content);
           if (success) {
-            alert(language === 'bn' ? 'ডাটাবেজ ব্যাকআপ সফলভাবে রিস্টোর করা হয়েছে!' : 'Database backup restored successfully!');
+            setActionFeedback({
+              type: 'success',
+              message: language === 'bn' 
+                ? 'ডাটাবেজ ব্যাকআপ সফলভাবে রিস্টোর করা হয়েছে!' 
+                : 'Database backup restored successfully!'
+            });
+            try {
+              confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } });
+            } catch (_) {}
           } else {
-            alert(language === 'bn' ? 'ভুল ফরম্যাট! ব্যাকআপ ফাইলটি সঠিক JSON ফরম্যাটে নেই।' : 'Invalid format! The file is not a valid backup JSON.');
+            setActionFeedback({
+              type: 'error',
+              message: language === 'bn' 
+                ? 'ভুল ফরম্যাট! ব্যাকআপ ফাইলটি সঠিক JSON ফরম্যাটে নেই।' 
+                : 'Invalid format! The file is not a valid backup JSON.'
+            });
           }
         }
       } catch (err) {
-        alert(language === 'bn' ? 'ফাইল পড়তে সমস্যা হয়েছে।' : 'Error reading backup file.');
+        setActionFeedback({
+          type: 'error',
+          message: language === 'bn' ? 'ফাইল পড়তে সমস্যা হয়েছে।' : 'Error reading backup file.'
+        });
       }
     };
     reader.readAsText(file);
-    // Reset file input value so user can re-upload if needed
     e.target.value = '';
+    setTimeout(() => setActionFeedback(null), 6000);
   };
 
-  const handleClearAllData = async () => {
-    if (window.confirm('⚠️ সতর্কতা: আপনি কি সমস্ত মেম্বার, ঋণ ও লেনদেন মুছে সম্পূর্ণ শূন্য (০ সদস্য) থেকে নতুন ডাটা এন্ট্রি শুরু করতে চান?')) {
+  const confirmClearAllData = async () => {
+    try {
+      setIsProcessingClear(true);
       await clearAllData();
-      alert('সফল হয়েছে! আপনার ডাটাবেজ এখন সম্পূর্ণ খালি। আপনি এখন নতুন করে সদস্যদের তথ্য ও লেনদেন এন্ট্রি করতে পারবেন।');
+      setShowClearModal(false);
+      setActionFeedback({
+        type: 'success',
+        message: language === 'bn' 
+          ? 'সফল হয়েছে! সমস্ত ডেমো ডাটা মুছে ডাটাবেজ সম্পূর্ণ শূন্য (০ সদস্য) করা হয়েছে। আপনি এখন আপনার সমিতির সদস্যদের আসল তথ্য এন্ট্রি করতে পারবেন।'
+          : 'Success! Database cleared to 0 members. You can now start entering your own members and transactions.'
+      });
+      try {
+        confetti({ particleCount: 50, spread: 70, origin: { y: 0.6 } });
+      } catch (_) {}
+    } catch (err) {
+      console.error(err);
+      setActionFeedback({
+        type: 'error',
+        message: language === 'bn' ? 'ডাটা মুছতে সমস্যা হয়েছে।' : 'Error clearing database.'
+      });
+    } finally {
+      setIsProcessingClear(false);
+      setTimeout(() => setActionFeedback(null), 7000);
     }
   };
 
-  const handleResetDemoData = () => {
-    if (window.confirm('আপনি কি পূর্বনির্ধারিত ডেমো স্যাম্পল ডাটা পুনরায় লোড করতে চান?')) {
+  const confirmResetDemoData = () => {
+    try {
       resetToDemoData();
-      alert('ডেমো ডাটা সফলভাবে পুনরায় লোড করা হয়েছে।');
+      setShowResetModal(false);
+      setActionFeedback({
+        type: 'success',
+        message: language === 'bn' 
+          ? 'ডেমো স্যাম্পল ডাটা সফলভাবে পুনরায় লোড করা হয়েছে।'
+          : 'Demo sample data reloaded successfully.'
+      });
+      try {
+        confetti({ particleCount: 35, spread: 50, origin: { y: 0.6 } });
+      } catch (_) {}
+    } catch (err) {
+      console.error(err);
+      setActionFeedback({
+        type: 'error',
+        message: language === 'bn' ? 'ডেমো ডাটা লোড করতে সমস্যা হয়েছে।' : 'Failed to reload demo data.'
+      });
+    } finally {
+      setTimeout(() => setActionFeedback(null), 5000);
     }
   };
 
   return (
     <div className="space-y-6 pb-16">
+      {/* Action Notification Banner */}
+      {actionFeedback && (
+        <div className={`p-4 rounded-xl border flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-200 ${
+          actionFeedback.type === 'success' 
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-900' 
+            : actionFeedback.type === 'error'
+            ? 'bg-rose-50 border-rose-200 text-rose-900'
+            : 'bg-blue-50 border-blue-200 text-blue-900'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            {actionFeedback.type === 'success' ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            ) : actionFeedback.type === 'error' ? (
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+            ) : (
+              <Sparkles className="w-5 h-5 text-blue-600 shrink-0" />
+            )}
+            <p className="text-xs sm:text-sm font-semibold">{actionFeedback.message}</p>
+          </div>
+          <button 
+            type="button" 
+            onClick={() => setActionFeedback(null)}
+            className="p-1 rounded-md hover:bg-black/5 text-slate-500 hover:text-slate-700"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -444,19 +547,37 @@ export const SettingsView: React.FC = () => {
             </button>
           </div>
 
-          <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-xl space-y-3">
-            <h4 className="text-sm font-bold text-amber-900 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-700" />
-              <span>নতুন সমিতি শুরু বা ডাটা ব্যবস্থাপনা</span>
-            </h4>
-            <p className="text-xs text-amber-800">
-              আপনি কি আপনার নিজস্ব সমিতির কাজ শুরু করতে চান? নিচের লাল বাটনে ক্লিক করে সব ডেমো মেম্বার মুছে ০ সদস্য থেকে একদম নতুন শুরু করতে পারেন।
+          <div className="p-5 bg-linear-to-br from-amber-50/80 to-orange-50/50 border border-amber-200 rounded-2xl space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200/70 pb-3">
+              <h4 className="text-sm font-bold text-amber-950 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-700" />
+                <span>নতুন সমিতি শুরু বা ডাটা ব্যবস্থাপনা</span>
+              </h4>
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                members.length === 0 
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                  : 'bg-amber-100 text-amber-800 border border-amber-300'
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${members.length === 0 ? 'bg-emerald-600' : 'bg-amber-600'}`}></span>
+                <span>
+                  {members.length === 0 
+                    ? (language === 'bn' ? 'ডাটাবেজ প্রস্তুত: ০ জন সদস্য' : 'Database Ready: 0 Members')
+                    : (language === 'bn' ? `বর্তমান ডাটাবেজ: ${members.length} জন সদস্য, ${loans.length} টি ঋণ` : `Current DB: ${members.length} members, ${loans.length} loans`)}
+                </span>
+              </span>
+            </div>
+
+            <p className="text-xs text-amber-900 leading-relaxed">
+              {language === 'bn'
+                ? 'আপনি কি আপনার নিজস্ব সমিতির কাজ শুরু করতে চান? নিচের লাল বাটনে ক্লিক করে সব ডেমো মেম্বার মুছে ০ সদস্য থেকে একদম নতুন শুরু করতে পারেন। অথবা প্রয়োজনমতো ডেমো ডাটা পুনরায় লোড করতে পারবেন।'
+                : 'Ready to launch your own somiti operations? Click the red button to wipe all demo members and start completely fresh from 0 members.'}
             </p>
+
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <button
                 type="button"
-                onClick={handleClearAllData}
-                className="flex items-center gap-1.5 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-colors shadow-xs"
+                onClick={() => setShowClearModal(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm hover:shadow-md cursor-pointer active:scale-98"
               >
                 <Trash2 className="w-4 h-4" />
                 <span>সব ডেমো ডাটা মুছুন (০ সদস্য থেকে নতুন শুরু)</span>
@@ -464,8 +585,8 @@ export const SettingsView: React.FC = () => {
 
               <button
                 type="button"
-                onClick={handleResetDemoData}
-                className="flex items-center gap-1.5 px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold transition-colors"
+                onClick={() => setShowResetModal(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-98"
               >
                 <RotateCcw className="w-4 h-4 text-blue-600" />
                 <span>ডেমো ডাটা পুনরায় লোড করুন</span>
@@ -477,13 +598,13 @@ export const SettingsView: React.FC = () => {
             <button
               type="button"
               onClick={exportBackupJson}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs"
+              className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm hover:shadow-md active:scale-98"
             >
               <Download className="w-4 h-4 text-emerald-400" />
               <span>সম্পূর্ণ ডাটাবেজ ব্যাকআপ (JSON ডাউনলোড)</span>
             </button>
 
-            <label className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs">
+            <label className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-98">
               <Upload className="w-4 h-4 text-blue-600" />
               <span>ব্যাকআপ ফাইল থেকে রিস্টোর (JSON আপলোড)</span>
               <input
@@ -500,13 +621,166 @@ export const SettingsView: React.FC = () => {
         <div className="flex justify-end">
           <button
             type="submit"
-            className="flex items-center gap-2 px-6 py-3 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition-all"
+            className="flex items-center gap-2 px-6 py-3 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition-all active:scale-98"
           >
             <Save className="w-4 h-4" />
             <span>সকল সেটিংস সংরক্ষণ করুন ✓</span>
           </button>
         </div>
       </form>
+
+      {/* Clear All Data Modal */}
+      {showClearModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-rose-200 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-start justify-between gap-3 border-b pb-3">
+              <div className="flex items-center gap-2.5 text-rose-600">
+                <div className="p-2 bg-rose-100 rounded-xl">
+                  <AlertTriangle className="w-6 h-6 text-rose-600" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-800">
+                    {language === 'bn' ? 'সব ডেমো ডাটা মুছে ০ সদস্য থেকে শুরু' : 'Clear All Demo Data (Start Fresh)'}
+                  </h3>
+                  <p className="text-xs text-rose-600 font-medium">
+                    {language === 'bn' ? '⚠️ সতর্কতা: এই প্রক্রিয়াটি অপরিবর্তনীয়' : '⚠️ Warning: This action is irreversible'}
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                disabled={isProcessingClear}
+                onClick={() => setShowClearModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-600">
+              <p className="leading-relaxed">
+                {language === 'bn'
+                  ? 'আপনি কি নিশ্চিত যে সমস্ত টেস্ট/ডেমো মেম্বার এবং তাদের সব ঋণ ও লেনদেনের ডাটা মুছে ফেলতে চান? এটি সম্পন্ন হলে আপনার ডাটাবেজে ০ জন সদস্য থাকবে এবং আপনি সম্পূর্ণ নতুন করে আপনার আসল সমিতির ডাটা এন্ট্রি করতে পারবেন।'
+                  : 'Are you sure you want to delete all test/demo members and all associated transactions? Your database will be reset to 0 members, ready for your real somiti records.'}
+              </p>
+
+              <div className="grid grid-cols-2 gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="space-y-1">
+                  <span className="font-bold text-rose-700 block">{language === 'bn' ? 'যা যা মুছে যাবে:' : 'What will be removed:'}</span>
+                  <ul className="space-y-0.5 text-slate-600 list-disc list-inside">
+                    <li>{language === 'bn' ? 'সব সদস্য তালিকা' : 'All members'}</li>
+                    <li>{language === 'bn' ? 'সকল ঋণ ও কিস্তি' : 'All loans & installments'}</li>
+                    <li>{language === 'bn' ? 'সঞ্চয়, DPS ও FDR' : 'All savings & DPS'}</li>
+                    <li>{language === 'bn' ? 'ব্যবসা ফান্ডিং ও লাভ' : 'Business fundings & profit'}</li>
+                    <li>{language === 'bn' ? 'সমস্ত লেনদেন ও ভাউচার' : 'All transactions & vouchers'}</li>
+                  </ul>
+                </div>
+                <div className="space-y-1 border-l pl-3 border-slate-200">
+                  <span className="font-bold text-emerald-700 block">{language === 'bn' ? 'যা সুরক্ষিত থাকবে:' : 'What stays safe:'}</span>
+                  <ul className="space-y-0.5 text-slate-600 list-disc list-inside">
+                    <li>{language === 'bn' ? 'সমিতির নাম ও তথ্য' : 'Somiti name & info'}</li>
+                    <li>{language === 'bn' ? 'আপনার অ্যাডমিন অ্যাকাউন্ট' : 'Your admin account'}</li>
+                    <li>{language === 'bn' ? 'সুদের হার ও সেটিংস' : 'Interest rates & settings'}</li>
+                    <li>{language === 'bn' ? 'ব্যাংক হিসাব (ব্যালেন্স ০)' : 'Bank account (balance 0)'}</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-800 flex items-start gap-2">
+                <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>
+                  {language === 'bn'
+                    ? 'পরামর্শ: ডাটা মুছে ফেলার আগে বর্তমান ডাটার একটি কপি রাখতে চাইলে "সম্পূর্ণ ডাটাবেজ ব্যাকআপ (JSON)" ডাউনলোড করে নিতে পারেন।'
+                    : 'Tip: You can download a complete JSON backup before wiping out demo records.'}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t">
+              <button
+                type="button"
+                disabled={isProcessingClear}
+                onClick={() => setShowClearModal(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all"
+              >
+                {language === 'bn' ? 'বাতিল' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                disabled={isProcessingClear}
+                onClick={confirmClearAllData}
+                className="flex items-center gap-2 px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-md disabled:opacity-60 cursor-pointer"
+              >
+                {isProcessingClear ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>{language === 'bn' ? 'মুছে ফেলা হচ্ছে...' : 'Wiping database...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>{language === 'bn' ? 'হ্যাঁ, সব ডাটা মুছুন (০ সদস্য)' : 'Yes, Delete All Data (0 Members)'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Demo Data Modal */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-blue-200 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-start justify-between gap-3 border-b pb-3">
+              <div className="flex items-center gap-2.5 text-blue-600">
+                <div className="p-2 bg-blue-100 rounded-xl">
+                  <RotateCcw className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-800">
+                    {language === 'bn' ? 'ডেমো ডাটা পুনরায় লোড' : 'Reload Demo Sample Data'}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {language === 'bn' ? 'স্যাম্পল সদস্য ও লেনদেন রিস্টোর' : 'Restore sample members & ledger'}
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setShowResetModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {language === 'bn'
+                ? 'আপনি কি পূর্বনির্ধারিত ডেমো স্যাম্পল মেম্বার, ঋণ ও লেনদেনের ডাটা পুনরায় লোড করতে চান? এটি টেস্ট করার জন্য প্রস্তুত স্যাম্পল ডাটাবেজ প্রদান করবে।'
+                : 'Do you want to reload the predefined sample demo members, loans, and transactions? This provides ready-to-test sample data.'}
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t">
+              <button
+                type="button"
+                onClick={() => setShowResetModal(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all"
+              >
+                {language === 'bn' ? 'বাতিল' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={confirmResetDemoData}
+                className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>{language === 'bn' ? 'হ্যাঁ, ডেমো ডাটা লোড করুন' : 'Yes, Load Demo Data'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

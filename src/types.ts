@@ -14,6 +14,9 @@ export type TransactionType =
   | 'share_surrender'   // শেয়ার সমর্পণ / ক্লোজিং
   | 'fine'              // জরিমানা
   | 'profit_share'      // লভ্যাংশ প্রদান
+  | 'business_funding_disbursed' // ব্যবসা বিনিয়োগ/ফান্ডিং বিতরণ
+  | 'business_funding_return'    // ব্যবসা বিনিয়োগ মূলধন ফেরত
+  | 'business_funding_profit'    // ব্যবসা বিনিয়োগ হতে লভ্যাংশ প্রাপ্তি
   | 'income'            // বিবিধ আয়
   | 'expense';          // ব্যয়
 

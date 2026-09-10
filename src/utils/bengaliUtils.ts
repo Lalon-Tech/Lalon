@@ -206,6 +206,27 @@ export function getTransactionTypeName(type: string, isBengali = true): { label:
         badge: 'bg-orange-50 text-orange-700 border-orange-200', 
         isCredit: true 
       };
+    case 'business_funding_disbursed':
+      return { 
+        label: isBengali ? 'ব্যবসা বিনিয়োগ বিতরণ' : 'Business Funding Disbursed', 
+        color: 'text-indigo-600', 
+        badge: 'bg-indigo-50 text-indigo-700 border-indigo-200', 
+        isCredit: false 
+      };
+    case 'business_funding_return':
+      return { 
+        label: isBengali ? 'ব্যবসা মূলধন ফেরত' : 'Business Capital Return', 
+        color: 'text-blue-600', 
+        badge: 'bg-blue-50 text-blue-700 border-blue-200', 
+        isCredit: true 
+      };
+    case 'business_funding_profit':
+      return { 
+        label: isBengali ? 'ব্যবসা হতে অর্জিত মুনাফা' : 'Business Profit Received', 
+        color: 'text-emerald-600', 
+        badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', 
+        isCredit: true 
+      };
     case 'income':
       return { 
         label: isBengali ? 'বিবিধ আয়' : 'Misc Income', 
