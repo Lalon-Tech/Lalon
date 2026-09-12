@@ -228,16 +228,21 @@ const AppContent: React.FC = () => {
         isOpen={showQuickDepositModal}
         onClose={() => setShowQuickDepositModal(false)}
         initialMemberId={selectedMemberId || undefined}
+        lockMember={Boolean(selectedMemberId) || activeTab === 'member_profile'}
       />
 
       <NewWithdrawModal
         isOpen={showQuickWithdrawModal}
         onClose={() => setShowQuickWithdrawModal(false)}
+        initialMemberId={selectedMemberId || undefined}
+        lockMember={Boolean(selectedMemberId) || activeTab === 'member_profile'}
       />
 
       <NewLoanModal
         isOpen={showQuickLoanModal}
         onClose={() => setShowQuickLoanModal(false)}
+        initialMemberId={selectedMemberId || undefined}
+        lockMember={Boolean(selectedMemberId) || activeTab === 'member_profile'}
       />
 
       <QuickKistiModal

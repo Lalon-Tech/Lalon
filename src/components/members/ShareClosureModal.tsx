@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ShieldAlert, CheckCircle2, DollarSign, Calculator, AlertCircle, Info, Landmark, Banknote } from 'lucide-react';
+import { X, ShieldAlert, CheckCircle2, DollarSign, Calculator, AlertCircle, Info, Landmark, Banknote, ShieldCheck, Phone } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { PaymentMethod } from '../../types';
 import { formatCurrency, formatBengaliNumber, getTodayDateStr } from '../../utils/bengaliUtils';
@@ -8,12 +8,14 @@ interface ShareClosureModalProps {
   isOpen: boolean;
   onClose: () => void;
   preselectedMemberId?: string;
+  lockMember?: boolean;
 }
 
 export const ShareClosureModal: React.FC<ShareClosureModalProps> = ({
   isOpen,
   onClose,
   preselectedMemberId,
+  lockMember,
 }) => {
   const {
     members,
@@ -25,6 +27,7 @@ export const ShareClosureModal: React.FC<ShareClosureModalProps> = ({
     useBengaliDigits,
   } = useSomiti();
 
+  const isMemberLocked = lockMember !== undefined ? lockMember : Boolean(preselectedMemberId);
   const [selectedMemberId, setSelectedMemberId] = useState<string>(preselectedMemberId || members[0]?.id || '');
   const [sharesToClose, setSharesToClose] = useState<number>(1);
   const [unitPrice, setUnitPrice] = useState<number>(settings.sharePricePerUnit || 100);
@@ -220,8 +223,16 @@ export const ShareClosureModal: React.FC<ShareClosureModalProps> = ({
                   <ShieldAlert className="w-5 h-5 text-amber-200" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold">শেয়ার সমর্পণ ও নিষ্পত্তি (Share Closure)</h3>
-                  <p className="text-xs text-rose-100">সদস্যের আংশিক বা সম্পূর্ণ শেয়ার ক্লোজ ও লভ্যাংশসহ ফেরত</p>
+                  <h3 className="text-base font-bold">
+                    {isMemberLocked && currentMember
+                      ? `${currentMember.name}-এর শেয়ার সমর্পণ ও নিষ্পত্তি`
+                      : 'শেয়ার সমর্পণ ও নিষ্পত্তি (Share Closure)'}
+                  </h3>
+                  <p className="text-xs text-rose-100">
+                    {isMemberLocked && currentMember
+                      ? `সদস্য নং: #${currentMember.memberNo} • শেয়ার ক্লোজ ও লভ্যাংশসহ অর্থ ফেরত`
+                      : 'সদস্যের আংশিক বা সম্পূর্ণ শেয়ার ক্লোজ ও লভ্যাংশসহ ফেরত'}
+                  </p>
                 </div>
               </div>
               <button
@@ -241,27 +252,84 @@ export const ShareClosureModal: React.FC<ShareClosureModalProps> = ({
                 </div>
               )}
 
-              {/* 1. Member Selection */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  সদস্য নির্বাচন করুন <span className="text-rose-500">*</span>
-                </label>
-                <select
-                  required
-                  value={selectedMemberId}
-                  onChange={(e) => {
-                    setSelectedMemberId(e.target.value);
-                    setSharesToClose(1);
-                  }}
-                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs font-semibold bg-white focus:ring-2 focus:ring-rose-500 focus:outline-hidden cursor-pointer"
-                >
-                  {members.map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.memberNo} - {m.name} (বর্তমান শেয়ার: {m.shareCount || 0} টি, মোট সঞ্চয়: ৳{m.totalSavings})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* 1. Member Selection or Dedicated Member Account */}
+              {isMemberLocked && currentMember ? (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700">
+                      সদস্যের নিজস্ব শেয়ার একাউন্ট
+                    </label>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
+                      <ShieldCheck className="w-3.5 h-3.5 text-rose-600" />
+                      নির্দিষ্ট একাউন্ট
+                    </span>
+                  </div>
+
+                  {/* Dedicated Member Identity Card - Strictly only this member */}
+                  <div className="p-3.5 bg-gradient-to-r from-rose-50/80 via-slate-50 to-white rounded-xl border border-rose-200 shadow-2xs">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-11 h-11 rounded-xl bg-rose-100 text-rose-700 font-black text-sm flex items-center justify-center shrink-0 overflow-hidden border border-rose-200">
+                          {currentMember.photoUrl ? (
+                            <img src={currentMember.photoUrl} alt={currentMember.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span>{currentMember.name.charAt(0).toUpperCase()}</span>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-sm text-slate-900 truncate">
+                              {currentMember.name}
+                            </span>
+                            <span className="px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 text-[10px] font-bold border border-blue-200">
+                              #{currentMember.memberNo}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-[11px] text-slate-500">
+                            <span className="flex items-center gap-1">
+                              <Phone className="w-3 h-3 text-slate-400" />
+                              {currentMember.phone || 'মোবাইল নেই'}
+                            </span>
+                            <span className="text-rose-700 font-semibold">
+                              শুধুমাত্র নিজস্ব শেয়ার সারেন্ডার
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0 bg-white p-2 rounded-lg border border-slate-200">
+                        <span className="text-[10px] text-slate-500 font-medium block">
+                          বর্তমান সক্রিয় শেয়ার
+                        </span>
+                        <span className="text-sm font-black text-rose-700 font-mono">
+                          {formatBengaliNumber(totalActiveShares, useBengaliDigits)} টি
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    সদস্য নির্বাচন করুন <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    required
+                    value={selectedMemberId}
+                    onChange={(e) => {
+                      setSelectedMemberId(e.target.value);
+                      setSharesToClose(1);
+                    }}
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs font-semibold bg-white focus:ring-2 focus:ring-rose-500 focus:outline-hidden cursor-pointer"
+                  >
+                    {members.map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.memberNo} - {m.name} (বর্তমান শেয়ার: {m.shareCount || 0} টি, মোট সঞ্চয়: ৳{m.totalSavings})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* 2. Member's Current Active Share Status Card */}
               {currentMember && (

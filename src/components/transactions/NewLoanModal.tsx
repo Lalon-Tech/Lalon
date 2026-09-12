@@ -1,11 +1,23 @@
 import React, { useState } from 'react';
-import { X, CreditCard, Calculator, FileSignature, CheckCircle } from 'lucide-react';
+import { X, CreditCard, Calculator, FileSignature, CheckCircle, ShieldCheck, Phone } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { PaymentMethod } from '../../types';
 import { formatCurrency, toBengaliNumber } from '../../utils/bengaliUtils';
 
-export const NewLoanModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+export interface NewLoanModalProps { 
+  isOpen: boolean; 
+  onClose: () => void;
+  initialMemberId?: string;
+  lockMember?: boolean;
+}
+
+export const NewLoanModal: React.FC<NewLoanModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  initialMemberId,
+  lockMember 
+}) => {
   const { language } = useLanguage();
   const isBn = language === 'bn';
 
@@ -14,10 +26,26 @@ export const NewLoanModal: React.FC<{ isOpen: boolean; onClose: () => void }> = 
     bankAccounts, 
     applyForLoan, 
     settings, 
-    useBengaliDigits 
+    useBengaliDigits,
+    selectedMemberId
   } = useSomiti();
 
-  const [memberId, setMemberId] = useState(members[0]?.id || '');
+  const isMemberLocked = lockMember !== undefined ? lockMember : Boolean(initialMemberId || selectedMemberId);
+  const effectiveTargetId = initialMemberId || selectedMemberId;
+  const initialValidId = effectiveTargetId && members.some(m => m.id === effectiveTargetId)
+    ? effectiveTargetId
+    : (members[0]?.id || '');
+
+  const [memberId, setMemberId] = useState(initialValidId);
+  const currentMember = members.find(m => m.id === memberId);
+
+  // Sync memberId with active member whenever modal opens
+  React.useEffect(() => {
+    const targetId = initialMemberId || selectedMemberId;
+    if (targetId && members.some(m => m.id === targetId)) {
+      setMemberId(targetId);
+    }
+  }, [isOpen, initialMemberId, selectedMemberId, members]);
   const [principalAmount, setPrincipalAmount] = useState<number>(50000);
   const [interestRate, setInterestRate] = useState<number>(settings.defaultLoanInterestRate || 12);
   const [termMonths, setTermMonths] = useState<number>(12);
@@ -88,10 +116,14 @@ export const NewLoanModal: React.FC<{ isOpen: boolean; onClose: () => void }> = 
             </div>
             <div>
               <h3 className="text-base font-bold">
-                {isBn ? 'নতুন ঋণের আবেদন (Loan Application)' : 'New Loan Application'}
+                {isMemberLocked && currentMember
+                  ? (isBn ? `${currentMember.name}-এর ঋণ আবেদন` : `New Loan for ${currentMember.name}`)
+                  : (isBn ? 'নতুন ঋণের আবেদন (Loan Application)' : 'New Loan Application')}
               </h3>
               <p className="text-xs text-indigo-200">
-                {isBn ? 'আবেদন জমাদানের পর অ্যাডমিন অনুমোদনের অপেক্ষায় থাকবে' : 'Application will be pending until Admin approval'}
+                {isMemberLocked && currentMember
+                  ? (isBn ? `সদস্য নং: #${currentMember.memberNo} • ঋণ মঞ্জুরি ও কিস্তি নির্ধারণ` : `Member #${currentMember.memberNo} • Loan Grant & Schedule`)
+                  : (isBn ? 'আবেদন জমাদানের পর অ্যাডমিন অনুমোদনের অপেক্ষায় থাকবে' : 'Application will be pending until Admin approval')}
               </p>
             </div>
           </div>
@@ -105,39 +137,113 @@ export const NewLoanModal: React.FC<{ isOpen: boolean; onClose: () => void }> = 
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                {isBn ? 'ঋণগ্রহীতা সদস্য' : 'Borrower Member'} <span className="text-rose-500">*</span>
-              </label>
-              <select
-                required
-                value={memberId}
-                onChange={(e) => setMemberId(e.target.value)}
-                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden cursor-pointer"
-              >
-                {members.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.memberNo} - {m.name} ({m.phone})
-                  </option>
-                ))}
-              </select>
-            </div>
+          {/* Member Selection or Dedicated Member Account */}
+          {isMemberLocked && currentMember ? (
+            <div className="space-y-3">
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700">
+                    {isBn ? 'ঋণগ্রহীতা সদস্যের নিজস্ব একাউন্ট' : 'Borrower Member Account'}
+                  </label>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
+                    <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
+                    {isBn ? 'নির্দিষ্ট একাউন্ট' : 'Locked Account'}
+                  </span>
+                </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                {isBn ? 'ঋণের উদ্দেশ্য' : 'Loan Purpose'}
-              </label>
-              <input
-                type="text"
-                required
-                placeholder={isBn ? "যেমন: ব্যবসা সম্প্রসারণ" : "e.g., Business Expansion"}
-                value={purpose}
-                onChange={(e) => setPurpose(e.target.value)}
-                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
-              />
+                {/* Dedicated Member Identity Card */}
+                <div className="p-3.5 bg-gradient-to-r from-indigo-50/80 via-slate-50 to-white rounded-xl border border-indigo-200 shadow-2xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-700 font-black text-sm flex items-center justify-center shrink-0 overflow-hidden border border-indigo-200">
+                        {currentMember.photoUrl ? (
+                          <img src={currentMember.photoUrl} alt={currentMember.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span>{currentMember.name.charAt(0).toUpperCase()}</span>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-sm text-slate-900 truncate">
+                            {currentMember.name}
+                          </span>
+                          <span className="px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 text-[10px] font-bold border border-blue-200">
+                            #{currentMember.memberNo}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 text-[11px] text-slate-500">
+                          <span className="flex items-center gap-1">
+                            <Phone className="w-3 h-3 text-slate-400" />
+                            {currentMember.phone || (isBn ? 'মোবাইল নেই' : 'No phone')}
+                          </span>
+                          <span className="text-indigo-700 font-semibold">
+                            {isBn ? 'শেয়ার:' : 'Shares:'} {displayCount(currentMember.shareCount || 0)} {isBn ? 'টি' : ''}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0 bg-white p-2 rounded-lg border border-slate-200">
+                      <span className="text-[10px] text-slate-500 font-medium block">
+                        {isBn ? 'মোট সঞ্চয়' : 'Total Savings'}
+                      </span>
+                      <span className="text-sm font-black text-emerald-700 font-mono">
+                        {formatCurrency(currentMember.totalSavings || 0, isBn && useBengaliDigits)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {isBn ? 'ঋণের উদ্দেশ্য' : 'Loan Purpose'} <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder={isBn ? "যেমন: ব্যবসা সম্প্রসারণ" : "e.g., Business Expansion"}
+                  value={purpose}
+                  onChange={(e) => setPurpose(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                />
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {isBn ? 'ঋণগ্রহীতা সদস্য' : 'Borrower Member'} <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  required
+                  value={memberId}
+                  onChange={(e) => setMemberId(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden cursor-pointer"
+                >
+                  {members.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.memberNo} - {m.name} ({m.phone})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {isBn ? 'ঋণের উদ্দেশ্য' : 'Loan Purpose'}
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder={isBn ? "যেমন: ব্যবসা সম্প্রসারণ" : "e.g., Business Expansion"}
+                  value={purpose}
+                  onChange={(e) => setPurpose(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                />
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>

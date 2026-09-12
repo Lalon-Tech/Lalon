@@ -49,6 +49,7 @@ import {
 } from '../utils/mockData';
 import { calculateProportionalProfit, getMemberSavingsBalance } from '../utils/profitCalculation';
 import { formatBengaliDate, compareTransactionsDesc } from '../utils/bengaliUtils';
+import { validateMemberRemoval, MemberRemovalValidationResult } from '../utils/memberRemovalValidation';
 
 // Sanitization helpers to eliminate any NaN or undefined data
 const sanitizeMember = (m: any): Member => {
@@ -347,6 +348,7 @@ interface SomitiContextType {
   addMember: (memberData: Omit<Member, 'id' | 'memberNo' | 'totalSavings' | 'generalSavingsBalance' | 'dpsSavingsBalance' | 'fdrSavingsBalance' | 'activeLoanBalance'>) => Member;
   updateMember: (id: string, memberData: Partial<Member>) => void;
   deleteMember: (id: string) => Promise<boolean>;
+  validateMemberRemovalStatus: (memberId: string) => MemberRemovalValidationResult;
   importMembersFromList: (newMembers: Member[]) => void;
   closeMemberShares: (params: {
     memberId: string;
@@ -1606,36 +1608,48 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }));
   };
 
+  const validateMemberRemovalStatus = (memberId: string): MemberRemovalValidationResult => {
+    const targetMember = members.find(m => m.id === memberId);
+    return validateMemberRemoval(targetMember, {
+      loans,
+      savingsSchemes,
+      businessFundings,
+      profitDistributions,
+      businessProfitRecords,
+      transactions,
+      settings
+    });
+  };
+
   const deleteMember = async (id: string): Promise<boolean> => {
     try {
-      setMembers(prev => prev.filter(m => m.id !== id));
-      setLoans(prev => prev.filter(l => l.memberId !== id));
-      setSavingsSchemes(prev => prev.filter(s => s.memberId !== id));
-      setBusinessFundings(prev => prev.filter(b => b.memberId !== id));
-      setTransactions(prev => prev.filter(t => t.memberId !== id));
+      const targetMember = members.find(m => m.id === id);
+      if (!targetMember) return false;
 
+      // Strict validation before removal
+      const validation = validateMemberRemoval(targetMember, {
+        loans,
+        savingsSchemes,
+        businessFundings,
+        profitDistributions,
+        businessProfitRecords,
+        transactions,
+        settings
+      });
+
+      if (!validation.canRemove) {
+        console.warn(`Cannot delete member ${targetMember.name}: financial obligations or pending records exist`, validation.pendingRecords);
+        return false;
+      }
+
+      // Safe deletion of member profile from active member directory
+      setMembers(prev => prev.filter(m => m.id !== id));
       await deleteDoc(doc(db, 'members', id));
       await deleteDoc(doc(db, 'memberFinancials', id)).catch(() => {});
 
-      // Clean up member's transactions in Firestore
-      const txsToDelete = transactions.filter(t => t.memberId === id);
-      txsToDelete.forEach(t => {
-        deleteDoc(doc(db, 'transactions', t.id)).catch(console.error);
-      });
-
-      // Clean up member's loans, savings schemes, and business fundings in Firestore
-      const loansToDelete = loans.filter(l => l.memberId === id);
-      loansToDelete.forEach(l => {
-        deleteDoc(doc(db, 'loans', l.id)).catch(console.error);
-      });
-      const savingsToDelete = savingsSchemes.filter(s => s.memberId === id);
-      savingsToDelete.forEach(s => {
-        deleteDoc(doc(db, 'savings', s.id)).catch(console.error);
-      });
-      const fundingsToDelete = businessFundings.filter(b => b.memberId === id);
-      fundingsToDelete.forEach(b => {
-        deleteDoc(doc(db, 'businessFundings', b.id)).catch(console.error);
-      });
+      // Note: Completed historical transactions, cleared loans, and closed savings schemes
+      // are intentionally preserved in the system ledger to ensure that cash registers,
+      // historical financial reports, past profit distribution records, and audit logs remain 100% accurate.
 
       return true;
     } catch (err) {
@@ -5041,6 +5055,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         addMember,
         updateMember,
         deleteMember,
+        validateMemberRemovalStatus,
         importMembersFromList,
         closeMemberShares,
         buyMemberShares,

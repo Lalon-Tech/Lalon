@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, CheckCircle2, AlertCircle, TrendingUp, Info, Landmark, Banknote } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, TrendingUp, Info, Landmark, Banknote, ShieldCheck, Phone } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { PaymentMethod } from '../../types';
@@ -9,12 +9,14 @@ interface BuyShareModalProps {
   isOpen: boolean;
   onClose: () => void;
   preselectedMemberId?: string;
+  lockMember?: boolean;
 }
 
 export const BuyShareModal: React.FC<BuyShareModalProps> = ({
   isOpen,
   onClose,
   preselectedMemberId,
+  lockMember,
 }) => {
   const { language } = useLanguage();
   const isBn = language === 'bn';
@@ -27,6 +29,7 @@ export const BuyShareModal: React.FC<BuyShareModalProps> = ({
     useBengaliDigits,
   } = useSomiti();
 
+  const isMemberLocked = lockMember !== undefined ? lockMember : Boolean(preselectedMemberId);
   const [selectedMemberId, setSelectedMemberId] = useState<string>(preselectedMemberId || members[0]?.id || '');
   const [sharesToBuy, setSharesToBuy] = useState<number>(1);
   const [unitPrice, setUnitPrice] = useState<number>(settings.sharePricePerUnit || 100);
@@ -112,10 +115,14 @@ export const BuyShareModal: React.FC<BuyShareModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold">
-                {isBn ? 'নতুন শেয়ার ক্রয় / জমা ভাউচার' : 'Buy Shares / Capital Deposit'}
+                {isMemberLocked && currentMember
+                  ? (isBn ? `${currentMember.name}-এর শেয়ার ক্রয়` : `Buy Shares for ${currentMember.name}`)
+                  : (isBn ? 'নতুন শেয়ার ক্রয় / জমা ভাউচার' : 'Buy Shares / Capital Deposit')}
               </h3>
               <p className="text-xs text-blue-100">
-                {isBn ? 'সদস্যের মূলধন শেয়ার সংখ্যা বৃদ্ধি ও তহবিল জমা' : 'Increase member share capital and equity deposit'}
+                {isMemberLocked && currentMember
+                  ? (isBn ? `সদস্য নং: #${currentMember.memberNo} • মূলধন শেয়ার বৃদ্ধি ও তহবিল জমা` : `Member #${currentMember.memberNo} • Increase Share Capital`)
+                  : (isBn ? 'সদস্যের মূলধন শেয়ার সংখ্যা বৃদ্ধি ও তহবিল জমা' : 'Increase member share capital and equity deposit')}
               </p>
             </div>
           </div>
@@ -136,23 +143,81 @@ export const BuyShareModal: React.FC<BuyShareModalProps> = ({
             </div>
           )}
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              {isBn ? 'সদস্য নির্বাচন করুন' : 'Select Member'} <span className="text-rose-500">*</span>
-            </label>
-            <select
-              required
-              value={selectedMemberId}
-              onChange={(e) => setSelectedMemberId(e.target.value)}
-              className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs font-semibold bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden cursor-pointer"
-            >
-              {members.map(m => (
-                <option key={m.id} value={m.id}>
-                  {m.memberNo} - {m.name} ({isBn ? 'বর্তমান শেয়ার:' : 'Current shares:'} {isBn || useBengaliDigits ? toBengaliNumber(m.shareCount || 0) : (m.shareCount || 0)} {isBn ? 'টি' : ''})
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Member Selection or Dedicated Member Account */}
+          {isMemberLocked && currentMember ? (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-700">
+                  {isBn ? 'সদস্যের নিজস্ব শেয়ার একাউন্ট' : 'Member Share Account'}
+                </label>
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                  <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                  {isBn ? 'নির্দিষ্ট একাউন্ট' : 'Locked Account'}
+                </span>
+              </div>
+
+              {/* Dedicated Member Identity Card - Strictly only this member, no other members shown */}
+              <div className="p-3.5 bg-gradient-to-r from-blue-50/80 via-slate-50 to-white rounded-xl border border-blue-200 shadow-2xs">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-11 h-11 rounded-xl bg-blue-100 text-blue-700 font-black text-sm flex items-center justify-center shrink-0 overflow-hidden border border-blue-200">
+                      {currentMember.photoUrl ? (
+                        <img src={currentMember.photoUrl} alt={currentMember.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span>{currentMember.name.charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-sm text-slate-900 truncate">
+                          {currentMember.name}
+                        </span>
+                        <span className="px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 text-[10px] font-bold border border-blue-200">
+                          #{currentMember.memberNo}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-[11px] text-slate-500">
+                        <span className="flex items-center gap-1">
+                          <Phone className="w-3 h-3 text-slate-400" />
+                          {currentMember.phone || (isBn ? 'মোবাইল নেই' : 'No phone')}
+                        </span>
+                        <span className="text-blue-700 font-semibold">
+                          {isBn ? 'শুধুমাত্র নিজস্ব শেয়ার ক্রয়' : 'Personal Share Purchase'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0 bg-white p-2 rounded-lg border border-slate-200">
+                    <span className="text-[10px] text-slate-500 font-medium block">
+                      {isBn ? 'বর্তমান শেয়ার' : 'Current Shares'}
+                    </span>
+                    <span className="text-sm font-black text-blue-700 font-mono">
+                      {isBn || useBengaliDigits ? toBengaliNumber(currentShares) : currentShares} {isBn ? 'টি' : 'Shares'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                {isBn ? 'সদস্য নির্বাচন করুন' : 'Select Member'} <span className="text-rose-500">*</span>
+              </label>
+              <select
+                required
+                value={selectedMemberId}
+                onChange={(e) => setSelectedMemberId(e.target.value)}
+                className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs font-semibold bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden cursor-pointer"
+              >
+                {members.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.memberNo} - {m.name} ({isBn ? 'বর্তমান শেয়ার:' : 'Current shares:'} {isBn || useBengaliDigits ? toBengaliNumber(m.shareCount || 0) : (m.shareCount || 0)} {isBn ? 'টি' : ''})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>

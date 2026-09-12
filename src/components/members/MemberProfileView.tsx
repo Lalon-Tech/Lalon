@@ -22,6 +22,7 @@ import {
   Camera,
   X,
   Check,
+  User,
   Users,
   UserPlus,
   Archive,
@@ -31,7 +32,8 @@ import {
   Trash2,
   PiggyBank,
   Layers,
-  Search
+  Search,
+  Sparkles
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -94,9 +96,41 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
+  // Member Agreement & Undertaking Signatures Customization
+  const [agrConfigTab, setAgrConfigTab] = useState<'president' | 'secretary'>('president');
+  
+  // President & Seal
+  const [agrPresidentSource, setAgrPresidentSource] = useState<'member' | 'other'>('other');
+  const [agrPresidentMemberId, setAgrPresidentMemberId] = useState<string>(members[0]?.id || '');
+  const [agrPresidentCustomName, setAgrPresidentCustomName] = useState<string>(settings.presidentName || '');
+  const [agrPresidentDesignation, setAgrPresidentDesignation] = useState<string>('সভাপতি');
+
+  const selectedAgrPresidentMember = members.find(m => m.id === agrPresidentMemberId);
+  const agrPresidentDisplayName = agrPresidentSource === 'member'
+    ? (selectedAgrPresidentMember?.name || (members.length > 0 ? members[0].name : ''))
+    : (agrPresidentCustomName.trim() || settings.presidentName || (isBn ? 'সভাপতি' : 'President'));
+
+  // Secretary
+  const [agrSecretarySource, setAgrSecretarySource] = useState<'member' | 'other'>('other');
+  const [agrSecretaryMemberId, setAgrSecretaryMemberId] = useState<string>(members[0]?.id || '');
+  const [agrSecretaryCustomName, setAgrSecretaryCustomName] = useState<string>(settings.secretaryName || '');
+  const [agrSecretaryDesignation, setAgrSecretaryDesignation] = useState<string>('সাধারণ সম্পাদক');
+
+  const selectedAgrSecretaryMember = members.find(m => m.id === agrSecretaryMemberId);
+  const agrSecretaryDisplayName = agrSecretarySource === 'member'
+    ? (selectedAgrSecretaryMember?.name || (members.length > 0 ? members[0].name : ''))
+    : (agrSecretaryCustomName.trim() || settings.secretaryName || (isBn ? 'সাধারণ সম্পাদক' : 'General Secretary'));
+
   const displayCount = (num: number) => (isBn || useBengaliDigits ? toBengaliNumber(num) : num.toString());
 
   const member = members.find(m => m.id === memberId) || (members.length > 0 ? members[0] : undefined);
+
+  // Keep active member synced in context for all quick modals and operations
+  React.useEffect(() => {
+    if (member?.id) {
+      setSelectedMemberId(member.id);
+    }
+  }, [member?.id, setSelectedMemberId]);
 
   if (!member) {
     return (
@@ -307,14 +341,20 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                 <span>{isBn ? 'সদস্য তথ্য ও শেয়ার এডিট' : 'Edit Member & Shares'}</span>
               </button>
               <button
-                onClick={() => setShowQuickDepositModal(true)}
+                onClick={() => {
+                  if (member) setSelectedMemberId(member.id);
+                  setShowQuickDepositModal(true);
+                }}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
               >
                 <ArrowDownRight className="w-3.5 h-3.5" />
                 <span>{isBn ? 'টাকা জমা' : 'Deposit'}</span>
               </button>
               <button
-                onClick={() => setShowQuickWithdrawModal(true)}
+                onClick={() => {
+                  if (member) setSelectedMemberId(member.id);
+                  setShowQuickWithdrawModal(true);
+                }}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
               >
                 <ArrowUpRight className="w-3.5 h-3.5" />
@@ -337,7 +377,10 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                 <span>{isBn ? 'শেয়ার ক্রয়' : 'Buy Shares'}</span>
               </button>
               <button
-                onClick={() => setShowQuickLoanModal(true)}
+                onClick={() => {
+                  if (member) setSelectedMemberId(member.id);
+                  setShowQuickLoanModal(true);
+                }}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
               >
                 <CreditCard className="w-3.5 h-3.5" />
@@ -1330,6 +1373,309 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
               </button>
             </div>
 
+            {/* Signatures & Seal Customization Panel (no-print) */}
+            <div className="bg-gradient-to-r from-blue-50/70 via-slate-50 to-indigo-50/50 p-4 sm:p-5 rounded-2xl border border-blue-100 shadow-xs space-y-3.5 no-print">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-blue-100/80 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                    <FileSignature className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                      <span>{isBn ? 'চুক্তিপত্রের কর্মকর্তা ও সিলমোহর স্বাক্ষর নির্ধারণ' : 'Agreement Signatures & Seal Configuration'}</span>
+                      <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                        {agrConfigTab === 'president'
+                          ? (agrPresidentSource === 'member' ? (isBn ? 'সভাপতি: সদস্য তালিকা' : 'Pres: Member') : (isBn ? 'সভাপতি: কাস্টম/অন্য ব্যক্তি' : 'Pres: Custom'))
+                          : (agrSecretarySource === 'member' ? (isBn ? 'সম্পাদক: সদস্য তালিকা' : 'Sec: Member') : (isBn ? 'সম্পাদক: কাস্টম/অন্য ব্যক্তি' : 'Sec: Custom'))
+                        }
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      {isBn 
+                        ? 'সদস্য চুক্তিপত্র ও অঙ্গীকারনামায় "সাধারণ সম্পাদক" ও "সভাপতি / সিলমোহর" স্বাক্ষরকারী নির্বাচন বা টাইপ করুন' 
+                        : 'Configure General Secretary and President / Seal signatures for this member undertaking'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Active Preview Badges */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-200 rounded-xl text-xs shadow-2xs">
+                    <span className="text-slate-500 text-[11px]">{isBn ? 'সভাপতি / সিলমোহর:' : 'Pres / Seal:'}</span>
+                    <span className="font-bold text-blue-950">{agrPresidentDisplayName}</span>
+                    {agrPresidentDesignation && (
+                      <span className="px-1.5 py-0.5 rounded bg-blue-50 text-[10px] font-semibold text-blue-700 border border-blue-100">
+                        {agrPresidentDesignation}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs shadow-2xs">
+                    <span className="text-slate-500 text-[11px]">{isBn ? 'সাধারণ সম্পাদক:' : 'Secretary:'}</span>
+                    <span className="font-bold text-slate-800">{agrSecretaryDisplayName}</span>
+                    {agrSecretaryDesignation && (
+                      <span className="px-1.5 py-0.5 rounded bg-slate-100 text-[10px] font-semibold text-slate-700 border border-slate-200">
+                        {agrSecretaryDesignation}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Sub-Tabs: President & Seal vs Secretary */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAgrConfigTab('president')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    agrConfigTab === 'president'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  {isBn ? '১. সভাপতি / সিলমোহর স্বাক্ষর' : '1. President / Seal Signature'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAgrConfigTab('secretary')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    agrConfigTab === 'secretary'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  {isBn ? '২. সাধারণ সম্পাদক স্বাক্ষর' : '2. General Secretary Signature'}
+                </button>
+              </div>
+
+              {/* Configuration Form for President & Seal */}
+              {agrConfigTab === 'president' ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                    <div className="md:col-span-4 flex rounded-xl bg-slate-200/80 p-1">
+                      <button
+                        type="button"
+                        onClick={() => setAgrPresidentSource('member')}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                          agrPresidentSource === 'member'
+                            ? 'bg-white text-blue-700 shadow-xs font-bold'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <Users className="w-3.5 h-3.5" />
+                        <span>{isBn ? 'সদস্য তালিকা থেকে' : 'From Members'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAgrPresidentSource('other')}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                          agrPresidentSource === 'other'
+                            ? 'bg-white text-blue-700 shadow-xs font-bold'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <User className="w-3.5 h-3.5" />
+                        <span>{isBn ? 'অন্য ব্যক্তি / কাস্টম' : 'Other Person'}</span>
+                      </button>
+                    </div>
+
+                    <div className="md:col-span-8 flex flex-col sm:flex-row items-center gap-2.5">
+                      {agrPresidentSource === 'member' ? (
+                        <div className="w-full sm:flex-1">
+                          <select
+                            value={agrPresidentMemberId}
+                            onChange={(e) => setAgrPresidentMemberId(e.target.value)}
+                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 shadow-2xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                          >
+                            {members.length === 0 ? (
+                              <option value="">{isBn ? 'কোনো সদস্য নেই' : 'No members found'}</option>
+                            ) : (
+                              members.map(m => (
+                                <option key={m.id} value={m.id}>
+                                  {m.memberNo} - {m.name} {m.phone ? `(${m.phone})` : ''}
+                                </option>
+                              ))
+                            )}
+                          </select>
+                        </div>
+                      ) : (
+                        <div className="w-full sm:flex-1">
+                          <input
+                            type="text"
+                            value={agrPresidentCustomName}
+                            onChange={(e) => setAgrPresidentCustomName(e.target.value)}
+                            placeholder={isBn ? 'সভাপতির নাম লিখুন (যেমন: মোঃ মোস্তফা কামাল)' : 'Enter President name'}
+                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 shadow-2xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                          />
+                        </div>
+                      )}
+
+                      <div className="w-full sm:w-60">
+                        <input
+                          type="text"
+                          value={agrPresidentDesignation}
+                          onChange={(e) => setAgrPresidentDesignation(e.target.value)}
+                          placeholder={isBn ? 'পদবী (যেমন: সভাপতি)' : 'Designation (e.g. President)'}
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 shadow-2xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Presets for President */}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px]">
+                    <span className="font-semibold text-slate-500 flex items-center gap-1 mr-1">
+                      <Sparkles className="w-3 h-3 text-amber-500" />
+                      {isBn ? 'দ্রুত পদবী বাছাই:' : 'Designation Presets:'}
+                    </span>
+                    {['সভাপতি', 'চেয়ারম্যান', 'ম্যানেজিং ডিরেক্টর', 'প্রধান নির্বাহী', 'কার্যনির্বাহী সদস্য'].map((role) => (
+                      <button
+                        key={role}
+                        type="button"
+                        onClick={() => setAgrPresidentDesignation(role)}
+                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                          agrPresidentDesignation === role
+                            ? 'bg-blue-600 text-white font-bold shadow-2xs'
+                            : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 font-medium'
+                        }`}
+                      >
+                        {role}
+                      </button>
+                    ))}
+
+                    {agrPresidentSource === 'other' && settings.presidentName && (
+                      <div className="flex flex-wrap items-center gap-1.5 ml-auto">
+                        <span className="text-slate-400">|</span>
+                        <span className="font-semibold text-slate-500">{isBn ? 'সমিতির সভাপতি লোড:' : 'Quick President:'}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAgrPresidentCustomName(settings.presidentName);
+                            setAgrPresidentDesignation('সভাপতি');
+                          }}
+                          className="px-2 py-0.5 rounded-md bg-blue-100 hover:bg-blue-200 text-blue-900 text-[10px] font-semibold border border-blue-300 cursor-pointer"
+                        >
+                          {isBn ? 'সভাপতি:' : 'Pres:'} {settings.presidentName}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* Configuration Form for Secretary */
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                    <div className="md:col-span-4 flex rounded-xl bg-slate-200/80 p-1">
+                      <button
+                        type="button"
+                        onClick={() => setAgrSecretarySource('member')}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                          agrSecretarySource === 'member'
+                            ? 'bg-white text-slate-900 shadow-xs font-bold'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <Users className="w-3.5 h-3.5" />
+                        <span>{isBn ? 'সদস্য তালিকা থেকে' : 'From Members'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAgrSecretarySource('other')}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                          agrSecretarySource === 'other'
+                            ? 'bg-white text-slate-900 shadow-xs font-bold'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <User className="w-3.5 h-3.5" />
+                        <span>{isBn ? 'অন্য ব্যক্তি / কাস্টম' : 'Other Person'}</span>
+                      </button>
+                    </div>
+
+                    <div className="md:col-span-8 flex flex-col sm:flex-row items-center gap-2.5">
+                      {agrSecretarySource === 'member' ? (
+                        <div className="w-full sm:flex-1">
+                          <select
+                            value={agrSecretaryMemberId}
+                            onChange={(e) => setAgrSecretaryMemberId(e.target.value)}
+                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 shadow-2xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                          >
+                            {members.length === 0 ? (
+                              <option value="">{isBn ? 'কোনো সদস্য নেই' : 'No members found'}</option>
+                            ) : (
+                              members.map(m => (
+                                <option key={m.id} value={m.id}>
+                                  {m.memberNo} - {m.name} {m.phone ? `(${m.phone})` : ''}
+                                </option>
+                              ))
+                            )}
+                          </select>
+                        </div>
+                      ) : (
+                        <div className="w-full sm:flex-1">
+                          <input
+                            type="text"
+                            value={agrSecretaryCustomName}
+                            onChange={(e) => setAgrSecretaryCustomName(e.target.value)}
+                            placeholder={isBn ? 'সাধারণ সম্পাদকের নাম লিখুন' : 'Enter Secretary name'}
+                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 shadow-2xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                          />
+                        </div>
+                      )}
+
+                      <div className="w-full sm:w-60">
+                        <input
+                          type="text"
+                          value={agrSecretaryDesignation}
+                          onChange={(e) => setAgrSecretaryDesignation(e.target.value)}
+                          placeholder={isBn ? 'পদবী (যেমন: সাধারণ সম্পাদক)' : 'Designation'}
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 shadow-2xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Presets for Secretary */}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px]">
+                    <span className="font-semibold text-slate-500 flex items-center gap-1 mr-1">
+                      <Sparkles className="w-3 h-3 text-amber-500" />
+                      {isBn ? 'দ্রুত পদবী বাছাই:' : 'Designation Presets:'}
+                    </span>
+                    {['সাধারণ সম্পাদক', 'যুগ্ম সম্পাদক', 'কোষাধ্যক্ষ', 'ব্যবস্থাপক / ম্যানেজার'].map((role) => (
+                      <button
+                        key={role}
+                        type="button"
+                        onClick={() => setAgrSecretaryDesignation(role)}
+                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                          agrSecretaryDesignation === role
+                            ? 'bg-blue-600 text-white font-bold shadow-2xs'
+                            : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 font-medium'
+                        }`}
+                      >
+                        {role}
+                      </button>
+                    ))}
+
+                    {agrSecretarySource === 'other' && settings.secretaryName && (
+                      <div className="flex flex-wrap items-center gap-1.5 ml-auto">
+                        <span className="text-slate-400">|</span>
+                        <span className="font-semibold text-slate-500">{isBn ? 'সমিতির সম্পাদক লোড:' : 'Quick Secretary:'}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAgrSecretaryCustomName(settings.secretaryName);
+                            setAgrSecretaryDesignation('সাধারণ সম্পাদক');
+                          }}
+                          className="px-2 py-0.5 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-800 text-[10px] font-semibold border border-blue-200 cursor-pointer"
+                        >
+                          {isBn ? 'সম্পাদক:' : 'Sec:'} {settings.secretaryName}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Printable Agreement Document Container */}
             <div className="border-2 border-slate-800 p-8 rounded-xl bg-white space-y-6 text-slate-800 font-serif leading-relaxed">
               {/* Header */}
@@ -1377,21 +1723,31 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
               {/* Signatures */}
               <div className="pt-12 grid grid-cols-3 gap-6 text-center text-xs font-sans border-t border-slate-300 mt-12">
                 <div>
-                  <div className="border-t border-slate-400 pt-1 font-bold">
+                  <div className="border-t border-slate-400 pt-1 font-bold text-slate-900">
                     {member.name}
                   </div>
                   <span className="text-slate-500">{isBn ? 'সদস্যের স্বাক্ষর' : 'Member Signature'}</span>
                 </div>
                 <div>
-                  <div className="border-t border-slate-400 pt-1 font-bold">
-                    {settings.secretaryName || (isBn ? 'সম্পাদক' : 'Secretary')}
+                  <div className="border-t border-slate-400 pt-1 font-bold text-slate-900">
+                    {agrSecretaryDisplayName}
                   </div>
+                  {agrSecretaryDesignation && (
+                    <div className="text-[11px] text-slate-700 font-semibold mt-0.5">
+                      {agrSecretaryDesignation}
+                    </div>
+                  )}
                   <span className="text-slate-500">{isBn ? 'সাধারণ সম্পাদক' : 'General Secretary'}</span>
                 </div>
                 <div>
-                  <div className="border-t border-slate-400 pt-1 font-bold">
-                    {settings.presidentName || (isBn ? 'সভাপতি' : 'President')}
+                  <div className="border-t border-slate-400 pt-1 font-bold text-slate-900">
+                    {agrPresidentDisplayName}
                   </div>
+                  {agrPresidentDesignation && (
+                    <div className="text-[11px] text-slate-700 font-semibold mt-0.5">
+                      {agrPresidentDesignation}
+                    </div>
+                  )}
                   <span className="text-slate-500">{isBn ? 'সভাপতি / সিলমোহর' : 'President / Seal'}</span>
                 </div>
               </div>
@@ -1521,6 +1877,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
         isOpen={showShareClosureModal}
         onClose={() => setShowShareClosureModal(false)}
         preselectedMemberId={member.id}
+        lockMember={true}
       />
 
       {/* Buy Share Modal */}
@@ -1528,6 +1885,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
         isOpen={showBuyShareModal}
         onClose={() => setShowBuyShareModal(false)}
         preselectedMemberId={member.id}
+        lockMember={true}
       />
 
       {/* Edit Member Modal */}

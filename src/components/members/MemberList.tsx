@@ -6,6 +6,7 @@ import {
   Filter, 
   FileSpreadsheet, 
   ArrowDownRight, 
+  ArrowUpRight,
   CreditCard, 
   Coins, 
   ChevronRight,
@@ -46,6 +47,7 @@ export const MemberList: React.FC = () => {
     setSelectedMemberId, 
     setShowNewMemberModal,
     setShowQuickDepositModal,
+    setShowQuickWithdrawModal,
     setShowQuickLoanModal,
     setShowQuickKistiModal,
     deleteMember,
@@ -408,6 +410,16 @@ export const MemberList: React.FC = () => {
                               className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
                             >
                               <ArrowDownRight className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedMemberId(member.id);
+                                setShowQuickWithdrawModal(true);
+                              }}
+                              title={isBn ? "টাকা উত্তোলন করুন" : "Withdraw Money"}
+                              className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            >
+                              <ArrowUpRight className="w-4 h-4" />
                             </button>
                             {member.activeLoanBalance > 0 && (
                               <button

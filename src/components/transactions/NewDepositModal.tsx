@@ -15,7 +15,9 @@ import {
   Calendar,
   Settings2,
   Plus,
-  RefreshCw
+  RefreshCw,
+  ShieldCheck,
+  Phone
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useSomiti } from '../../context/SomitiContext';
@@ -27,6 +29,7 @@ interface NewDepositModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialMemberId?: string;
+  lockMember?: boolean;
   isEmbedded?: boolean;
 }
 
@@ -51,6 +54,7 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
   isOpen, 
   onClose,
   initialMemberId,
+  lockMember,
   isEmbedded = false
 }) => {
   const { language } = useLanguage();
@@ -62,15 +66,25 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
     addDeposit, 
     updateMember,
     savingsSchemes,
-    settings,
-    useBengaliDigits 
+    settings, 
+    useBengaliDigits,
+    selectedMemberId
   } = useSomiti();
+
+  const isMemberLocked = lockMember !== undefined 
+    ? lockMember 
+    : Boolean(initialMemberId || (selectedMemberId && !isEmbedded));
+
+  const effectiveTargetId = initialMemberId || selectedMemberId;
+  const initialValidId = effectiveTargetId && members.some(m => m.id === effectiveTargetId)
+    ? effectiveTargetId
+    : (members[0]?.id || '');
 
   const getTodayDate = () => new Date().toISOString().split('T')[0];
   const getCurrentMonthStr = () => String(new Date().getMonth() + 1).padStart(2, '0');
   const getCurrentYearNum = () => new Date().getFullYear();
 
-  const [memberId, setMemberId] = useState(initialMemberId || members[0]?.id || '');
+  const [memberId, setMemberId] = useState(initialValidId);
   const [schemeType, setSchemeType] = useState<'general' | 'dps' | 'fdr'>('general');
   const [schemeId, setSchemeId] = useState('');
   const [depositMode, setDepositMode] = useState<'share_wise' | 'custom'>('share_wise');
@@ -137,10 +151,11 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
 
   // Initialize or update state when member or modal opens
   useEffect(() => {
-    if (initialMemberId) {
-      setMemberId(initialMemberId);
+    const targetId = initialMemberId || selectedMemberId;
+    if (targetId && members.some(m => m.id === targetId)) {
+      setMemberId(targetId);
     }
-  }, [initialMemberId]);
+  }, [isOpen, initialMemberId, selectedMemberId, members]);
 
   // When member changes, initialize share amounts and selections
   useEffect(() => {
@@ -391,10 +406,14 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold">
-                {isBn ? 'টাকা জমা ও শেয়ার ভিত্তিক কালেকশন' : 'Deposit Money & Share Collection'}
+                {isMemberLocked && currentMember
+                  ? (isBn ? `${currentMember.name}-এর সঞ্চয় জমা` : `Deposit to ${currentMember.name}'s Account`)
+                  : (isBn ? 'টাকা জমা ও শেয়ার ভিত্তিক কালেকশন' : 'Deposit Money & Share Collection')}
               </h3>
               <p className="text-xs text-emerald-100">
-                {isBn ? 'তারিখ, মাস ও শেয়ার প্রতি নির্ধারিত কিস্তি আদায়' : 'Date, Month & Per-Share Installment Entry'}
+                {isMemberLocked && currentMember
+                  ? (isBn ? `সদস্য নং: #${currentMember.memberNo} • শেয়ার ও সঞ্চয় একাউন্টে জমা ভাউচার` : `Member #${currentMember.memberNo} • Deposit Voucher`)
+                  : (isBn ? 'তারিখ, মাস ও শেয়ার প্রতি নির্ধারিত কিস্তি আদায়' : 'Date, Month & Per-Share Installment Entry')}
               </p>
             </div>
           </div>
@@ -409,27 +428,91 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4 max-h-[85vh] overflow-y-auto">
-          {/* Member Selection */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              {isBn ? 'সদস্য নির্বাচন করুন' : 'Select Member'} <span className="text-rose-500">*</span>
-            </label>
-            <select
-              required
-              value={memberId}
-              onChange={(e) => setMemberId(e.target.value)}
-              className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-hidden font-medium"
-            >
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.memberNo} - {m.name} ({isBn ? 'শেয়ার:' : 'Shares:'} {displayCount(m.shareCount || 0)} {isBn ? 'টি' : ''}) • {m.phone}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Member Selection or Dedicated Member Account */}
+          {isMemberLocked && currentMember ? (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-700">
+                  {isBn ? 'সদস্যের নিজস্ব সঞ্চয় একাউন্ট' : 'Member Savings Account'}
+                </label>
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  {isBn ? 'নির্দিষ্ট একাউন্ট' : 'Locked Account'}
+                </span>
+              </div>
+
+              {/* Dedicated Member Identity Card - Strictly only this member, no other members shown */}
+              <div className="p-3.5 bg-gradient-to-r from-emerald-50/80 via-slate-50 to-white rounded-xl border border-emerald-200 shadow-2xs">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-700 font-black text-sm flex items-center justify-center shrink-0 overflow-hidden border border-emerald-200">
+                      {currentMember.photoUrl ? (
+                        <img src={currentMember.photoUrl} alt={currentMember.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span>{currentMember.name.charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-sm text-slate-900 truncate">
+                          {currentMember.name}
+                        </span>
+                        <span className="px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 text-[10px] font-bold border border-blue-200">
+                          #{currentMember.memberNo}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-[11px] text-slate-500">
+                        <span className="flex items-center gap-1">
+                          <Phone className="w-3 h-3 text-slate-400" />
+                          {currentMember.phone || (isBn ? 'মোবাইল নেই' : 'No phone')}
+                        </span>
+                        <span className="text-emerald-700 font-semibold">
+                          {isBn ? 'সক্রিয় শেয়ার:' : 'Active Shares:'} {displayCount(memberTotalShares)} {isBn ? 'টি' : 'Shares'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0 bg-white p-2 rounded-lg border border-slate-200">
+                    <span className="text-[10px] text-slate-500 font-medium block">
+                      {isBn ? 'মোট সঞ্চয় স্থিতি' : 'Total Savings'}
+                    </span>
+                    <span className="text-sm font-black text-emerald-700 font-mono">
+                      {formatCurrency(currentMember.totalSavings || 0, isBn && useBengaliDigits)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowShareEditor(!showShareEditor)}
+                      className="text-[10px] text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer mt-0.5 block"
+                    >
+                      {isBn ? 'শেয়ার পরিবর্তন' : 'Edit Shares'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                {isBn ? 'সদস্য নির্বাচন করুন' : 'Select Member'} <span className="text-rose-500">*</span>
+              </label>
+              <select
+                required
+                value={memberId}
+                onChange={(e) => setMemberId(e.target.value)}
+                className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-hidden font-medium"
+              >
+                {members.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.memberNo} - {m.name} ({isBn ? 'শেয়ার:' : 'Shares:'} {displayCount(m.shareCount || 0)} {isBn ? 'টি' : ''}) • {m.phone}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Member Share Overview Header */}
-          {currentMember && (
+          {currentMember && !isMemberLocked && (
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-2">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -506,6 +589,52 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Zero Share Fixer when member is locked */}
+          {currentMember && isMemberLocked && (memberTotalShares === 0 || showShareEditor) && (
+            <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs space-y-2 animate-in fade-in">
+              <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                <Sparkles className="w-4 h-4 text-amber-600" />
+                <span>
+                  {memberTotalShares === 0 
+                    ? (isBn ? 'সদস্যের শেয়ার সংখ্যা ০ দেখাচ্ছে। কয়টি শেয়ার নির্ধারণ করতে চান?' : 'Member currently has 0 shares. Set share count:')
+                    : (isBn ? 'সদস্যের মোট শেয়ার সংখ্যা পরিবর্তন করুন:' : 'Change member total registered shares:')}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {[1, 2, 3, 4, 5, 10, 20].map((count) => (
+                  <button
+                    key={count}
+                    type="button"
+                    onClick={() => handleQuickSetShareCount(count)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                      customShareCountInput === count 
+                        ? 'bg-amber-600 text-white shadow-xs' 
+                        : 'bg-white text-amber-900 border border-amber-300 hover:bg-amber-100'
+                    }`}
+                  >
+                    {displayCount(count)} {isBn ? 'টি' : 'Shares'}
+                  </button>
+                ))}
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={1}
+                    value={customShareCountInput}
+                    onChange={(e) => setCustomShareCountInput(Number(e.target.value))}
+                    className="w-16 px-2 py-1 bg-white border border-amber-300 rounded text-xs font-bold text-slate-800"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleQuickSetShareCount(customShareCountInput)}
+                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold cursor-pointer"
+                  >
+                    {isBn ? 'সেট করুন' : 'Set'}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
