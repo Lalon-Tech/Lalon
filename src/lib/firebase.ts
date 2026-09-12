@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { 
   initializeFirestore, 
   getFirestore, 
@@ -86,5 +86,25 @@ export function safeBatchSet<T extends Record<string, any>>(
     batch.set(docRef, sanitized, options);
   } else {
     batch.set(docRef, sanitized);
+  }
+}
+
+/**
+ * Creates a Firebase Authentication user account using a secondary Firebase app instance.
+ * This allows an Admin to create accounts for members without signing out of their own session.
+ */
+export async function createAuthAccountWithoutSignout(email: string, pass: string, displayName?: string) {
+  try {
+    const existing = getApps().find(a => a.name === 'SecondaryAuthApp');
+    const secondaryApp = existing || initializeApp(firebaseConfig, 'SecondaryAuthApp');
+    const secondaryAuth = getAuth(secondaryApp);
+    const cred = await createUserWithEmailAndPassword(secondaryAuth, email, pass);
+    if (displayName && cred.user) {
+      await updateProfile(cred.user, { displayName });
+    }
+    return cred.user;
+  } catch (err: any) {
+    console.warn("Secondary auth user creation warning:", err?.code, err?.message);
+    return null;
   }
 }

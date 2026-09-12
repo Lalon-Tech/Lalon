@@ -56,8 +56,11 @@ export const LoansView: React.FC = () => {
     approveLoan,
     rejectLoan,
     payLoanInstallment,
-    openReceiptForTx
+    openReceiptForTx,
+    currentUser
   } = useSomiti();
+
+  const isMember = currentUser?.role === 'member';
 
   // Internal tab state synced with activeTab or local navigation
   const [currentTab, setCurrentTab] = useState<'overview' | 'apply' | 'pending' | 'kisti' | 'calculator'>('overview');
@@ -89,6 +92,11 @@ export const LoansView: React.FC = () => {
 
   const filteredLoans = useMemo(() => {
     return loans.filter((l) => {
+      // Rule 7: Member can only view their own loans
+      if (isMember && currentUser?.memberId && l.memberId !== currentUser.memberId) {
+        return false;
+      }
+
       // Exclude pending from standard overview unless search explicitly matches
       if (l.status === 'pending') return false;
 

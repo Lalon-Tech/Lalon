@@ -31,8 +31,11 @@ export const SavingsView: React.FC = () => {
     addSavingsScheme, 
     setShowQuickDepositModal,
     setSelectedMemberId,
-    activeTab: contextActiveTab
+    activeTab: contextActiveTab,
+    currentUser
   } = useSomiti();
+
+  const isMember = currentUser?.role === 'member';
 
   const [activeTab, setActiveTab] = useState<'all' | 'dps' | 'fdr' | 'general'>(() => {
     if (contextActiveTab === 'savings_dps') return 'dps';
@@ -68,6 +71,11 @@ export const SavingsView: React.FC = () => {
   const displayCount = (num: number) => (isBn || useBengaliDigits ? toBengaliNumber(num) : num.toString());
 
   const filteredSchemes = savingsSchemes.filter((s) => {
+    // Rule 7: Member can only view their own savings schemes
+    if (isMember && currentUser?.memberId && s.memberId !== currentUser.memberId) {
+      return false;
+    }
+
     const q = (searchTerm || '').toLowerCase();
     const matchesSearch = 
       (s.memberName ?? '').toLowerCase().includes(q) ||

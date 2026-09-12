@@ -106,10 +106,18 @@ export function formatBengaliDate(dateStr: string | Date | undefined, includeTim
   const day = d.getDate();
   const year = d.getFullYear();
 
+  // If dateStr is a date-only string (e.g. YYYY-MM-DD or doesn't have time components), never show time
+  const isDateOnlyString = typeof dateStr === 'string' && (
+    !dateStr.includes(':') || 
+    dateStr.includes('T00:00:00') || 
+    /^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim())
+  );
+  const showTime = includeTime && !isDateOnlyString;
+
   if (!useBengali) {
     const month = englishMonths[d.getMonth()];
     let formatted = `${day} ${month}, ${year}`;
-    if (includeTime) {
+    if (showTime) {
       let hours = d.getHours();
       const minutes = d.getMinutes().toString().padStart(2, '0');
       const ampm = hours >= 12 ? 'PM' : 'AM';
@@ -122,7 +130,7 @@ export function formatBengaliDate(dateStr: string | Date | undefined, includeTim
   const month = bengaliMonths[d.getMonth()];
   let formatted = `${toBengaliNumber(day)} ${month}, ${toBengaliNumber(year)}`;
 
-  if (includeTime) {
+  if (showTime) {
     let hours = d.getHours();
     const minutes = d.getMinutes().toString().padStart(2, '0');
     const ampm = hours >= 12 ? 'বিকাল/রাত' : 'সকাল';
@@ -131,6 +139,22 @@ export function formatBengaliDate(dateStr: string | Date | undefined, includeTim
   }
 
   return formatted;
+}
+
+/**
+ * Formats a member date (e.g., Joining Date, Date of Birth) strictly as DATE ONLY.
+ * Guaranteed never to show timestamps or hours/minutes.
+ * Example: "12 September 2026" or "১২ সেপ্টেম্বর, ২০২৩"
+ */
+export function formatMemberDate(dateStr: string | Date | undefined, useBengali = true): string {
+  if (!dateStr) return '';
+  // Strip any timestamp component
+  const cleanStr = typeof dateStr === 'string' ? dateStr.split('T')[0].split(' ')[0] : dateStr;
+  return formatBengaliDate(cleanStr, false, useBengali);
+}
+
+export function formatDateOnly(dateStr: string | Date | undefined, useBengali = true): string {
+  return formatMemberDate(dateStr, useBengali);
 }
 
 export function getTransactionTypeName(type: string, isBengali = true): { label: string; color: string; badge: string; isCredit: boolean } {

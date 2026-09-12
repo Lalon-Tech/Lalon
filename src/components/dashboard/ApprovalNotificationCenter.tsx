@@ -13,21 +13,25 @@ import {
   DollarSign,
   AlertTriangle,
   FileCheck2,
-  ExternalLink
+  ExternalLink,
+  UserCheck,
+  Sparkles
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { getAllPendingApprovals } from '../../utils/approvalRegistry';
 import { PendingApprovalItem, ApprovalCategory } from '../../types/approval';
-import { BusinessFunding } from '../../types';
+import { BusinessFunding, AppUser } from '../../types';
 import { formatCurrency, toBengaliNumber } from '../../utils/bengaliUtils';
 import { BusinessFundingDetailsModal } from '../business/BusinessFundingDetailsModal';
+import { ApproveUserModal } from '../users/ApproveUserModal';
 
 export const ApprovalNotificationCenter: React.FC = () => {
   const { 
     loans, 
     businessFundings, 
     members, 
+    users,
     currentUser, 
     isUserAdmin,
     setActiveTab, 
@@ -40,13 +44,17 @@ export const ApprovalNotificationCenter: React.FC = () => {
   const [selectedFundingForModal, setSelectedFundingForModal] = useState<BusinessFunding | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState<boolean>(false);
 
-  // Active filter for categories: 'all' | 'loan' | 'business_funding'
+  // Selected user for account approval modal
+  const [selectedUserForModal, setSelectedUserForModal] = useState<AppUser | null>(null);
+  const [isApproveUserModalOpen, setIsApproveUserModalOpen] = useState<boolean>(false);
+
+  // Active filter for categories: 'all' | 'loan' | 'business_funding' | 'user_registration'
   const [selectedCategory, setSelectedCategory] = useState<'all' | ApprovalCategory>('all');
 
   // Aggregated list from the extensible Central Approval Registry
   const allPendingItems = useMemo(() => {
-    return getAllPendingApprovals({ loans, businessFundings, members });
-  }, [loans, businessFundings, members]);
+    return getAllPendingApprovals({ loans, businessFundings, members, users });
+  }, [loans, businessFundings, members, users]);
 
   // Counts by category
   const loanPendingCount = useMemo(() => 
@@ -56,6 +64,11 @@ export const ApprovalNotificationCenter: React.FC = () => {
   
   const businessFundingPendingCount = useMemo(() => 
     allPendingItems.filter(item => item.category === 'business_funding').length, 
+    [allPendingItems]
+  );
+
+  const userRegistrationPendingCount = useMemo(() => 
+    allPendingItems.filter(item => item.category === 'user_registration').length, 
     [allPendingItems]
   );
 
@@ -79,6 +92,10 @@ export const ApprovalNotificationCenter: React.FC = () => {
       setIsDetailsModalOpen(true);
     } else if (item.category === 'loan') {
       setActiveTab('loans_pending');
+    } else if (item.category === 'user_registration') {
+      const userObj = item.rawItem as AppUser;
+      setSelectedUserForModal(userObj);
+      setIsApproveUserModalOpen(true);
     }
   };
 
@@ -108,42 +125,61 @@ export const ApprovalNotificationCenter: React.FC = () => {
               </div>
               <p className="text-xs text-slate-600 mt-0.5">
                 {isBn 
-                  ? `মোট ${num(allPendingItems.length)}টি আবেদনের জন্য অ্যাডমিন যাচাই ও অনুমোদন প্রয়োজন (${loanPendingCount > 0 ? `ঋণ: ${num(loanPendingCount)}টি` : ''}${loanPendingCount > 0 && businessFundingPendingCount > 0 ? ', ' : ''}${businessFundingPendingCount > 0 ? `ব্যবসা ফান্ডিং: ${num(businessFundingPendingCount)}টি` : ''})।`
-                  : `${num(allPendingItems.length)} request(s) awaiting review (${loanPendingCount} Loans, ${businessFundingPendingCount} Business Fundings).`}
+                  ? 'নতুন সদস্য নিবন্ধন, ঋণ বিতরণ এবং ব্যবসা বিনিয়োগ প্রস্তাব প্রশাসনিক সিদ্ধান্তের অপেক্ষায় রয়েছে।'
+                  : 'New member registrations, loan applications, and business funding requests require admin review.'}
               </p>
             </div>
           </div>
 
-          {/* Quick Filter Category Pills */}
-          <div className="flex items-center gap-1.5 flex-wrap self-stretch sm:self-auto">
+          {/* Category Filter Pills */}
+          <div className="flex items-center gap-1.5 flex-wrap">
             <button
               type="button"
               onClick={() => setSelectedCategory('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 selectedCategory === 'all'
                   ? 'bg-slate-900 text-white shadow-xs'
                   : 'bg-white/80 hover:bg-white text-slate-700 border border-slate-200'
               }`}
             >
-              <span>{isBn ? 'সকল আবেদন' : 'All'}</span>
-              <span className="px-1.5 py-0.2 bg-black/20 rounded-md text-[10px]">
-                {num(allPendingItems.length)}
-              </span>
+              {isBn ? 'সকল' : 'All'} ({num(allPendingItems.length)})
             </button>
+
+            {userRegistrationPendingCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedCategory('user_registration')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  selectedCategory === 'user_registration'
+                    ? 'bg-blue-700 text-white shadow-xs'
+                    : 'bg-white/80 hover:bg-white text-slate-700 border border-slate-200'
+                }`}
+              >
+                <UserCheck className="w-3.5 h-3.5" />
+                <span>{isBn ? 'সদস্য নিবন্ধন' : 'Registrations'}</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                  selectedCategory === 'user_registration' ? 'bg-blue-900 text-blue-100' : 'bg-blue-100 text-blue-800'
+                }`}>
+                  {num(userRegistrationPendingCount)}
+                </span>
+              </button>
+            )}
 
             {loanPendingCount > 0 && (
               <button
                 type="button"
                 onClick={() => setSelectedCategory('loan')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                   selectedCategory === 'loan'
                     ? 'bg-amber-600 text-white shadow-xs'
-                    : 'bg-white/80 hover:bg-white text-amber-800 border border-amber-200'
+                    : 'bg-white/80 hover:bg-white text-slate-700 border border-slate-200'
                 }`}
               >
-                <HandCoins className="w-3.5 h-3.5 text-amber-500" />
-                <span>{isBn ? 'ঋণ আবেদন' : 'Loans'}</span>
-                <span className="px-1.5 py-0.2 bg-amber-700/20 text-current rounded-md text-[10px]">
+                <HandCoins className="w-3.5 h-3.5" />
+                <span>{isBn ? 'ঋণ' : 'Loans'}</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                  selectedCategory === 'loan' ? 'bg-amber-800 text-amber-100' : 'bg-amber-100 text-amber-800'
+                }`}>
                   {num(loanPendingCount)}
                 </span>
               </button>
@@ -153,15 +189,17 @@ export const ApprovalNotificationCenter: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setSelectedCategory('business_funding')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                   selectedCategory === 'business_funding'
-                    ? 'bg-indigo-700 text-white shadow-xs'
-                    : 'bg-white/80 hover:bg-white text-indigo-800 border border-indigo-200'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'bg-white/80 hover:bg-white text-slate-700 border border-slate-200'
                 }`}
               >
-                <Briefcase className="w-3.5 h-3.5 text-indigo-500" />
+                <Briefcase className="w-3.5 h-3.5" />
                 <span>{isBn ? 'ব্যবসা বিনিয়োগ' : 'Business'}</span>
-                <span className="px-1.5 py-0.2 bg-indigo-800/20 text-current rounded-md text-[10px]">
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                  selectedCategory === 'business_funding' ? 'bg-indigo-800 text-indigo-100' : 'bg-indigo-100 text-indigo-800'
+                }`}>
                   {num(businessFundingPendingCount)}
                 </span>
               </button>
@@ -169,11 +207,12 @@ export const ApprovalNotificationCenter: React.FC = () => {
           </div>
         </div>
 
-        {/* Pending Requests Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
-          {filteredItems.map((item) => {
+        {/* Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          {filteredItems.map(item => {
             const isLoan = item.category === 'loan';
             const isBf = item.category === 'business_funding';
+            const isUserReg = item.category === 'user_registration';
 
             return (
               <div 
@@ -182,7 +221,7 @@ export const ApprovalNotificationCenter: React.FC = () => {
               >
                 {/* Top Accent Strip */}
                 <div className={`absolute top-0 left-0 right-0 h-1 ${
-                  isLoan ? 'bg-amber-500' : 'bg-indigo-600'
+                  isLoan ? 'bg-amber-500' : isBf ? 'bg-indigo-600' : 'bg-blue-600'
                 }`} />
 
                 {/* Card Top: Type Badge & Application ID */}
@@ -190,30 +229,33 @@ export const ApprovalNotificationCenter: React.FC = () => {
                   <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
                     isLoan 
                       ? 'bg-amber-100 text-amber-800 border border-amber-200' 
-                      : 'bg-indigo-100 text-indigo-800 border border-indigo-200'
+                      : isBf
+                      ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
+                      : 'bg-blue-100 text-blue-800 border border-blue-200'
                   }`}>
-                    {isLoan ? <HandCoins className="w-3 h-3 text-amber-600" /> : <Briefcase className="w-3 h-3 text-indigo-600" />}
+                    {isLoan ? <HandCoins className="w-3 h-3 text-amber-600" /> : isBf ? <Briefcase className="w-3 h-3 text-indigo-600" /> : <UserCheck className="w-3 h-3 text-blue-600" />}
                     <span>{isBn ? item.categoryLabelBn : item.categoryLabelEn}</span>
                   </span>
 
-                  <span className="text-[11px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                  <span className="text-[11px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 truncate max-w-[140px]">
                     {item.applicationNo}
                   </span>
                 </div>
 
-                {/* Member Profile Info */}
+                {/* Member / User Profile Info */}
                 <div className="flex items-center gap-3">
                   {item.memberPhoto ? (
                     <img 
                       src={item.memberPhoto} 
                       alt={item.memberName} 
                       className="w-10 h-10 rounded-full object-cover border border-slate-200 shrink-0" 
+                      referrerPolicy="no-referrer"
                     />
                   ) : (
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${
-                      isLoan ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                      isLoan ? 'bg-amber-50 text-amber-700 border border-amber-200' : isBf ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-blue-50 text-blue-700 border border-blue-200'
                     }`}>
-                      {item.memberName.charAt(0)}
+                      {item.memberName ? item.memberName.charAt(0).toUpperCase() : 'U'}
                     </div>
                   )}
 
@@ -228,29 +270,55 @@ export const ApprovalNotificationCenter: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Key Financial Details (Amount, Subtitle/Term, Date) */}
+                {/* Key Details Card */}
                 <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 space-y-1 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">{isBn ? 'অনুরোধকৃত অর্থ:' : 'Requested Amount:'}</span>
-                    <span className="font-extrabold text-sm text-slate-900">{fmt(item.amount)}</span>
-                  </div>
+                  {isUserReg ? (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">{isBn ? 'রোল:' : 'Role:'}</span>
+                        <span className="font-bold text-xs text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                          সদস্য (Member)
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-slate-600">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-slate-400" />
+                          {item.requestDate}
+                        </span>
+                        <span className="font-medium text-slate-700 bg-white px-1.5 py-0.2 rounded border border-slate-200 truncate max-w-[150px]">
+                          {item.subTitle}
+                        </span>
+                      </div>
+                      <div className="text-[10.5px] text-blue-700 pt-0.5 font-medium flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-blue-500 shrink-0" />
+                        <span>{item.profitOrInterestRate}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">{isBn ? 'অনুরোধকৃত অর্থ:' : 'Requested Amount:'}</span>
+                        <span className="font-extrabold text-sm text-slate-900">{fmt(item.amount)}</span>
+                      </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-slate-600">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3 text-slate-400" />
-                      {item.requestDate}
-                    </span>
-                    {item.subTitle && (
-                      <span className="font-medium text-slate-700 bg-white px-1.5 py-0.2 rounded border border-slate-200">
-                        {item.subTitle}
-                      </span>
-                    )}
-                  </div>
+                      <div className="flex items-center justify-between text-[11px] text-slate-600">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-slate-400" />
+                          {item.requestDate}
+                        </span>
+                        {item.subTitle && (
+                          <span className="font-medium text-slate-700 bg-white px-1.5 py-0.2 rounded border border-slate-200">
+                            {item.subTitle}
+                          </span>
+                        )}
+                      </div>
 
-                  {item.profitOrInterestRate && (
-                    <div className="text-[10.5px] text-indigo-700 pt-0.5 font-medium">
-                      {item.profitOrInterestRate}
-                    </div>
+                      {item.profitOrInterestRate && (
+                        <div className="text-[10.5px] text-indigo-700 pt-0.5 font-medium">
+                          {item.profitOrInterestRate}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -261,7 +329,16 @@ export const ApprovalNotificationCenter: React.FC = () => {
                     <span>{isBn ? item.statusLabelBn : item.statusLabelEn}</span>
                   </span>
 
-                  {isBf ? (
+                  {isUserReg ? (
+                    <button
+                      type="button"
+                      onClick={() => handleCardClick(item)}
+                      className="px-3 py-1.5 bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-2xs hover:shadow-xs cursor-pointer"
+                    >
+                      <span>{isBn ? 'সদস্য লিংক ও অনুমোদন' : 'Link & Approve'}</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  ) : isBf ? (
                     <button
                       type="button"
                       onClick={() => handleCardClick(item)}
@@ -301,6 +378,20 @@ export const ApprovalNotificationCenter: React.FC = () => {
         }}
         onNavigateToFunding={() => {
           setActiveTab('business_funding');
+        }}
+      />
+
+      {/* User Registration Approval & Member Linking Modal */}
+      <ApproveUserModal
+        user={selectedUserForModal}
+        isOpen={isApproveUserModalOpen}
+        onClose={() => {
+          setIsApproveUserModalOpen(false);
+          setSelectedUserForModal(null);
+        }}
+        onSuccess={() => {
+          setIsApproveUserModalOpen(false);
+          setSelectedUserForModal(null);
         }}
       />
     </>

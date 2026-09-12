@@ -13,8 +13,10 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [validationError, setValidationError] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -23,6 +25,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
+    setValidationError('');
     setSuccessMsg('');
 
     if (mode === 'forgot') {
@@ -39,6 +42,32 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
       return;
     }
 
+    if (mode === 'signup') {
+      if (!email.trim() || !password || !confirmPassword) {
+        setValidationError(language === 'bn' ? 'অনুগ্রহ করে সকল ফিল্ড পূরণ করুন।' : 'Please fill in all fields.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setValidationError(language === 'bn' ? 'পাসওয়ার্ড দুটি মিলছে না! উভয় স্থানে একই পাসওয়ার্ড লিখুন।' : 'Passwords do not match! Please enter the same password in both fields.');
+        return;
+      }
+      if (password.length < 6) {
+        setValidationError(language === 'bn' ? 'পাসওয়ার্ড অন্তত ৬ অক্ষরের হতে হবে।' : 'Password must be at least 6 characters.');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        await signUp(email.trim(), password);
+        setSuccessMsg(language === 'bn' ? 'নিবন্ধন সফল হয়েছে! অ্যাকাউন্টটি প্রশাসনিক অনুমোদনের অপেক্ষায় রয়েছে।' : 'Registration submitted! Your account is pending administrative approval.');
+      } catch {
+        // error in context
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (!email || !password) return;
 
     setLoading(true);
@@ -46,9 +75,6 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
       if (mode === 'signin') {
         await signIn(email, password);
         setSuccessMsg(language === 'bn' ? 'সফলভাবে সাইন-ইন সম্পন্ন হয়েছে!' : 'Successfully signed in!');
-      } else {
-        await signUp(email, password, name);
-        setSuccessMsg(language === 'bn' ? 'সফলভাবে একাউন্ট তৈরি ও সাইন-ইন হয়েছে!' : 'Successfully registered and signed in!');
       }
     } catch {
       // error in context
@@ -108,11 +134,11 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
         </div>
 
         {/* Error Notification */}
-        {error && (
+        {(validationError || error) && (
           <div className="mb-4 p-3.5 bg-rose-950/60 border border-rose-500/50 rounded-xl space-y-2 text-xs text-rose-300 animate-in fade-in">
             <div className="flex items-start gap-2.5">
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-              <div className="flex-1 leading-relaxed">{error}</div>
+              <div className="flex-1 leading-relaxed">{validationError || error}</div>
             </div>
             {mode === 'signin' && (
               <div className="pt-2 border-t border-rose-800/40 flex items-center justify-between">
@@ -124,6 +150,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
                   onClick={() => {
                     setMode('signup');
                     clearError();
+                    setValidationError('');
                   }}
                   className="px-2.5 py-1 bg-cyan-400/20 hover:bg-cyan-400/30 text-cyan-300 font-bold rounded-lg text-[11px] transition-colors cursor-pointer border border-cyan-400/30"
                 >
@@ -144,40 +171,32 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
 
         {/* Form elements identical to user screenshot */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          {mode === 'signup' && (
-            <div>
-              <label className="block text-[11px] font-bold tracking-wider text-slate-300 uppercase mb-1.5">
-                {language === 'bn' ? 'FULL NAME' : 'FULL NAME'}
-              </label>
-              <div className="relative">
-                <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                <input
-                  type="text"
-                  placeholder={language === 'bn' ? 'e.g. মোঃ রিয়াজ ইসলাম' : 'e.g. Riyas Islam'}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-[#131d36] border border-slate-700/80 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-sans"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* EMAIL ADDRESS */}
+          {/* EMAIL ADDRESS OR USER UID */}
           <div>
             <label className="block text-[11px] font-bold tracking-wider text-slate-300 uppercase mb-1.5">
-              EMAIL ADDRESS
+              {mode === 'signin' 
+                ? (language === 'bn' ? 'ইমেইল অথবা ইউজার ইউআইডি (BS-####)' : 'EMAIL OR USER UID (e.g. BS-1001)')
+                : (language === 'bn' ? 'ইমেইল ঠিকানা' : 'EMAIL ADDRESS')}
             </label>
             <div className="relative">
               <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <input
-                type="email"
+                type={mode === 'signin' ? 'text' : 'email'}
                 required
-                placeholder="name@example.com"
+                placeholder={mode === 'signin' ? (language === 'bn' ? 'name@example.com অথবা BS-1001' : 'name@example.com or BS-1001') : 'name@example.com'}
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setValidationError('');
+                }}
                 className="w-full bg-[#131d36] border border-slate-700/80 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-sans"
               />
             </div>
+            {mode === 'signin' && (
+              <p className="text-[11px] text-slate-400 mt-1">
+                {language === 'bn' ? 'ইমেইল (name@example.com) অথবা ইউআইডি (যেমন: BS-1001) দিয়ে লগইন করুন' : 'Log in using your Email or User UID (e.g. BS-1001)'}
+              </p>
+            )}
           </div>
 
           {/* PASSWORD */}
@@ -193,6 +212,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
                     onClick={() => {
                       setMode('forgot');
                       clearError();
+                      setValidationError('');
                     }}
                     className="text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 transition-colors cursor-pointer"
                   >
@@ -208,7 +228,10 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
                   minLength={6}
                   placeholder="••••••••"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setValidationError('');
+                  }}
                   className="w-full bg-[#131d36] border border-slate-700/80 rounded-xl pl-10 pr-10 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-sans"
                 />
                 <button
@@ -217,6 +240,39 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
                   className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* CONFIRM PASSWORD for signup */}
+          {mode === 'signup' && (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[11px] font-bold tracking-wider text-slate-300 uppercase">
+                  {language === 'bn' ? 'কনফার্ম পাসওয়ার্ড (CONFIRM PASSWORD)' : 'CONFIRM PASSWORD'}
+                </label>
+              </div>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  required
+                  minLength={6}
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setValidationError('');
+                  }}
+                  className="w-full bg-[#131d36] border border-slate-700/80 rounded-xl pl-10 pr-10 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-sans"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>

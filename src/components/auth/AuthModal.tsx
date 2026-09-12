@@ -13,7 +13,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [validationError, setValidationError] = useState('');
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -22,10 +23,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
+    setValidationError('');
     setSuccessMsg('');
 
     if (!email || !password) {
       return;
+    }
+
+    if (mode === 'signup') {
+      if (!confirmPassword) {
+        setValidationError('কনফার্ম পাসওয়ার্ড প্রদান করুন।');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setValidationError('পাসওয়ার্ড দুটি মিলছে না! উভয় ফিল্ডে একই পাসওয়ার্ড দিন।');
+        return;
+      }
+      if (password.length < 6) {
+        setValidationError('পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।');
+        return;
+      }
     }
 
     setLoading(true);
@@ -37,11 +54,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           onClose();
         }, 800);
       } else {
-        await signUp(email, password, name);
-        setSuccessMsg('সফলভাবে একাউন্ট তৈরি ও লগইন হয়েছে!');
+        await signUp(email, password);
+        setSuccessMsg('নিবন্ধন সম্পন্ন হয়েছে! অ্যাকাউন্টটি প্রশাসনিক অনুমোদনের অপেক্ষায় রয়েছে।');
         setTimeout(() => {
           onClose();
-        }, 800);
+        }, 1200);
       }
     } catch (err: any) {
       // Error is set in AuthContext
@@ -160,10 +177,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           ) : (
             /* Form state (Sign in / Sign up) */
             <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
+              {(validationError || error) && (
                 <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs text-rose-700">
                   <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-                  <div className="flex-1">{error}</div>
+                  <div className="flex-1">{validationError || error}</div>
                 </div>
               )}
 
@@ -174,36 +191,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 </div>
               )}
 
-              {mode === 'signup' && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    পুরো নাম (ঐচ্ছিক)
-                  </label>
-                  <div className="relative">
-                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                    <input
-                      type="text"
-                      placeholder="আপনার নাম লিখুন"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-slate-800 placeholder:text-slate-400"
-                    />
-                  </div>
-                </div>
-              )}
-
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  ইমেইল এড্রেস <span className="text-rose-500">*</span>
+                  {mode === 'signin' ? 'ইমেইল অথবা ইউজার ইউআইডি (BS-####)' : 'ইমেইল এড্রেস'} <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                   <input
-                    type="email"
+                    type={mode === 'signin' ? 'text' : 'email'}
                     required
-                    placeholder="example@mail.com"
+                    placeholder={mode === 'signin' ? 'example@mail.com অথবা BS-1001' : 'example@mail.com'}
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setValidationError('');
+                    }}
                     className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-slate-800 placeholder:text-slate-400"
                   />
                 </div>
@@ -221,11 +223,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     minLength={6}
                     placeholder="কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setValidationError('');
+                    }}
                     className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-slate-800 placeholder:text-slate-400"
                   />
                 </div>
               </div>
+
+              {mode === 'signup' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    কনফার্ম পাসওয়ার্ড <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                    <input
+                      type="password"
+                      required
+                      minLength={6}
+                      placeholder="পাসওয়ার্ডটি পুনরায় লিখুন"
+                      value={confirmPassword}
+                      onChange={(e) => {
+                        setConfirmPassword(e.target.value);
+                        setValidationError('');
+                      }}
+                      className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-slate-800 placeholder:text-slate-400"
+                    />
+                  </div>
+                </div>
+              )}
 
               <button
                 type="submit"

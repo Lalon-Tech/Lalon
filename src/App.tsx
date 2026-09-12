@@ -28,7 +28,8 @@ import { ReceiptsView } from './components/receipts/ReceiptsView';
 import { BusinessFundingView } from './components/business/BusinessFundingView';
 import { ReceiptModal } from './components/receipts/ReceiptModal';
 import { AuthModal } from './components/auth/AuthModal';
-import { Loader2 } from 'lucide-react';
+import { PendingApprovalView } from './components/auth/PendingApprovalView';
+import { Loader2, ShieldAlert } from 'lucide-react';
 
 const AppContent: React.FC = () => {
   const { user, loading } = useAuth();
@@ -52,8 +53,11 @@ const AppContent: React.FC = () => {
     setShowQuickLoanModal,
     showQuickKistiModal,
     setShowQuickKistiModal,
-    isDataLoading
+    isDataLoading,
+    currentUser
   } = useSomiti();
+
+  const isMember = currentUser?.role === 'member';
 
   // Loading state
   if (loading || (user && isDataLoading)) {
@@ -70,7 +74,52 @@ const AppContent: React.FC = () => {
     return <LoginPage />;
   }
 
+  // Pending Approval Gate: Unapproved or unlinked member accounts cannot access Member Dashboard or financial data
+  const isPendingApproval = 
+    currentUser?.status === 'pending' || 
+    (currentUser?.role === 'member' && !currentUser?.memberId);
+
+  if (isPendingApproval && currentUser?.role !== 'admin') {
+    return <PendingApprovalView />;
+  }
+
+  // Rule 7: Member Access Rules - Members cannot access Admin settings or administrative actions
+  const adminOnlyTabs = [
+    'users', 'user_management', 'settings', 'banking', 'accounts',
+    'excel', 'excel_import', 'reports', 'reports_daily', 'reports_monthly',
+    'reports_member', 'reports_income_expense', 'reports_yearly',
+    'business_funding', 'all_members', 'new_member', 'active_members',
+    'members', 'members_all', 'loans_pending', 'loans_apply'
+  ];
+
   const renderActiveView = () => {
+    if (isMember && adminOnlyTabs.includes(activeTab)) {
+      return (
+        <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xs text-center max-w-md mx-auto my-12 space-y-4">
+          <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto ring-8 ring-amber-50/50">
+            <ShieldAlert className="w-7 h-7" />
+          </div>
+          <h3 className="text-base font-bold text-slate-900">
+            {language === 'bn' ? 'অ্যাক্সেস সংরক্ষিত' : 'Access Restricted'}
+          </h3>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            {language === 'bn' 
+              ? 'আপনার অ্যাকাউন্ট রোল "সদস্য (Member)"। এই পৃষ্ঠাটি শুধুমাত্র সমিতির অনুমোদিত প্রশাসক এবং কর্মকর্তাদের জন্য উন্মুক্ত।'
+              : 'Your account role is Member. This section is restricted to administrators.'}
+          </p>
+          <button
+            onClick={() => {
+              if (currentUser?.memberId) setSelectedMemberId(currentUser.memberId);
+              setActiveTab('member_profile');
+            }}
+            className="px-5 py-2.5 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+          >
+            {language === 'bn' ? 'আমার প্রোফাইলে যান' : 'Go to My Profile'}
+          </button>
+        </div>
+      );
+    }
+
     switch (activeTab) {
       case 'dashboard':
         return <DashboardView />;
@@ -101,10 +150,20 @@ const AppContent: React.FC = () => {
 
       case 'members_profile':
       case 'member_profile':
+        const targetMemberId = (isMember && currentUser?.memberId)
+          ? currentUser.memberId
+          : (selectedMemberId || (members.length > 0 ? members[0].id : ''));
         return (
           <MemberProfileView 
-            memberId={selectedMemberId || (members.length > 0 ? members[0].id : '')} 
-            onBack={() => { setSelectedMemberId(null); setActiveTab('all_members'); }} 
+            memberId={targetMemberId} 
+            onBack={() => { 
+              if (isMember) {
+                setActiveTab('dashboard');
+              } else {
+                setSelectedMemberId(null); 
+                setActiveTab('all_members'); 
+              }
+            }} 
           />
         );
 

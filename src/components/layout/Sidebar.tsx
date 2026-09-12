@@ -59,8 +59,11 @@ export const Sidebar: React.FC<{
     setShowQuickDepositModal,
     setShowQuickWithdrawModal,
     setShowQuickLoanModal,
-    setShowQuickKistiModal
+    setShowQuickKistiModal,
+    currentUser
   } = useSomiti();
+
+  const isMember = currentUser?.role === 'member';
 
   const isBn = language === 'bn';
   const pendingLoanCount = loans ? loans.filter(l => l.status === 'pending').length : 0;
@@ -86,6 +89,11 @@ export const Sidebar: React.FC<{
   };
 
   const handleMenuClick = (item: MenuItem) => {
+    if (isMember && item.id === 'member_profile') {
+      if (currentUser?.memberId) {
+        setSelectedMemberId(currentUser.memberId);
+      }
+    }
     if (item.subItems) {
       toggleSubmenu(item.id);
     } else {
@@ -95,6 +103,40 @@ export const Sidebar: React.FC<{
     }
     setActiveTab(item.id);
   };
+
+  // Rule 7: Member-only navigation items
+  const memberMenuItems: MenuItem[] = [
+    {
+      id: 'dashboard',
+      label: isBn ? 'আমার ড্যাশবোর্ড' : 'My Dashboard',
+      icon: LayoutDashboard,
+    },
+    {
+      id: 'member_profile',
+      label: isBn ? 'আমার প্রোফাইল' : 'My Profile',
+      icon: Users,
+    },
+    {
+      id: 'transactions',
+      label: isBn ? 'আমার লেনদেন হিস্ট্রি' : 'My Transactions',
+      icon: BadgePercent,
+    },
+    {
+      id: 'savings',
+      label: isBn ? 'আমার সঞ্চয় স্কিম (DPS/FDR)' : 'My Savings Schemes',
+      icon: PiggyBank,
+    },
+    {
+      id: 'loans',
+      label: isBn ? 'আমার ঋণ ও কিস্তি' : 'My Loans & Kisti',
+      icon: HandCoins,
+    },
+    {
+      id: 'receipts',
+      label: isBn ? 'রসিদ ও প্রিন্ট' : 'Receipts & Print',
+      icon: Receipt,
+    },
+  ];
 
   const menuItems: MenuItem[] = [
     {
@@ -275,7 +317,7 @@ export const Sidebar: React.FC<{
             {language === 'bn' ? 'প্রধান মেনু' : 'Main Menu'}
           </div>
 
-          {menuItems.map((item) => {
+          {(isMember ? memberMenuItems : menuItems).map((item) => {
             const Icon = item.icon;
             const isParentActive = 
               activeTab === item.id || 

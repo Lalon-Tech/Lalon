@@ -17,6 +17,7 @@ import {
   IncomeExpenseItem, 
   BankAccount, 
   AppUser, 
+  UserRole,
   SomitiSettings,
   TransactionType,
   PaymentMethod,
@@ -50,6 +51,14 @@ import {
 import { calculateProportionalProfit, getMemberSavingsBalance } from '../utils/profitCalculation';
 import { formatBengaliDate, compareTransactionsDesc } from '../utils/bengaliUtils';
 import { validateMemberRemoval, MemberRemovalValidationResult } from '../utils/memberRemovalValidation';
+import { 
+  generateNextUserUid, 
+  canPromoteToAdmin, 
+  canDemoteOrDeactivateAdmin, 
+  canDeleteUser,
+  MAX_ACTIVE_ADMINS,
+  MIN_ACTIVE_ADMINS 
+} from '../utils/userUtils';
 
 // Sanitization helpers to eliminate any NaN or undefined data
 const sanitizeMember = (m: any): Member => {
@@ -202,18 +211,24 @@ const ensureTransactionSerials = (rawList: Transaction[]): Transaction[] => {
 };
 
 const sanitizeUser = (u: any): AppUser => {
+  const role: UserRole = u.role || 'member';
+  const defaultUid = u.id === 'usr-admin' || role === 'admin' ? 'BS-1001' : undefined;
   return {
     ...u,
     id: u.id || `usr-${Date.now()}`,
+    userUid: u.userUid || defaultUid,
     name: u.name || 'ইউজার',
     email: u.email || '',
     phone: u.phone || '',
-    role: u.role || 'admin',
-    roleTitle: u.roleTitle || (u.role === 'admin' ? 'অ্যাডমিন ও সিইও' : u.role === 'manager' ? 'ব্রাঞ্চ ম্যানেজার' : u.role === 'cashier' ? 'ক্যাশ অফিসার' : 'সদস্য'),
+    role: role,
+    roleTitle: u.roleTitle || (role === 'admin' ? 'অ্যাডমিন ও সিইও' : role === 'manager' ? 'ব্রাঞ্চ ম্যানেজার' : role === 'cashier' ? 'ক্যাশ অফিসার' : role === 'field_officer' ? 'মাঠকর্মী' : 'সদস্য (Member)'),
     avatarUrl: u.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
     dailyTarget: Number(u.dailyTarget) || 0,
     collectedToday: Number(u.collectedToday) || 0,
-    status: u.status || 'active',
+    status: u.status || (role === 'admin' ? 'active' : 'pending'),
+    memberId: u.memberId,
+    memberNo: u.memberNo,
+    createdAt: u.createdAt || new Date().toISOString(),
   };
 };
 
@@ -495,6 +510,8 @@ interface SomitiContextType {
   updateUser: (id: string, userData: Partial<AppUser>) => void;
   deleteUser: (id: string) => void;
   toggleUserStatus: (id: string) => void;
+  approveUserRegistration: (userId: string, memberId: string, userUid: string) => Promise<void>;
+  rejectUserRegistration: (userId: string, reason?: string) => Promise<void>;
 
   // Banking
   transferFunds: (params: {
@@ -758,18 +775,24 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           avatarUrl: authUser.photoURL || matched.avatarUrl,
         }));
       } else {
+        const matchedMember = members.find(m => m.email && m.email.toLowerCase() === authEmail);
+        const isAdminEmail = authEmail === 'admin@bondhusomiti.com' || authEmail === 'sin4.riyas.lalon.dc@gmail.com';
         const dynamicUser: AppUser = {
           id: authUser.uid,
-          name: authName,
-          phone: '01752012365',
-          email: authEmail || 'admin@bondhusomiti.com',
-          role: 'admin',
-          roleTitle: 'অ্যাডমিন ও সিইও',
-          avatarUrl: authUser.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-          assignedArea: 'হেড অফিস',
-          dailyTarget: 50000,
+          userUid: isAdminEmail ? 'BS-1001' : undefined,
+          name: matchedMember?.name || authName,
+          phone: matchedMember?.phone || '',
+          email: authEmail || 'member@bondhusomiti.com',
+          role: isAdminEmail ? 'admin' : 'member',
+          roleTitle: isAdminEmail ? 'প্রধান প্রশাসক (Super Admin)' : 'সদস্য (Member)',
+          avatarUrl: authUser.photoURL || matchedMember?.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+          assignedArea: matchedMember?.presentAddress || 'সাধারণ সদস্য',
+          dailyTarget: 0,
           collectedToday: 0,
-          status: 'active',
+          status: isAdminEmail ? 'active' : 'pending',
+          memberId: matchedMember?.id,
+          memberNo: matchedMember?.memberNo,
+          createdAt: new Date().toISOString()
         };
         setCurrentUser(dynamicUser);
       }
@@ -778,11 +801,10 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setCurrentUser(sanitizeUser(users[0]));
       }
     }
-  }, [authUser, users]);
+  }, [authUser, users, members]);
 
-  // Permission & Role Checks - Ensure authorized user can view and manage all modules
-  const isUserAdmin = Boolean(authUser) || 
-                      currentUser?.role === 'admin' || 
+  // Permission & Role Checks - Restrict Member role from administrative actions
+  const isUserAdmin = currentUser?.role === 'admin' || 
                       currentUser?.role === 'president' || 
                       currentUser?.role === 'secretary' || 
                       currentUser?.role === 'cashier' || 
@@ -790,15 +812,13 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const isCurrentMember = (memberId: string): boolean => {
     if (!memberId) return false;
+    if (currentUser?.memberId === memberId) return true;
     if (currentUser?.id === memberId) return true;
     const m = members.find(item => item.id === memberId);
     if (m && m.email && currentUser?.email && m.email.toLowerCase() === currentUser.email.toLowerCase()) {
       return true;
     }
     if (m && m.phone && currentUser?.phone && m.phone === currentUser.phone) {
-      return true;
-    }
-    if (authUser && authUser.email && m && m.email && m.email.toLowerCase() === authUser.email.toLowerCase()) {
       return true;
     }
     return false;
@@ -1600,12 +1620,87 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const updateMember = (id: string, data: Partial<Member>) => {
+    // Clean joiningDate if provided to ensure date-only (no time)
+    const normalizedData = { ...data };
+    if (normalizedData.joiningDate && typeof normalizedData.joiningDate === 'string') {
+      normalizedData.joiningDate = normalizedData.joiningDate.split('T')[0].split(' ')[0];
+    }
+
     setMembers(prev => prev.map(m => {
       if (m.id !== id) return m;
-      const updated = { ...m, ...data };
+      // Strictly maintain original member ID and memberNo to prevent duplicates or lost records
+      const updated = { 
+        ...m, 
+        ...normalizedData,
+        id: m.id, 
+        memberNo: m.memberNo 
+      };
       safeSetDoc(doc(db, 'members', id), updated).catch(console.error);
       return updated;
     }));
+
+    // If name was updated, synchronize memberName across all referencing collections
+    if (data.name && data.name.trim()) {
+      const updatedName = data.name.trim();
+
+      setLoans(prev => prev.map(l => {
+        if (l.memberId === id && l.memberName !== updatedName) {
+          const up = { ...l, memberName: updatedName };
+          safeSetDoc(doc(db, 'loans', l.id), up).catch(console.error);
+          return up;
+        }
+        return l;
+      }));
+
+      setSavingsSchemes(prev => prev.map(s => {
+        if (s.memberId === id && s.memberName !== updatedName) {
+          const up = { ...s, memberName: updatedName };
+          safeSetDoc(doc(db, 'savingsSchemes', s.id), up).catch(console.error);
+          return up;
+        }
+        return s;
+      }));
+
+      setBusinessFundings(prev => prev.map(f => {
+        if (f.memberId === id && f.memberName !== updatedName) {
+          const up = { ...f, memberName: updatedName };
+          safeSetDoc(doc(db, 'businessFundings', f.id), up).catch(console.error);
+          return up;
+        }
+        return f;
+      }));
+
+      setTransactions(prev => prev.map(t => {
+        if (t.memberId === id && t.memberName !== updatedName) {
+          const up = { ...t, memberName: updatedName };
+          safeSetDoc(doc(db, 'transactions', t.id), up).catch(console.error);
+          return up;
+        }
+        return t;
+      }));
+
+      setShareClosures(prev => prev.map(c => {
+        if (c.memberId === id && c.memberName !== updatedName) {
+          const up = { ...c, memberName: updatedName };
+          safeSetDoc(doc(db, 'shareClosures', c.id), up).catch(console.error);
+          return up;
+        }
+        return c;
+      }));
+    }
+
+    // Rule 4: If email is changed from Member Profile, synchronize linked User Account as well
+    if (data.email !== undefined) {
+      const cleanEmail = data.email.trim().toLowerCase();
+      setUsers(prev => prev.map(u => {
+        if (u.memberId === id && u.email.toLowerCase() !== cleanEmail) {
+          const up = { ...u, email: cleanEmail };
+          safeSetDoc(doc(db, 'systemUsers', u.id), { email: cleanEmail }, { merge: true }).catch(console.error);
+          return up;
+        }
+        return u;
+      }));
+    }
   };
 
   const validateMemberRemovalStatus = (memberId: string): MemberRemovalValidationResult => {
@@ -3473,29 +3568,176 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // User & Staff Management
   const addUser = (userData: Omit<AppUser, 'id'>): AppUser => {
+    // Rule 5: One Account = One Member. Prevent duplicate account for same member
+    if (userData.memberId) {
+      const existing = users.find(u => u.memberId === userData.memberId);
+      if (existing) {
+        throw new Error(`এই সদস্যের জন্য ইতিমধ্যে একটি অ্যাকাউন্ট (${existing.userUid || existing.id}) নিবন্ধিত রয়েছে! / An account already exists for this member!`);
+      }
+    }
+
+    // Rule 1: Automatically generate unique User UID in BS-#### format
+    let finalUid = userData.userUid;
+    if (!finalUid || users.some(u => u.userUid === finalUid)) {
+      finalUid = generateNextUserUid(users);
+    }
+
+    const cleanEmail = (userData.email || '').trim().toLowerCase();
+
+    // Rule 2: New accounts default to Member role
     const newUser: AppUser = {
       ...userData,
-      id: `usr-${Date.now()}`,
+      id: (userData as any).id || `usr-${Date.now()}`,
+      userUid: finalUid,
+      email: cleanEmail,
+      role: userData.role || 'member',
+      status: userData.status || 'active',
+      createdAt: userData.createdAt || new Date().toISOString(),
     };
+
     setUsers(prev => [...prev, newUser]);
     safeSetDoc(doc(db, 'systemUsers', newUser.id), newUser).catch(console.error);
+
+    // Rule 3: Automatically sync email to the linked Member Profile
+    if (newUser.memberId && cleanEmail) {
+      setMembers(prev => prev.map(m => m.id === newUser.memberId ? { ...m, email: cleanEmail } : m));
+      safeSetDoc(doc(db, 'members', newUser.memberId), { email: cleanEmail }, { merge: true }).catch(console.error);
+    }
+
     return newUser;
   };
 
   const updateUser = (id: string, userData: Partial<AppUser>) => {
-    setUsers(prev => prev.map(u => u.id === id ? { ...u, ...userData } : u));
-    safeSetDoc(doc(db, 'systemUsers', id), userData, { merge: true }).catch(console.error);
+    // Rule 2: Maximum 2 active Admin accounts
+    if (userData.role === 'admin' && userData.status !== 'inactive') {
+      const targetUser = users.find(u => u.id === id);
+      if (targetUser?.role !== 'admin') {
+        const check = canPromoteToAdmin(users, id);
+        if (!check.allowed) {
+          throw new Error(check.reasonBn || 'সর্বোচ্চ ২টি সক্রিয় অ্যাডমিন অ্যাকাউন্ট অনুমোদিত!');
+        }
+      }
+    }
+
+    // Rule 2: At least 1 active Admin account must always exist
+    if (userData.role && userData.role !== 'admin') {
+      const check = canDemoteOrDeactivateAdmin(users, id);
+      if (!check.allowed) {
+        throw new Error(check.reasonBn || 'কমপক্ষে ১টি সক্রিয় অ্যাডমিন অ্যাকাউন্ট থাকা আবশ্যক!');
+      }
+    }
+
+    if (userData.status === 'inactive') {
+      const check = canDemoteOrDeactivateAdmin(users, id);
+      if (!check.allowed) {
+        throw new Error(check.reasonBn || 'কমপক্ষে ১টি সক্রিয় অ্যাডমিন অ্যাকাউন্ট থাকা আবশ্যক!');
+      }
+    }
+
+    const cleanData = { ...userData };
+    if (cleanData.email !== undefined) {
+      cleanData.email = cleanData.email.trim().toLowerCase();
+    }
+
+    setUsers(prev => prev.map(u => u.id === id ? { ...u, ...cleanData } : u));
+    safeSetDoc(doc(db, 'systemUsers', id), cleanData, { merge: true }).catch(console.error);
+
+    // Rule 4: If email is changed from Account Management, sync to linked Member Profile
+    const targetUser = users.find(u => u.id === id);
+    const targetMemberId = cleanData.memberId || targetUser?.memberId;
+    if (cleanData.email !== undefined && targetMemberId) {
+      const newEmail = cleanData.email;
+      setMembers(prev => prev.map(m => m.id === targetMemberId ? { ...m, email: newEmail } : m));
+      safeSetDoc(doc(db, 'members', targetMemberId), { email: newEmail }, { merge: true }).catch(console.error);
+    }
   };
 
   const deleteUser = (id: string) => {
+    const check = canDeleteUser(users, id, currentUser?.id);
+    if (!check.allowed) {
+      throw new Error(check.reasonBn || 'এই ইউজার মোছা যাবে না!');
+    }
     setUsers(prev => prev.filter(u => u.id !== id));
     deleteDoc(doc(db, 'systemUsers', id)).catch(console.error);
   };
 
+  const approveUserRegistration = async (userId: string, memberId: string, userUid: string) => {
+    const targetUser = users.find(u => u.id === userId);
+    if (!targetUser) throw new Error('ইউজার অ্যাকাউন্ট খুঁজে পাওয়া যায়নি!');
+    
+    const targetMember = members.find(m => m.id === memberId);
+    if (!targetMember) throw new Error('সদস্য প্রোফাইল খুঁজে পাওয়া যায়নি!');
+
+    const cleanUid = userUid.trim();
+    if (!cleanUid) throw new Error('User UID (যেমন: BS-1010) প্রদান করা আবশ্যক!');
+
+    // Check UID uniqueness among other users
+    const existingWithUid = users.find(u => u.id !== userId && u.userUid?.toLowerCase() === cleanUid.toLowerCase());
+    if (existingWithUid) {
+      throw new Error(`এই User UID (${cleanUid}) ইতিপূর্বে অন্য ব্যবহারকারীকে (${existingWithUid.name}) প্রদান করা হয়েছে!`);
+    }
+
+    const updatedUserData: Partial<AppUser> = {
+      status: 'active',
+      userUid: cleanUid,
+      memberId: targetMember.id,
+      memberNo: targetMember.memberNo,
+      name: targetMember.name,
+      phone: targetMember.phone || targetUser.phone || '',
+      avatarUrl: targetMember.photoUrl || targetUser.avatarUrl || '',
+      role: 'member',
+      roleTitle: 'সদস্য (Member)',
+    };
+
+    // Update systemUsers in state and Firestore
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updatedUserData } : u));
+    await safeSetDoc(doc(db, 'systemUsers', userId), updatedUserData, { merge: true });
+
+    // The registration email must automatically be added to the linked Member Profile
+    const cleanEmail = targetUser.email.trim().toLowerCase();
+    if (cleanEmail) {
+      setMembers(prev => prev.map(m => m.id === memberId ? { ...m, email: cleanEmail } : m));
+      await safeSetDoc(doc(db, 'members', memberId), { email: cleanEmail }, { merge: true });
+    }
+
+    // Record audit log
+    await logAudit({
+      action: 'সদস্য একাউন্ট অনুমোদন',
+      entity: 'user',
+      details: `ব্যবহারকারী (${targetUser.email}) অনুমোদিত। নির্ধারিত UID: ${cleanUid}, সংযুক্ত সদস্য: ${targetMember.name} (${targetMember.memberNo})`,
+      performedBy: currentUser?.name || 'অ্যাডমিন',
+      userRole: currentUser?.role || 'admin',
+    });
+  };
+
+  const rejectUserRegistration = async (userId: string, reason?: string) => {
+    const targetUser = users.find(u => u.id === userId);
+    if (!targetUser) return;
+
+    setUsers(prev => prev.filter(u => u.id !== userId));
+    await deleteDoc(doc(db, 'systemUsers', userId)).catch(console.error);
+
+    await logAudit({
+      action: 'সদস্য নিবন্ধন প্রত্যাখ্যান',
+      entity: 'user',
+      details: `ব্যবহারকারীর নিবন্ধন (${targetUser.email}) বাতিল/প্রত্যাখ্যান করা হয়েছে। কারণ: ${reason || 'প্রশাসক কর্তৃক বাতিল'}`,
+      performedBy: currentUser?.name || 'অ্যাডমিন',
+      userRole: currentUser?.role || 'admin',
+    });
+  };
+
   const toggleUserStatus = (id: string) => {
+    const target = users.find(u => u.id === id);
+    if (!target) return;
+    const newStatus = target.status === 'active' ? 'inactive' : 'active';
+    if (newStatus === 'inactive' && target.role === 'admin') {
+      const check = canDemoteOrDeactivateAdmin(users, id);
+      if (!check.allowed) {
+        throw new Error(check.reasonBn || 'কমপক্ষে ১টি সক্রিয় অ্যাডমিন অ্যাকাউন্ট থাকা আবশ্যক!');
+      }
+    }
     setUsers(prev => prev.map(u => {
       if (u.id !== id) return u;
-      const newStatus = u.status === 'active' ? 'inactive' : 'active';
       const updated = { ...u, status: newStatus as 'active' | 'inactive' };
       safeSetDoc(doc(db, 'systemUsers', id), { status: newStatus }, { merge: true }).catch(console.error);
       return updated;
@@ -5084,6 +5326,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         updateUser,
         deleteUser,
         toggleUserStatus,
+        approveUserRegistration,
+        rejectUserRegistration,
 
         transferFunds,
         updateBankAccountBalance,

@@ -45,7 +45,7 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
   const { updateMember, settings, isUserAdmin, useBengaliDigits } = useSomiti();
 
   // Tab section
-  const [activeTab, setActiveTab] = useState<'shares' | 'personal' | 'photo' | 'nominee'>('shares');
+  const [activeTab, setActiveTab] = useState<'personal' | 'nominee' | 'photo' | 'shares'>('personal');
 
   // Basic Info
   const [name, setName] = useState('');
@@ -97,10 +97,10 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
       setPhone(member.phone || '');
       setEmail(member.email || '');
       setNid(member.nid || '');
-      setDob(member.dob || '');
+      setDob(member.dob ? member.dob.split('T')[0].split(' ')[0] : '');
       setOccupation(member.occupation || '');
       setMonthlyIncome(member.monthlyIncome || 0);
-      setJoiningDate(member.joiningDate || '');
+      setJoiningDate(member.joiningDate ? member.joiningDate.split('T')[0].split(' ')[0] : '');
       setGender(member.gender || 'male');
       setFatherName(member.fatherName || '');
       setMotherName(member.motherName || '');
@@ -205,10 +205,10 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
         phone: phone.trim(),
         email: email.trim(),
         nid: nid.trim(),
-        dob: dob.trim(),
+        dob: dob.trim().split('T')[0].split(' ')[0],
         occupation: occupation.trim(),
         monthlyIncome: Number(monthlyIncome) || 0,
-        joiningDate: joiningDate || member.joiningDate,
+        joiningDate: (joiningDate || member.joiningDate)?.split('T')[0].split(' ')[0],
         gender,
         fatherName: fatherName.trim(),
         motherName: motherName.trim(),
@@ -275,19 +275,6 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
         <div className="flex items-center gap-1 px-6 pt-3 pb-1 border-b border-slate-200 bg-slate-50 overflow-x-auto shrink-0">
           <button
             type="button"
-            onClick={() => setActiveTab('shares')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'shares'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>{isBn ? 'শেয়ার ও ব্যালেন্স সংশোধন' : 'Shares & Balances'}</span>
-          </button>
-
-          <button
-            type="button"
             onClick={() => setActiveTab('personal')}
             className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'personal'
@@ -296,20 +283,7 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
             }`}
           >
             <User className="w-3.5 h-3.5" />
-            <span>{isBn ? 'ব্যক্তিগত ও যোগাযোগ তথ্য' : 'Personal & Contact'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('photo')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'photo'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-            }`}
-          >
-            <FileSignature className="w-3.5 h-3.5" />
-            <span>{isBn ? 'ছবি ও স্বাক্ষর' : 'Photo & Signature'}</span>
+            <span>{isBn ? 'ব্যক্তিগত তথ্য (Personal Info)' : 'Personal Info / ব্যক্তিগত তথ্য'}</span>
           </button>
 
           <button
@@ -322,7 +296,33 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
             }`}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>{isBn ? 'নমিনি ও মন্তব্য' : 'Nominee & Notes'}</span>
+            <span>{isBn ? 'নমিনি ও মন্তব্য (Nominee & Notes)' : 'Nominee & Notes / নমিনি'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('photo')}
+            className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'photo'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            }`}
+          >
+            <FileSignature className="w-3.5 h-3.5" />
+            <span>{isBn ? 'ছবি ও স্বাক্ষর (Photo & Sign)' : 'Photo & Sign / ছবি ও স্বাক্ষর'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('shares')}
+            className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'shares'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>{isBn ? 'শেয়ার ও ব্যালেন্স (Shares & Balances)' : 'Shares & Balances / শেয়ার'}</span>
           </button>
         </div>
 
@@ -361,7 +361,7 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      {isBn ? 'সক্রিয় শেয়ার সংখ্যা (টি)' : 'Active Share Count'} <span className="text-rose-500">*</span>
+                      Active Share Count / সক্রিয় শেয়ার সংখ্যা (টি) <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="number"
@@ -411,7 +411,7 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      {isBn ? 'সাধারণ সঞ্চয় স্থিতি (৳)' : 'General Savings (৳)'}
+                      General Savings / সাধারণ সঞ্চয় স্থিতি (৳)
                     </label>
                     <input
                       type="number"
@@ -426,7 +426,7 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      {isBn ? 'ডিপিএস সঞ্চয় স্থিতি (৳)' : 'DPS Savings (৳)'}
+                      DPS Savings / ডিপিএস সঞ্চয় স্থিতি (৳)
                     </label>
                     <input
                       type="number"
@@ -441,7 +441,7 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      {isBn ? 'এফডিআর সঞ্চয় স্থিতি (৳)' : 'FDR Savings (৳)'}
+                      FDR Savings / এফডিআর সঞ্চয় স্থিতি (৳)
                     </label>
                     <input
                       type="number"
@@ -456,7 +456,7 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      {isBn ? 'চলতি ঋণ স্থিতি (৳)' : 'Active Loan Balance (৳)'}
+                      Active Loan / চলতি ঋণ স্থিতি (৳)
                     </label>
                     <input
                       type="number"
@@ -481,123 +481,130 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
             </div>
           )}
 
-          {/* TAB 2: PERSONAL & CONTACT */}
+          {/* TAB: PERSONAL & CONTACT */}
           {activeTab === 'personal' && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isBn ? 'সদস্যের নাম (বাংলা)' : 'Member Name (Bangla)'} <span className="text-rose-500">*</span>
+                    Name / নাম (বাংলা / Bangla) <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    placeholder="সদস্যের নাম (বাংলা)"
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isBn ? 'নাম (English)' : 'Name (English)'}
+                    Name / নাম (English / ইংরেজি)
                   </label>
                   <input
                     type="text"
                     value={nameEn}
                     onChange={(e) => setNameEn(e.target.value)}
+                    placeholder="Member Name in English"
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isBn ? 'মোবাইল নম্বর' : 'Phone Number'} <span className="text-rose-500">*</span>
+                    Mobile Number / মোবাইল নম্বর <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="tel"
                     required
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
+                    placeholder="01XXXXXXXXX"
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isBn ? 'জাতীয় পরিচয়পত্র / NID' : 'National ID / NID'}
+                    NID Number / NID নম্বর <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
+                    required
                     value={nid}
                     onChange={(e) => setNid(e.target.value)}
+                    placeholder="জাতীয় পরিচয়পত্র নম্বর"
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isBn ? 'লিঙ্গ' : 'Gender'}
+                    Gender / লিঙ্গ
                   </label>
                   <select
                     value={gender}
                     onChange={(e) => setGender(e.target.value as Gender)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   >
-                    <option value="male">{isBn ? 'পুরুষ (Male)' : 'Male'}</option>
-                    <option value="female">{isBn ? 'মহিলা (Female)' : 'Female'}</option>
-                    <option value="other">{isBn ? 'অন্যান্য (Other)' : 'Other'}</option>
+                    <option value="male">Male / পুরুষ</option>
+                    <option value="female">Female / মহিলা</option>
+                    <option value="other">Other / অন্যান্য</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isBn ? 'সদস্যপদ অবস্থা' : 'Membership Status'}
+                    Membership Status / সদস্যপদ স্ট্যাটাস
                   </label>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value as MemberStatus)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   >
-                    <option value="active">{isBn ? 'সক্রিয় সদস্য (Active)' : 'Active'}</option>
-                    <option value="inactive">{isBn ? 'নিষ্ক্রিয় (Inactive)' : 'Inactive'}</option>
-                    <option value="pending">{isBn ? 'অনুমোদন অপেক্ষমাণ (Pending)' : 'Pending'}</option>
-                    <option value="defaulter">{isBn ? 'খেলাপি (Defaulter)' : 'Defaulter'}</option>
+                    <option value="active">Active / সক্রিয় সদস্য</option>
+                    <option value="inactive">Inactive / নিষ্ক্রিয়</option>
+                    <option value="pending">Pending / অপেক্ষমাণ</option>
+                    <option value="defaulter">Defaulter / খেলাপি</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isBn ? 'পেশা' : 'Occupation'}
+                    Occupation / পেশা
                   </label>
                   <input
                     type="text"
                     value={occupation}
                     onChange={(e) => setOccupation(e.target.value)}
+                    placeholder="পেশা"
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isBn ? 'মাসিক আয় (৳)' : 'Monthly Income (৳)'}
+                    Monthly Income / মাসিক আয় (৳)
                   </label>
                   <input
                     type="number"
                     min={0}
                     value={monthlyIncome}
                     onChange={(e) => setMonthlyIncome(Number(e.target.value))}
+                    placeholder="0"
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isBn ? 'জন্ম তারিখ' : 'Date of Birth'}
+                    Date of Birth / জন্ম তারিখ
                   </label>
                   <input
                     type="date"
-                    value={dob}
+                    value={dob ? dob.split('T')[0].split(' ')[0] : ''}
                     onChange={(e) => setDob(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
@@ -605,72 +612,80 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isBn ? 'যোগদানের তারিখ' : 'Joining Date'}
+                    Joining Date / যোগদানের তারিখ
                   </label>
                   <input
                     type="date"
-                    value={joiningDate}
+                    value={joiningDate ? joiningDate.split('T')[0].split(' ')[0] : ''}
                     onChange={(e) => setJoiningDate(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
+                  <span className="text-[10px] text-slate-500 mt-1 block">
+                    {isBn ? 'সদস্যের যোগদানের তারিখ (সময় ব্যতীত কেবল তারিখ)' : 'Joining date only (date without time)'}
+                  </span>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isBn ? 'পিতার নাম' : "Father's Name"}
+                    Father's Name / পিতার নাম
                   </label>
                   <input
                     type="text"
                     value={fatherName}
                     onChange={(e) => setFatherName(e.target.value)}
+                    placeholder="পিতার নাম"
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isBn ? 'মাতার নাম' : "Mother's Name"}
+                    Mother's Name / মাতার নাম
                   </label>
                   <input
                     type="text"
                     value={motherName}
                     onChange={(e) => setMotherName(e.target.value)}
+                    placeholder="মাতার নাম"
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
                 </div>
 
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isBn ? 'স্বামী / স্ত্রীর নাম' : "Spouse's Name"}
+                    Spouse's Name / স্বামী বা স্ত্রীর নাম
                   </label>
                   <input
                     type="text"
                     value={spouseName}
                     onChange={(e) => setSpouseName(e.target.value)}
+                    placeholder="স্বামী বা স্ত্রীর নাম (প্রযোজ্য ক্ষেত্রে)"
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
                 </div>
 
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isBn ? 'বর্তমান ঠিকানা' : 'Present Address'}
+                    Present Address / বর্তমান ঠিকানা
                   </label>
                   <input
                     type="text"
                     value={presentAddress}
                     onChange={(e) => setPresentAddress(e.target.value)}
+                    placeholder="বর্তমান ঠিকানা (গ্রাম/রোড, পোস্ট, উপজেলা, জেলা)"
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
                 </div>
 
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isBn ? 'স্থায়ী ঠিকানা' : 'Permanent Address'}
+                    Permanent Address / স্থায়ী ঠিকানা
                   </label>
                   <input
                     type="text"
                     value={permanentAddress}
                     onChange={(e) => setPermanentAddress(e.target.value)}
+                    placeholder="স্থায়ী ঠিকানা (গ্রাম/রোড, পোস্ট, উপজেলা, জেলা)"
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
                 </div>
@@ -678,21 +693,21 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
             </div>
           )}
 
-          {/* TAB 3: PHOTO & SIGNATURE */}
+          {/* TAB: PHOTO & SIGNATURE */}
           {activeTab === 'photo' && (
             <div className="space-y-6">
               <div>
                 <PhotoUploadField
-                  label={isBn ? 'সদস্যের ছবি' : 'Member Photo'}
+                  label="Member Photo / সদস্যের ছবি"
                   value={photoUrl}
                   onChange={setPhotoUrl}
-                  helperText={isBn ? 'ডিভাইস থেকে ছবি আপলোড করুন অথবা ওয়েবক্যাম/স্যাম্পল ছবি বেছে নিন' : 'Upload photo from device or choose avatar'}
+                  helperText={isBn ? 'ডিভাইস থেকে ছবি আপলোড করুন অথবা ওয়েবক্যাম/স্যাম্পল ছবি বেছে নিন' : 'Upload member photo from device or choose avatar preset'}
                 />
               </div>
 
               <div className="border-t border-slate-200 pt-4">
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {isBn ? 'স্বাক্ষর / সই এর ইমেজ বা লিঙ্ক (Signature)' : 'Signature Image / Link'}
+                  Signature / সদস্যের নমুনা স্বাক্ষর
                 </label>
                 <input
                   type="text"
@@ -710,7 +725,7 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
 
               <div className="border-t border-slate-200 pt-4">
                 <PhotoUploadField
-                  label={isBn ? 'নমিনির ছবি (Nominee Photo)' : 'Nominee Photo'}
+                  label="Nominee Photo / নমিনির ছবি"
                   value={nomineePhotoUrl}
                   onChange={setNomineePhotoUrl}
                   helperText={isBn ? 'নমিনির ছবি পরিবর্তন বা আপলোড করুন' : 'Upload or change nominee photo'}
@@ -719,73 +734,78 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
             </div>
           )}
 
-          {/* TAB 4: NOMINEE & NOTES */}
+          {/* TAB: NOMINEE & NOTES */}
           {activeTab === 'nominee' && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isBn ? 'নমিনির নাম' : 'Nominee Name'}
+                    Nominee Name / নমিনির নাম
                   </label>
                   <input
                     type="text"
                     value={nomineeName}
                     onChange={(e) => setNomineeName(e.target.value)}
+                    placeholder="নমিনির নাম"
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isBn ? 'সম্পর্ক' : 'Relation'}
+                    Relationship / নমিনির সাথে সম্পর্ক
                   </label>
                   <input
                     type="text"
                     value={nomineeRelation}
                     onChange={(e) => setNomineeRelation(e.target.value)}
+                    placeholder="যেমন: স্ত্রী, পুত্র, কন্যা, মাতা, পিতা"
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isBn ? 'নমিনির মোবাইল নম্বর' : 'Nominee Phone'}
+                    Nominee Mobile / নমিনির মোবাইল নম্বর
                   </label>
                   <input
                     type="tel"
                     value={nomineePhone}
                     onChange={(e) => setNomineePhone(e.target.value)}
+                    placeholder="01XXXXXXXXX"
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isBn ? 'নমিনির NID' : 'Nominee NID'}
+                    Nominee NID / নমিনির NID নম্বর
                   </label>
                   <input
                     type="text"
                     value={nomineeNid}
                     onChange={(e) => setNomineeNid(e.target.value)}
+                    placeholder="নমিনির জাতীয় পরিচয়পত্র নম্বর"
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
                 </div>
 
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isBn ? 'নমিনির ঠিকানা' : 'Nominee Address'}
+                    Nominee Address / নমিনির ঠিকানা
                   </label>
                   <input
                     type="text"
                     value={nomineeAddress}
                     onChange={(e) => setNomineeAddress(e.target.value)}
+                    placeholder="নমিনির ঠিকানা"
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isBn ? 'অংশীদারিত্বের হার (%)' : 'Share Percentage (%)'}
+                    Share Percentage / অংশীদারিত্বের হার (%)
                   </label>
                   <input
                     type="number"
@@ -799,7 +819,7 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
 
                 <div className="sm:col-span-2 pt-2 border-t border-slate-200">
                   <PhotoUploadField
-                    label={isBn ? 'নমিনির ছবি আপলোড বা পরিবর্তন (Nominee Photo)' : 'Nominee Photo'}
+                    label="Nominee Photo / নমিনির ছবি"
                     value={nomineePhotoUrl}
                     onChange={setNomineePhotoUrl}
                     helperText={isBn ? 'নমিনির পাসপোর্ট সাইজ ছবি, ডিভাইস থেকে আপলোড করুন বা স্যাম্পল ছবি বেছে নিন' : 'Upload nominee photo from device or choose avatar preset'}
@@ -809,7 +829,7 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
 
               <div className="border-t border-slate-200 pt-3">
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {isBn ? 'অতিরিক্ত প্রাতিষ্ঠানিক মন্তব্য / নোট' : 'Administrative Notes'}
+                  Notes / বিশেষ প্রাতিষ্ঠানিক মন্তব্য
                 </label>
                 <textarea
                   rows={2}

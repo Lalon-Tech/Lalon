@@ -1,10 +1,11 @@
-import { Loan, BusinessFunding, Member } from '../types';
+import { Loan, BusinessFunding, Member, AppUser } from '../types';
 import { PendingApprovalItem } from '../types/approval';
 
 export interface ApprovalCollectorSources {
   loans?: Loan[];
   businessFundings?: BusinessFunding[];
   members?: Member[];
+  users?: AppUser[];
 }
 
 /**
@@ -75,6 +76,35 @@ export function getAllPendingApprovals(sources: ApprovalCollectorSources): Pendi
           subTitle: `${funding.durationMonths} মাস মেয়াদ`,
           profitOrInterestRate: `সদস্য ${funding.memberProfitSharePercent}% • সমিতি ${funding.somitiProfitSharePercent}%`,
           rawItem: funding,
+        });
+      });
+  }
+
+  // 3. Pending User Registrations Collector
+  if (sources.users && Array.isArray(sources.users)) {
+    sources.users
+      .filter(u => u.status === 'pending')
+      .forEach(user => {
+        items.push({
+          id: user.id,
+          category: 'user_registration',
+          categoryLabelBn: 'নতুন সদস্য নিবন্ধন',
+          categoryLabelEn: 'New Member Registration',
+          applicationNo: user.userUid || user.email,
+          memberId: user.memberId || '',
+          memberNo: user.memberNo || '',
+          memberName: user.name || user.email,
+          memberPhone: user.phone || undefined,
+          memberPhoto: user.avatarUrl,
+          amount: 0,
+          requestDate: user.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0],
+          status: 'pending',
+          statusLabelBn: 'অনুমোদন অপেক্ষমাণ',
+          statusLabelEn: 'Pending Approval',
+          title: 'নতুন একাউন্ট নিবন্ধন আবেদন',
+          subTitle: `ইমেইল: ${user.email}`,
+          profitOrInterestRate: 'সদস্য প্রোফাইল ও UID লিংক প্রয়োজন',
+          rawItem: user,
         });
       });
   }

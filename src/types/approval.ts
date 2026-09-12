@@ -3,6 +3,7 @@ import { Loan, BusinessFunding } from '../types';
 export type ApprovalCategory = 
   | 'loan' 
   | 'business_funding' 
+  | 'user_registration'
   | 'member_admission' 
   | 'savings_withdrawal' 
   | 'other';

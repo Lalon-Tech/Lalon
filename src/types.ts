@@ -223,10 +223,11 @@ export interface BankAccount {
   updatedAt: string;
 }
 
-export type UserRole = 'admin' | 'president' | 'secretary' | 'cashier' | 'manager' | 'field_officer';
+export type UserRole = 'admin' | 'president' | 'secretary' | 'cashier' | 'manager' | 'field_officer' | 'member';
 
 export interface AppUser {
   id: string;
+  userUid?: string; // Formatted as BS-#### (e.g. BS-1001)
   name: string;
   phone: string;
   email: string;
@@ -236,9 +237,10 @@ export interface AppUser {
   assignedArea?: string;
   dailyTarget?: number;
   collectedToday?: number;
-  status: 'active' | 'inactive';
+  status: 'active' | 'inactive' | 'pending';
   memberId?: string;
   memberNo?: string;
+  createdAt?: string;
 }
 
 export interface SomitiSettings {

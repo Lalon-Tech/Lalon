@@ -35,12 +35,15 @@ export const NewWithdrawModal: React.FC<NewWithdrawModalProps> = ({
     ? lockMember 
     : Boolean(initialMemberId || (selectedMemberId && !isEmbedded));
 
-  const effectiveTargetId = initialMemberId || selectedMemberId;
-  const initialValidId = effectiveTargetId && members.some(m => m.id === effectiveTargetId)
-    ? effectiveTargetId
-    : (members[0]?.id || '');
+  const effectiveTargetId = (initialMemberId && members.some(m => m.id === initialMemberId))
+    ? initialMemberId
+    : (selectedMemberId && members.some(m => m.id === selectedMemberId))
+      ? selectedMemberId
+      : (members[0]?.id || '');
 
-  const [memberId, setMemberId] = useState(initialValidId);
+  const [selectedId, setSelectedId] = useState(effectiveTargetId);
+  const memberId = isMemberLocked ? effectiveTargetId : (selectedId || effectiveTargetId);
+  const setMemberId = setSelectedId;
   const [amount, setAmount] = useState<number>(1000);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [bankAccountId, setBankAccountId] = useState(bankAccounts[0]?.id || '');
@@ -52,7 +55,7 @@ export const NewWithdrawModal: React.FC<NewWithdrawModalProps> = ({
   React.useEffect(() => {
     const targetId = initialMemberId || selectedMemberId;
     if (targetId && members.some(m => m.id === targetId)) {
-      setMemberId(targetId);
+      setSelectedId(targetId);
     }
   }, [isOpen, initialMemberId, selectedMemberId, members]);
 
@@ -62,7 +65,7 @@ export const NewWithdrawModal: React.FC<NewWithdrawModalProps> = ({
       setConfirmOverdraw(false);
       const targetId = initialMemberId || selectedMemberId;
       if (targetId && members.some(m => m.id === targetId)) {
-        setMemberId(targetId);
+        setSelectedId(targetId);
       }
     }
   }, [isOpen]);

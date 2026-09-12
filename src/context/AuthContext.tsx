@@ -10,7 +10,7 @@ import {
   signInWithPopup,
   sendPasswordResetEmail
 } from 'firebase/auth';
-import { doc } from 'firebase/firestore';
+import { doc, collection, query, where, getDocs, getDoc } from 'firebase/firestore';
 import { auth, db, safeSetDoc } from '../lib/firebase';
 
 export interface AppAuthUser {
@@ -77,9 +77,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const clearError = () => setError(null);
 
-  const signIn = async (email: string, pass: string) => {
+  const signIn = async (identifier: string, pass: string) => {
     setError(null);
-    const cleanEmail = email.trim();
+    let cleanEmail = identifier.trim();
+    let resolvedUser: any = null;
+
+    // Rule 6: Support login using Email Address OR User UID (e.g. BS-1001, BS-101)
+    if (!cleanEmail.includes('@')) {
+      const normalizedUid = cleanEmail.toUpperCase();
+
+      // 1. Try querying Firestore systemUsers by userUid or document ID
+      try {
+        const q = query(collection(db, 'systemUsers'), where('userUid', '==', normalizedUid));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          resolvedUser = snap.docs[0].data();
+          cleanEmail = resolvedUser.email;
+        }
+      } catch (fsErr) {
+        console.warn("Firestore userUid query failed:", fsErr);
+      }
+
+      // 2. Check localStorage 'bondhu_users' or initial users if not yet resolved
+      if (!resolvedUser) {
+        try {
+          const saved = localStorage.getItem('bondhu_users');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            const matched = parsed.find((u: any) => 
+              (u.userUid && u.userUid.toUpperCase() === normalizedUid) ||
+              (u.id && u.id.toUpperCase() === normalizedUid)
+            );
+            if (matched?.email) {
+              resolvedUser = matched;
+              cleanEmail = matched.email;
+            }
+          }
+        } catch {}
+      }
+
+      // 3. Known admin fallback
+      if (!resolvedUser && (normalizedUid === 'BS-1001' || normalizedUid === 'USR-ADMIN')) {
+        resolvedUser = { email: 'admin@bondhusomiti.com', name: 'প্রধান প্রশাসক', userUid: 'BS-1001' };
+        cleanEmail = 'admin@bondhusomiti.com';
+      }
+
+      if (!resolvedUser || !cleanEmail || !cleanEmail.includes('@')) {
+        const msg = `"${identifier}" ইউজার ইউআইডি সম্বলিত কোনো অ্যাকাউন্ট পাওয়া যায়নি! সঠিক ইউআইডি অথবা ইমেইল দিয়ে চেষ্টা করুন।`;
+        setError(msg);
+        throw new Error(msg);
+      }
+    }
+
     try {
       const cred = await signInWithEmailAndPassword(auth, cleanEmail, pass);
       localStorage.removeItem('somiti_local_user');
@@ -90,10 +139,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // If Firebase email/password provider is not enabled in Firebase Console (operation-not-allowed)
       if (err.code === 'auth/operation-not-allowed' || err.code === 'auth/admin-restricted-operation') {
         const localUser: AppAuthUser = {
-          uid: 'usr_' + btoa(cleanEmail).replace(/[^a-zA-Z0-9]/g, '').substring(0, 12),
+          uid: resolvedUser?.id || ('usr_' + btoa(cleanEmail).replace(/[^a-zA-Z0-9]/g, '').substring(0, 12)),
           email: cleanEmail,
-          displayName: cleanEmail.split('@')[0],
-          photoURL: null,
+          displayName: resolvedUser?.name || cleanEmail.split('@')[0],
+          photoURL: resolvedUser?.avatarUrl || null,
         };
         localStorage.setItem('somiti_local_user', JSON.stringify(localUser));
         setUser(localUser);
@@ -113,11 +162,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      let msg = "ভুল ইমেইল অথবা পাসওয়ার্ড!";
+      let msg = "ভুল ইমেইল/ইউআইডি অথবা পাসওয়ার্ড!";
       if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-        msg = "এই ইমেইলে কোনো অ্যাকাউন্ট পাওয়া যায়নি অথবা পাসওয়ার্ড ভুল। আপনি নতুন হলে নিচে 'Sign up' বাটনে ক্লিক করে একাউন্ট নিবন্ধন করুন।";
+        msg = "এই ইমেইল/ইউআইডি তে কোনো অ্যাকাউন্ট পাওয়া যায়নি অথবা পাসওয়ার্ড ভুল।";
       } else if (err.code === 'auth/invalid-email') {
-        msg = "সঠিক ইমেইল ঠিকানা দিন (যেমন: name@example.com)।";
+        msg = "সঠিক ইমেইল ঠিকানা অথবা ইউজার ইউআইডি (যেমন: BS-1001) দিন।";
       } else if (err.code === 'auth/too-many-requests') {
         msg = "অতিরিক্ত ভুল চেষ্টার কারণে সাময়িক ব্লক করা হয়েছে। কিছুক্ষণ পর চেষ্টা করুন।";
       } else if (err.code === 'auth/network-request-failed') {
@@ -145,12 +194,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Sync to Firestore systemUsers collection
       try {
+        const isAdmin = cleanEmail.toLowerCase() === 'sin4.riyas.lalon.dc@gmail.com' || cleanEmail.toLowerCase() === 'admin@bondhusomiti.com';
         await safeSetDoc(doc(db, 'systemUsers', cred.user.uid), {
           id: cred.user.uid,
           name: name || cleanEmail.split('@')[0],
           email: cleanEmail,
-          role: cleanEmail === 'sin4.riyas.lalon.dc@gmail.com' ? 'admin' : 'member',
-          status: 'active',
+          role: isAdmin ? 'admin' : 'member',
+          status: isAdmin ? 'active' : 'pending',
           createdAt: new Date().toISOString().split('T')[0]
         }, { merge: true });
       } catch (dbErr) {
@@ -213,14 +263,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Sync to Firestore systemUsers collection
       try {
-        await safeSetDoc(doc(db, 'systemUsers', cred.user.uid), {
-          id: cred.user.uid,
-          name: cred.user.displayName || cred.user.email?.split('@')[0] || 'User',
-          email: cred.user.email,
-          role: cred.user.email === 'sin4.riyas.lalon.dc@gmail.com' ? 'admin' : 'member',
-          status: 'active',
-          createdAt: new Date().toISOString().split('T')[0]
-        }, { merge: true });
+        const userEmail = (cred.user.email || '').toLowerCase();
+        const isAdmin = userEmail === 'sin4.riyas.lalon.dc@gmail.com' || userEmail === 'admin@bondhusomiti.com';
+        const userDocRef = doc(db, 'systemUsers', cred.user.uid);
+        const existingDoc = await getDoc(userDocRef);
+
+        if (!existingDoc.exists()) {
+          await safeSetDoc(userDocRef, {
+            id: cred.user.uid,
+            name: cred.user.displayName || cred.user.email?.split('@')[0] || 'User',
+            email: cred.user.email,
+            role: isAdmin ? 'admin' : 'member',
+            status: isAdmin ? 'active' : 'pending',
+            createdAt: new Date().toISOString().split('T')[0]
+          });
+        }
       } catch (dbErr) {
         console.warn("Firestore systemUser create error:", dbErr);
       }

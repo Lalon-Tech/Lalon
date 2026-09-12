@@ -61,6 +61,207 @@ export const DashboardView: React.FC = () => {
 
   const num = (n: number | string) => (isBengaliNum ? toBengaliNumber(n) : n.toString());
 
+  // Rule 7: Dedicated personalized Member Dashboard
+  if (currentUser?.role === 'member') {
+    const myMember = members.find(m => m.id === currentUser.memberId);
+    const myTransactions = transactions.filter(t => t.memberId === currentUser.memberId);
+    const myLoans = loans.filter(l => l.memberId === currentUser.memberId);
+    const myActiveLoans = myLoans.filter(l => l.status === 'active');
+    const mySavings = savingsSchemes.filter(s => s.memberId === currentUser.memberId);
+
+    const mySavingsTotal = Number(myMember?.totalSavings ?? myMember?.generalSavingsBalance ?? 0);
+    const myActiveLoanBalance = Number(myMember?.activeLoanBalance ?? 0);
+    const mySharesCount = Number(myMember?.sharesCount ?? 1);
+    const myShareAmount = Number(myMember?.shareAmount ?? (mySharesCount * 1000));
+
+    return (
+      <div className="space-y-6 pb-12">
+        {/* Welcome Member Banner */}
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 p-6 rounded-2xl text-white shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            {myMember?.photoUrl ? (
+              <img 
+                src={myMember.photoUrl} 
+                alt={myMember.name} 
+                className="w-16 h-16 rounded-full object-cover ring-4 ring-white/20 shadow-md bg-slate-800"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-blue-600/30 ring-4 ring-white/20 flex items-center justify-center text-xl font-bold">
+                {myMember?.name?.slice(0, 1) || 'স'}
+              </div>
+            )}
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-xl font-bold text-white tracking-wide">
+                  {myMember?.name || (isBn ? 'সম্মানিত সদস্য' : 'Valued Member')}
+                </h2>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-500/30 text-blue-200 border border-blue-400/30">
+                  {isBn ? 'সদস্য পোর্টাল' : 'Member Portal'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-1 flex items-center gap-3 flex-wrap">
+                <span>{isBn ? 'সদস্য নং:' : 'Member No:'} <strong className="text-amber-300">{myMember?.memberNo || '---'}</strong></span>
+                <span>•</span>
+                <span>{isBn ? 'ইউজার আইডি:' : 'User UID:'} <strong className="text-cyan-300">{currentUser.userUid || '---'}</strong></span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                if (currentUser.memberId) setSelectedMemberId(currentUser.memberId);
+                setActiveTab('member_profile');
+              }}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center gap-1.5"
+            >
+              <span>{isBn ? 'আমার পূর্ণাঙ্গ পাসবুক' : 'My Full Passbook'}</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* 4 Financial Metric Cards for Member */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: Total Savings */}
+          <div className="bg-white p-5 rounded-2xl border border-emerald-200/80 shadow-2xs">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-emerald-700">
+                {isBn ? 'আমার মোট সঞ্চয়' : 'My Total Savings'}
+              </span>
+              <span className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+                <Wallet className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="text-2xl font-black text-slate-800 tracking-tight">
+              {formatCurrency(mySavingsTotal, isBengaliNum)}
+            </div>
+            <div className="text-[11px] text-slate-500 mt-2">
+              {isBn ? 'সাধারণ সঞ্চয় ও ডিপিএস ব্যালেন্স' : 'General & DPS Balance'}
+            </div>
+          </div>
+
+          {/* Card 2: Active Loan Balance */}
+          <div className="bg-white p-5 rounded-2xl border border-amber-200/80 shadow-2xs">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-amber-700">
+                {isBn ? 'চলমান ঋণ বকেয়া' : 'Active Loan Balance'}
+              </span>
+              <span className="p-2 bg-amber-50 text-amber-600 rounded-xl">
+                <CreditCard className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="text-2xl font-black text-slate-800 tracking-tight">
+              {formatCurrency(myActiveLoanBalance, isBengaliNum)}
+            </div>
+            <div className="text-[11px] text-slate-500 mt-2">
+              {myActiveLoans.length > 0 
+                ? (isBn ? `${num(myActiveLoans.length)} টি সক্রিয় ঋণ চলছে` : `${myActiveLoans.length} active loans`) 
+                : (isBn ? 'কোনো বকেয়া ঋণ নেই' : 'No outstanding loan')}
+            </div>
+          </div>
+
+          {/* Card 3: Active Savings Schemes */}
+          <div className="bg-white p-5 rounded-2xl border border-blue-200/80 shadow-2xs">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-blue-700">
+                {isBn ? 'সক্রিয় স্কিম (DPS/FDR)' : 'Active Schemes (DPS/FDR)'}
+              </span>
+              <span className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                <Clock className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="text-2xl font-black text-slate-800 tracking-tight">
+              {num(mySavings.length)} <span className="text-xs font-medium text-slate-500">{isBn ? 'টি' : 'schemes'}</span>
+            </div>
+            <div className="text-[11px] text-slate-500 mt-2">
+              {isBn ? 'মেয়াদি সঞ্চয় স্কিম তালিকা' : 'Term savings schemes'}
+            </div>
+          </div>
+
+          {/* Card 4: My Shares */}
+          <div className="bg-white p-5 rounded-2xl border border-indigo-200/80 shadow-2xs">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-indigo-700">
+                {isBn ? 'আমার শেয়ার ও মূলধন' : 'My Shares & Capital'}
+              </span>
+              <span className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                <Building className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="text-2xl font-black text-slate-800 tracking-tight">
+              {formatCurrency(myShareAmount, isBengaliNum)}
+            </div>
+            <div className="text-[11px] text-slate-500 mt-2">
+              {isBn ? `মোট শেয়ার: ${num(mySharesCount)} টি` : `Total Shares: ${mySharesCount}`}
+            </div>
+          </div>
+        </div>
+
+        {/* Member Recent Transactions */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-bold text-slate-800">
+              {isBn ? 'আমার সাম্প্রতিক লেনদেন বিবরণী' : 'My Recent Transactions'}
+            </h3>
+            <button
+              onClick={() => setActiveTab('transactions')}
+              className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
+            >
+              <span>{isBn ? 'সকল লেনদেন দেখুন' : 'View All Transactions'}</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {myTransactions.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 text-xs font-medium">
+              {isBn ? 'এখনও কোনো লেনদেনের রেকর্ড পাওয়া যায়নি।' : 'No transactions recorded yet.'}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
+                    <th className="pb-3">{isBn ? 'তারিখ' : 'Date'}</th>
+                    <th className="pb-3">{isBn ? 'ভাউচার নং' : 'Voucher'}</th>
+                    <th className="pb-3">{isBn ? 'ধরণ' : 'Type'}</th>
+                    <th className="pb-3">{isBn ? 'পেমেন্ট মাধ্যম' : 'Method'}</th>
+                    <th className="pb-3 text-right">{isBn ? 'পরিমাণ' : 'Amount'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                  {myTransactions.slice(0, 5).map(tx => {
+                    const typeInfo = getTransactionTypeName(tx.type, isBn);
+                    const isCredit = ['deposit', 'dps_deposit', 'fdr_deposit', 'profit_share'].includes(tx.type);
+                    return (
+                      <tr key={tx.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3 text-slate-500">{tx.date}</td>
+                        <td className="py-3 font-mono font-bold text-slate-600">{tx.voucherNo}</td>
+                        <td className="py-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                            isCredit ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+                          }`}>
+                            {typeInfo.label}
+                          </span>
+                        </td>
+                        <td className="py-3 text-slate-500">{tx.paymentMethod || 'Cash'}</td>
+                        <td className={`py-3 text-right font-black ${
+                          isCredit ? 'text-emerald-600' : 'text-rose-600'
+                        }`}>
+                          {isCredit ? '+' : '-'}{formatCurrency(tx.amount, isBengaliNum)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-12">
       {/* Top Banner with Overview Header & Quick Buttons */}

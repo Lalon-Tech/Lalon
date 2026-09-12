@@ -75,16 +75,19 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
     ? lockMember 
     : Boolean(initialMemberId || (selectedMemberId && !isEmbedded));
 
-  const effectiveTargetId = initialMemberId || selectedMemberId;
-  const initialValidId = effectiveTargetId && members.some(m => m.id === effectiveTargetId)
-    ? effectiveTargetId
-    : (members[0]?.id || '');
+  const effectiveTargetId = (initialMemberId && members.some(m => m.id === initialMemberId))
+    ? initialMemberId
+    : (selectedMemberId && members.some(m => m.id === selectedMemberId))
+      ? selectedMemberId
+      : (members[0]?.id || '');
 
   const getTodayDate = () => new Date().toISOString().split('T')[0];
   const getCurrentMonthStr = () => String(new Date().getMonth() + 1).padStart(2, '0');
   const getCurrentYearNum = () => new Date().getFullYear();
 
-  const [memberId, setMemberId] = useState(initialValidId);
+  const [selectedId, setSelectedId] = useState(effectiveTargetId);
+  const memberId = isMemberLocked ? effectiveTargetId : (selectedId || effectiveTargetId);
+  const setMemberId = setSelectedId;
   const [schemeType, setSchemeType] = useState<'general' | 'dps' | 'fdr'>('general');
   const [schemeId, setSchemeId] = useState('');
   const [depositMode, setDepositMode] = useState<'share_wise' | 'custom'>('share_wise');
@@ -153,7 +156,7 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
   useEffect(() => {
     const targetId = initialMemberId || selectedMemberId;
     if (targetId && members.some(m => m.id === targetId)) {
-      setMemberId(targetId);
+      setSelectedId(targetId);
     }
   }, [isOpen, initialMemberId, selectedMemberId, members]);
 

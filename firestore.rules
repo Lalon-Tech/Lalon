@@ -2,79 +2,88 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // 1. Settings collection (Somiti organization configuration)
-    match /settings/{docId} {
-      allow read, write: if true;
+    // Helper function to check if request is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
     }
 
-    // 2. System Users (Staff, Collectors, Admin)
+    // 1. Settings collection (Somiti organization configuration)
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // 2. System Users (Staff, Members, Admin)
+    // Read is allowed to resolve login by Email or User UID
+    // Creation and updates require authentication
     match /systemUsers/{userId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, update, delete: if isAuthenticated();
     }
 
     // 3. Bank Accounts (Bank ledger & balances)
     match /bankAccounts/{accountId} {
-      allow read, write: if true;
+      allow read, write: if isAuthenticated();
     }
 
     // 4. Income & Expense Vouchers (Ledger records)
     match /incomeExpenses/{voucherId} {
-      allow read, write: if true;
+      allow read, write: if isAuthenticated();
     }
 
     // 5. Dashboard Summary
     match /dashboardSummary/{summaryId} {
-      allow read, write: if true;
+      allow read, write: if isAuthenticated();
     }
 
     // 6. Members Profile & Information
     match /members/{memberId} {
-      allow read, write: if true;
+      allow read, write: if isAuthenticated();
     }
 
     // 7. Member Financials
     match /memberFinancials/{memberId} {
-      allow read, write: if true;
+      allow read, write: if isAuthenticated();
     }
 
     // 8. Loans & Installment Schedules
     match /loans/{loanId} {
-      allow read, write: if true;
+      allow read, write: if isAuthenticated();
     }
 
     // 9. Savings & DPS / FDR Accounts
     match /savings/{savingsId} {
-      allow read, write: if true;
+      allow read, write: if isAuthenticated();
     }
 
     // 10. Transactions (Deposits, Withdrawals, Installments, Expenses)
     match /transactions/{txId} {
-      allow read, write: if true;
+      allow read, write: if isAuthenticated();
     }
 
     // 11. Share Closures & Surrender Archives
     match /shareClosures/{closureId} {
-      allow read, write: if true;
+      allow read, write: if isAuthenticated();
     }
 
     // 12. Business Fundings & Applications
     match /businessFundings/{fundingId} {
-      allow read, write: if true;
+      allow read, write: if isAuthenticated();
     }
 
     // 13. Business Profit Records
     match /businessProfitRecords/{recordId} {
-      allow read, write: if true;
+      allow read, write: if isAuthenticated();
     }
 
     // 14. Monthly Profit Distributions
     match /profitDistributions/{distId} {
-      allow read, write: if true;
+      allow read, write: if isAuthenticated();
     }
 
-    // Default fallback
+    // Default fallback - require authentication
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if isAuthenticated();
     }
   }
 }

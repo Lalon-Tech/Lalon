@@ -107,6 +107,7 @@ export const sampleDemoUsers: AppUser[] = [
 export const initialUsers: AppUser[] = [
   {
     id: 'usr-admin',
+    userUid: 'BS-1001',
     name: 'প্রধান প্রশাসক',
     phone: '01752012365',
     email: 'admin@bondhusomiti.com',

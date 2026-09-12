@@ -44,8 +44,11 @@ export const TransactionManager: React.FC = () => {
     setShowQuickDepositModal,
     setShowQuickWithdrawModal,
     setShowQuickLoanModal,
-    setShowQuickKistiModal
+    setShowQuickKistiModal,
+    currentUser
   } = useSomiti();
+
+  const isMember = currentUser?.role === 'member';
 
   type TxTab = 'ledger' | 'deposit' | 'withdraw';
   const getInitialTab = (): TxTab => {
@@ -73,6 +76,11 @@ export const TransactionManager: React.FC = () => {
   const displayCount = (num: number) => (isBn || useBengaliDigits ? toBengaliNumber(num) : num.toString());
 
   const filteredTransactions = transactions.filter((tx) => {
+    // Rule 7: Member can only view their own transactions
+    if (isMember && currentUser?.memberId && tx.memberId !== currentUser.memberId) {
+      return false;
+    }
+
     const q = (searchTerm || '').trim().toLowerCase();
     if (!q) {
       if (typeFilter !== 'all') {

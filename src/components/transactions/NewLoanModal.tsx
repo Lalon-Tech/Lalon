@@ -31,19 +31,22 @@ export const NewLoanModal: React.FC<NewLoanModalProps> = ({
   } = useSomiti();
 
   const isMemberLocked = lockMember !== undefined ? lockMember : Boolean(initialMemberId || selectedMemberId);
-  const effectiveTargetId = initialMemberId || selectedMemberId;
-  const initialValidId = effectiveTargetId && members.some(m => m.id === effectiveTargetId)
-    ? effectiveTargetId
-    : (members[0]?.id || '');
+  const effectiveTargetId = (initialMemberId && members.some(m => m.id === initialMemberId))
+    ? initialMemberId
+    : (selectedMemberId && members.some(m => m.id === selectedMemberId))
+      ? selectedMemberId
+      : (members[0]?.id || '');
 
-  const [memberId, setMemberId] = useState(initialValidId);
+  const [selectedId, setSelectedId] = useState(effectiveTargetId);
+  const memberId = isMemberLocked ? effectiveTargetId : (selectedId || effectiveTargetId);
+  const setMemberId = setSelectedId;
   const currentMember = members.find(m => m.id === memberId);
 
   // Sync memberId with active member whenever modal opens
   React.useEffect(() => {
     const targetId = initialMemberId || selectedMemberId;
     if (targetId && members.some(m => m.id === targetId)) {
-      setMemberId(targetId);
+      setSelectedId(targetId);
     }
   }, [isOpen, initialMemberId, selectedMemberId, members]);
   const [principalAmount, setPrincipalAmount] = useState<number>(50000);

@@ -44,12 +44,17 @@ import { ShareClosuresList } from './ShareClosuresList';
 import { EditMemberModal } from './EditMemberModal';
 import { DeleteMemberModal } from './DeleteMemberModal';
 import { EditTransactionModal } from '../transactions/EditTransactionModal';
+import { NewDepositModal } from '../transactions/NewDepositModal';
+import { NewWithdrawModal } from '../transactions/NewWithdrawModal';
+import { NewLoanModal } from '../transactions/NewLoanModal';
 import { Transaction } from '../../types';
 import { MemberBusinessFundingTab } from '../business/MemberBusinessFundingTab';
 import { 
   formatCurrency, 
   formatInteger, 
   formatBengaliDate, 
+  formatMemberDate,
+  formatDateOnly,
   getTransactionTypeName, 
   toBengaliNumber,
   compareTransactionsDesc,
@@ -68,6 +73,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
     businessFundings,
     transactions, 
     useBengaliDigits,
+    selectedMemberId,
     setSelectedMemberId,
     setShowNewMemberModal,
     openReceiptForTx,
@@ -81,10 +87,13 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
     isUserAdmin,
     canViewMemberFinancials,
     businessProfitRecords,
-    profitDistributions
+    profitDistributions,
+    currentUser
   } = useSomiti();
 
-  const [activeTab, setActiveTab] = useState<'passbook' | 'savings' | 'shares' | 'loans' | 'business' | 'nominee' | 'agreement'>('passbook');
+  const isMember = currentUser?.role === 'member';
+
+  const [activeTab, setActiveTab] = useState<'profile' | 'passbook' | 'savings' | 'shares' | 'loans' | 'business' | 'nominee' | 'agreement'>('profile');
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [newPhotoUrl, setNewPhotoUrl] = useState('');
   const [showNomineePhotoModal, setShowNomineePhotoModal] = useState(false);
@@ -95,6 +104,11 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
   const [showEditMemberModal, setShowEditMemberModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+
+  // Dedicated member-locked transaction modals
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [showLoanModal, setShowLoanModal] = useState(false);
 
   // Member Agreement & Undertaking Signatures Customization
   const [agrConfigTab, setAgrConfigTab] = useState<'president' | 'secretary'>('president');
@@ -123,14 +137,23 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
 
   const displayCount = (num: number) => (isBn || useBengaliDigits ? toBengaliNumber(num) : num.toString());
 
-  const member = members.find(m => m.id === memberId) || (members.length > 0 ? members[0] : undefined);
+  // Determine active member reactively from prop memberId or selectedMemberId
+  const effectiveMemberId = (isMember && currentUser?.memberId)
+    ? currentUser.memberId
+    : (selectedMemberId && members.some(m => m.id === selectedMemberId))
+      ? selectedMemberId
+      : (memberId && members.some(m => m.id === memberId))
+        ? memberId
+        : (members[0]?.id || '');
 
-  // Keep active member synced in context for all quick modals and operations
+  const member = members.find(m => m.id === effectiveMemberId) || (members.length > 0 ? members[0] : undefined);
+
+  // Keep active member synced in context for all operations
   React.useEffect(() => {
-    if (member?.id) {
+    if (member?.id && selectedMemberId !== member.id) {
       setSelectedMemberId(member.id);
     }
-  }, [member?.id, setSelectedMemberId]);
+  }, [member?.id, selectedMemberId, setSelectedMemberId]);
 
   if (!member) {
     return (
@@ -299,10 +322,10 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
             className="flex items-center gap-2 text-slate-600 hover:text-blue-600 text-xs font-bold transition-colors w-fit cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>{isBn ? 'সকল সদস্য তালিকা' : 'Member List'}</span>
+            <span>{isMember ? (isBn ? 'ড্যাশবোর্ডে ফিরুন' : 'Back to Dashboard') : (isBn ? 'সকল সদস্য তালিকা' : 'Member List')}</span>
           </button>
 
-          {members.length > 1 && (
+          {!isMember && members.length > 1 && (
             <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg">
               <span className="text-xs text-slate-500 font-semibold">{isBn ? 'সদস্য পরিবর্তন:' : 'Switch Member:'}</span>
               <select
@@ -341,20 +364,14 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                 <span>{isBn ? 'সদস্য তথ্য ও শেয়ার এডিট' : 'Edit Member & Shares'}</span>
               </button>
               <button
-                onClick={() => {
-                  if (member) setSelectedMemberId(member.id);
-                  setShowQuickDepositModal(true);
-                }}
+                onClick={() => setShowDepositModal(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
               >
                 <ArrowDownRight className="w-3.5 h-3.5" />
                 <span>{isBn ? 'টাকা জমা' : 'Deposit'}</span>
               </button>
               <button
-                onClick={() => {
-                  if (member) setSelectedMemberId(member.id);
-                  setShowQuickWithdrawModal(true);
-                }}
+                onClick={() => setShowWithdrawModal(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
               >
                 <ArrowUpRight className="w-3.5 h-3.5" />
@@ -377,10 +394,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                 <span>{isBn ? 'শেয়ার ক্রয়' : 'Buy Shares'}</span>
               </button>
               <button
-                onClick={() => {
-                  if (member) setSelectedMemberId(member.id);
-                  setShowQuickLoanModal(true);
-                }}
+                onClick={() => setShowLoanModal(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
               >
                 <CreditCard className="w-3.5 h-3.5" />
@@ -443,7 +457,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                   </span>
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5 text-blue-300" />
-                    {isBn ? `যোগদান: ${formatBengaliDate(member.joiningDate, isBn)}` : `Joined: ${formatBengaliDate(member.joiningDate, isBn)}`}
+                    {isBn ? `যোগদান: ${formatMemberDate(member.joiningDate, isBn)}` : `Joined: ${formatMemberDate(member.joiningDate, isBn)}`}
                   </span>
                   <span className="flex items-center gap-1">
                     <ShieldCheck className="w-3.5 h-3.5 text-blue-300" />
@@ -543,6 +557,17 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
         {/* Tab Navigation (Frozen / Sticky on scroll) */}
         <div className="flex border-b border-slate-200 bg-slate-50/95 backdrop-blur-xs overflow-x-auto sticky top-[57px] z-20 shadow-2xs">
           <button
+            onClick={() => setActiveTab('profile')}
+            className={`px-5 py-3 text-xs font-bold border-b-2 flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
+              activeTab === 'profile'
+                ? 'border-blue-600 text-blue-700 bg-white'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <User className="w-4 h-4 text-blue-600" />
+            <span>{isBn ? 'সদস্য পরিচিতি ও প্রোফাইল' : 'Member Profile'}</span>
+          </button>
+          <button
             onClick={() => setActiveTab('passbook')}
             className={`px-5 py-3 text-xs font-bold border-b-2 flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
               activeTab === 'passbook'
@@ -620,6 +645,372 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
             <span>{isBn ? 'চুক্তিপত্র ও ফরম' : 'Agreements & Forms'}</span>
           </button>
         </div>
+
+        {/* Tab 0: Comprehensive Member Profile (Bilingual Field Labels & Full Sync) */}
+        {activeTab === 'profile' && (
+          <div className="p-4 sm:p-6 space-y-6">
+            {/* Quick Profile Summary Banner */}
+            <div className="bg-gradient-to-br from-slate-50 via-white to-blue-50/40 p-5 rounded-2xl border border-slate-200 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="relative group shrink-0">
+                  <img
+                    src={member.photoUrl}
+                    alt={member.name}
+                    className="w-16 h-16 rounded-2xl object-cover object-top border-2 border-white shadow-sm ring-1 ring-slate-200"
+                  />
+                  {isUserAdmin && (
+                    <button
+                      onClick={() => {
+                        setNewPhotoUrl(member.photoUrl);
+                        setShowPhotoModal(true);
+                      }}
+                      title={isBn ? "ছবি পরিবর্তন" : "Change Photo"}
+                      className="absolute -bottom-1 -right-1 p-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer"
+                    >
+                      <Camera className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-lg font-black text-slate-900">{member.name}</h3>
+                    <span className="text-sm font-semibold text-slate-500">({member.nameEn || 'N/A'})</span>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                      #{member.memberNo}
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      {member.status === 'active' ? (isBn ? 'সক্রিয় সদস্য / Active' : 'Active / সক্রিয়') : (isBn ? 'নিষ্ক্রিয় / Inactive' : 'Inactive')}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-slate-500 mt-1 flex-wrap font-medium">
+                    <span className="flex items-center gap-1">
+                      <Phone className="w-3.5 h-3.5 text-blue-600" />
+                      {member.phone}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                      {isBn ? `যোগদানের তারিখ: ${formatMemberDate(member.joiningDate, isBn)}` : `Joining Date: ${formatMemberDate(member.joiningDate, isBn)}`}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Briefcase className="w-3.5 h-3.5 text-blue-600" />
+                      {member.occupation || (isBn ? 'পেশা উল্লেখ নেই' : 'No Occupation')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {isUserAdmin && (
+                <button
+                  onClick={() => setShowEditMemberModal(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer shrink-0"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  <span>{isBn ? 'প্রোফাইল তথ্য ও শেয়ার এডিট' : 'Edit Profile & Shares'}</span>
+                </button>
+              )}
+            </div>
+
+            {/* Main Information Cards */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Section 1: Personal Information / ব্যক্তিগত তথ্য */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+                <div className="bg-slate-50/80 px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-blue-600" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                      {isBn ? 'ব্যক্তিগত তথ্য / Personal Information' : 'Personal Information / ব্যক্তিগত তথ্য'}
+                    </h4>
+                  </div>
+                  <span className="text-[11px] text-slate-400 font-medium">{isBn ? 'সদস্য পরিচিতি' : 'Member Identity'}</span>
+                </div>
+
+                <div className="p-5 divide-y divide-slate-100 text-xs">
+                  <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">Name / নাম (বাংলা)</span>
+                    <span className="font-bold text-slate-800 text-right">{member.name}</span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">Name in English / নাম (ইংরেজি)</span>
+                    <span className="font-semibold text-slate-800 text-right">{member.nameEn || (isBn ? 'দেওয়া হয়নি' : 'N/A')}</span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">Mobile Number / মোবাইল নম্বর</span>
+                    <span className="font-bold text-blue-700 text-right font-mono">{member.phone}</span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">NID Number / NID নম্বর</span>
+                    <span className="font-semibold text-slate-800 text-right font-mono">{member.nid || (isBn ? 'দেওয়া হয়নি' : 'N/A')}</span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">Date of Birth / জন্ম তারিখ</span>
+                    <span className="font-semibold text-slate-800 text-right">
+                      {member.dob ? formatMemberDate(member.dob, isBn) : (isBn ? 'দেওয়া হয়নি' : 'N/A')}
+                    </span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">Gender / লিঙ্গ</span>
+                    <span className="font-semibold text-slate-800 text-right">
+                      {member.gender === 'male' ? (isBn ? 'পুরুষ / Male' : 'Male / পুরুষ') : member.gender === 'female' ? (isBn ? 'মহিলা / Female' : 'Female / মহিলা') : (isBn ? 'অন্যান্য / Other' : 'Other')}
+                    </span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">Occupation / পেশা</span>
+                    <span className="font-semibold text-slate-800 text-right">{member.occupation || (isBn ? 'উল্লেখ নেই' : 'N/A')}</span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">Monthly Income / মাসিক আয়</span>
+                    <span className="font-bold text-emerald-700 text-right">
+                      ৳{formatCurrency(member.monthlyIncome, isBn && useBengaliDigits)}
+                    </span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">Email / ইমেইল</span>
+                    <span className="font-semibold text-slate-800 text-right">{member.email || (isBn ? 'দেওয়া হয়নি' : 'N/A')}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Family & Address Details / পারিবারিক ও যোগাযোগের ঠিকানা */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+                <div className="bg-slate-50/80 px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-emerald-600" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                      {isBn ? 'পারিবারিক ও যোগাযোগের ঠিকানা / Family & Address' : 'Family & Address / পারিবারিক ও ঠিকানা'}
+                    </h4>
+                  </div>
+                  <span className="text-[11px] text-slate-400 font-medium">{isBn ? 'স্থায়ী ও বর্তমান তথ্য' : 'Address Info'}</span>
+                </div>
+
+                <div className="p-5 divide-y divide-slate-100 text-xs">
+                  <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">Father's Name / পিতার নাম</span>
+                    <span className="font-bold text-slate-800 text-right">{member.fatherName || (isBn ? 'দেওয়া হয়নি' : 'N/A')}</span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">Mother's Name / মাতার নাম</span>
+                    <span className="font-bold text-slate-800 text-right">{member.motherName || (isBn ? 'দেওয়া হয়নি' : 'N/A')}</span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">Spouse's Name / স্বামী বা স্ত্রীর নাম</span>
+                    <span className="font-semibold text-slate-800 text-right">{member.spouseName || (isBn ? 'প্রযোজ্য নয়' : 'N/A')}</span>
+                  </div>
+                  <div className="py-3 flex flex-col gap-1">
+                    <span className="text-slate-500 font-medium">Present Address / বর্তমান ঠিকানা</span>
+                    <p className="font-semibold text-slate-800 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                      {member.presentAddress || (isBn ? 'কোনো বর্তমান ঠিকানা সংরক্ষিত নেই' : 'N/A')}
+                    </p>
+                  </div>
+                  <div className="py-3 flex flex-col gap-1">
+                    <span className="text-slate-500 font-medium">Permanent Address / স্থায়ী ঠিকানা</span>
+                    <p className="font-semibold text-slate-800 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                      {member.permanentAddress || (isBn ? 'কোনো স্থায়ী ঠিকানা সংরক্ষিত নেই' : 'N/A')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Membership & Institutional Information / সদস্যপদ ও প্রাতিষ্ঠানিক তথ্য */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+                <div className="bg-slate-50/80 px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                      {isBn ? 'সমিতি সদস্যপদ ও প্রাতিষ্ঠানিক তথ্য / Membership Details' : 'Membership Details / সদস্যপদ তথ্য'}
+                    </h4>
+                  </div>
+                  <span className="text-[11px] text-slate-400 font-medium">{isBn ? 'অফিশিয়াল রেকর্ড' : 'Official Record'}</span>
+                </div>
+
+                <div className="p-5 divide-y divide-slate-100 text-xs">
+                  <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">Member Number / সদস্য নম্বর</span>
+                    <span className="font-bold text-slate-900 text-right font-mono bg-slate-100 px-2 py-0.5 rounded">
+                      #{member.memberNo}
+                    </span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">Membership Status / সদস্যপদ স্ট্যাটাস</span>
+                    <span className="font-bold text-emerald-700 text-right">
+                      {member.status === 'active' ? (isBn ? 'সক্রিয় সদস্য / Active' : 'Active / সক্রিয়') : (isBn ? 'নিষ্ক্রিয় / Inactive' : 'Inactive')}
+                    </span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">Joining Date / যোগদানের তারিখ</span>
+                    <span className="font-bold text-blue-700 text-right">
+                      {formatMemberDate(member.joiningDate, isBn)}
+                    </span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">Active Shares / মোট শেয়ার সংখ্যা</span>
+                    <span className="font-bold text-slate-800 text-right">
+                      {displayCount(member.shareCount)} টি (মূলধন: ৳{formatCurrency(member.shareValue, isBn && useBengaliDigits)})
+                    </span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">Admission Fee / সদস্য ভর্তি ফি</span>
+                    <span className="font-semibold text-slate-800 text-right">
+                      ৳{formatCurrency(member.admissionFee, isBn && useBengaliDigits)}
+                    </span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">General Savings / সাধারণ সঞ্চয় স্থিতি</span>
+                    <span className="font-bold text-emerald-600 text-right">
+                      ৳{formatCurrency(member.generalSavingsBalance, isBn && useBengaliDigits)}
+                    </span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">DPS Savings / ডিপিএস সঞ্চয় স্থিতি</span>
+                    <span className="font-bold text-teal-600 text-right">
+                      ৳{formatCurrency(member.dpsSavingsBalance, isBn && useBengaliDigits)}
+                    </span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">FDR Savings / স্থায়ী আমানত (FDR)</span>
+                    <span className="font-bold text-cyan-600 text-right">
+                      ৳{formatCurrency(member.fdrSavingsBalance, isBn && useBengaliDigits)}
+                    </span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">Total Savings / সর্বমোট সঞ্চয় স্থিতি</span>
+                    <span className="font-black text-emerald-700 text-right text-sm">
+                      ৳{formatCurrency(member.totalSavings, isBn && useBengaliDigits)}
+                    </span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">Active Loan Due / চলতি বকেয়া ঋণ</span>
+                    <span className="font-bold text-rose-600 text-right">
+                      ৳{formatCurrency(member.activeLoanBalance, isBn && useBengaliDigits)}
+                    </span>
+                  </div>
+                  {member.notes && (
+                    <div className="py-3 flex flex-col gap-1">
+                      <span className="text-slate-500 font-medium">Office Notes / প্রাতিষ্ঠানিক মন্তব্য</span>
+                      <p className="font-medium text-slate-700 bg-amber-50/60 p-2.5 rounded-lg border border-amber-200">
+                        {member.notes}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Section 4: Nominee Information / নমিনি তথ্য */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+                <div className="bg-slate-50/80 px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <UserCheck className="w-4 h-4 text-blue-600" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                      {isBn ? 'মনোনীত নমিনি তথ্য / Nominee Information' : 'Nominee Information / নমিনি তথ্য'}
+                    </h4>
+                  </div>
+                  <span className="text-[11px] text-slate-400 font-medium">
+                    {displayCount(member.nominees?.length || 0)} {isBn ? 'জন নমিনি' : 'Nominees'}
+                  </span>
+                </div>
+
+                <div className="p-5 space-y-4">
+                  {(!member.nominees || member.nominees.length === 0) ? (
+                    <div className="py-8 text-center text-slate-400 space-y-2">
+                      <UserCheck className="w-8 h-8 mx-auto text-slate-300" />
+                      <p className="text-xs">{isBn ? 'কোনো নমিনি তথ্য নিবন্ধিত নেই' : 'No Nominee Registered'}</p>
+                      {isUserAdmin && (
+                        <button
+                          onClick={() => setShowEditMemberModal(true)}
+                          className="text-xs text-blue-600 hover:underline font-semibold cursor-pointer"
+                        >
+                          {isBn ? '+ নমিনি তথ্য যোগ করুন' : '+ Add Nominee'}
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    member.nominees.map((nom, idx) => (
+                      <div key={nom.id || idx} className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-full bg-blue-100 text-blue-700 font-bold text-sm flex items-center justify-center shrink-0 overflow-hidden border border-blue-200">
+                              {nom.photoUrl ? (
+                                <img src={nom.photoUrl} alt={nom.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <span>{nom.name.charAt(0)}</span>
+                              )}
+                            </div>
+                            <div>
+                              <h5 className="font-bold text-slate-800 text-xs sm:text-sm">{nom.name}</h5>
+                              <span className="text-[11px] font-semibold text-blue-600">
+                                {isBn ? `সম্পর্ক: ${nom.relation}` : `Relation: ${nom.relation}`}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            {displayCount(nom.percentage)}% {isBn ? 'অংশ' : 'Share'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-200/80">
+                          <div>
+                            <span className="text-slate-400 block text-[10px]">Mobile / মোবাইল নম্বর:</span>
+                            <span className="font-bold text-slate-700 font-mono">{nom.phone || (isBn ? 'দেওয়া হয়নি' : 'N/A')}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block text-[10px]">NID Number / NID নম্বর:</span>
+                            <span className="font-semibold text-slate-700 font-mono">{nom.nid || (isBn ? 'দেওয়া হয়নি' : 'N/A')}</span>
+                          </div>
+                          <div className="sm:col-span-2">
+                            <span className="text-slate-400 block text-[10px]">Address / ঠিকানা:</span>
+                            <span className="font-medium text-slate-700">{nom.address || (isBn ? 'দেওয়া হয়নি' : 'N/A')}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Section 5: Specimen Signature & Certification */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 text-slate-500">
+                  <FileSignature className="w-6 h-6 text-slate-600" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    {isBn ? 'নমুনা স্বাক্ষর ও তথ্যের সত্যতা / Specimen Signature' : 'Specimen Signature / নমুনা স্বাক্ষর'}
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {isBn 
+                      ? 'সমিতির কেন্দ্রীয় ডাটাবেসে নিবন্ধিত সদস্য প্রোফাইল ও স্বাক্ষর রেকর্ড' 
+                      : 'Verified member profile and signature record in society central database'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                {member.signatureUrl ? (
+                  <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex items-center gap-2">
+                    <img src={member.signatureUrl} alt="Signature" className="h-7 max-w-[120px] object-contain" />
+                    <span className="text-[11px] text-emerald-600 font-bold flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      {isBn ? 'স্বাক্ষর সত্যায়িত' : 'Verified'}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-xs text-slate-400 italic bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+                    {isBn ? 'নমুনা স্বাক্ষর আপলোড করা নেই' : 'No Specimen Signature'}
+                  </span>
+                )}
+                {isUserAdmin && (
+                  <button
+                    onClick={() => setShowEditMemberModal(true)}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    {isBn ? 'স্বাক্ষর পরিবর্তন' : 'Update'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tab 1: Passbook & Ledger */}
         {activeTab === 'passbook' && (
@@ -1333,21 +1724,21 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                     </div>
 
                     <div className="space-y-1.5 text-xs text-slate-600 pt-2 border-t border-slate-200">
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">{isBn ? 'মোবাইল:' : 'Phone:'}</span>
-                        <span className="font-semibold">{nom.phone || (isBn ? 'দেওয়া হয়নি' : 'N/A')}</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-400">Mobile Number / মোবাইল নম্বর:</span>
+                        <span className="font-bold text-slate-700 font-mono">{nom.phone || (isBn ? 'দেওয়া হয়নি' : 'N/A')}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">{isBn ? 'NID নম্বর:' : 'NID No:'}</span>
-                        <span className="font-semibold">{nom.nid || (isBn ? 'দেওয়া হয়নি' : 'N/A')}</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-400">NID Number / NID নম্বর:</span>
+                        <span className="font-semibold text-slate-700 font-mono">{nom.nid || (isBn ? 'দেওয়া হয়নি' : 'N/A')}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">{isBn ? 'অংশীদারিত্ব হার:' : 'Share Percentage:'}</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-400">Share Percentage / অংশীদারিত্ব হার (%):</span>
                         <span className="font-bold text-emerald-700">{displayCount(nom.percentage)}%</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">{isBn ? 'ঠিকানা:' : 'Address:'}</span>
-                        <span className="font-medium truncate max-w-xs">{nom.address}</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-400">Address / ঠিকানা:</span>
+                        <span className="font-medium truncate max-w-xs">{nom.address || (isBn ? 'দেওয়া হয়নি' : 'N/A')}</span>
                       </div>
                     </div>
                   </div>
@@ -1893,6 +2284,28 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
         isOpen={showEditMemberModal}
         onClose={() => setShowEditMemberModal(false)}
         member={member}
+      />
+
+      {/* Member-Locked Direct Modals */}
+      <NewDepositModal
+        isOpen={showDepositModal}
+        onClose={() => setShowDepositModal(false)}
+        initialMemberId={member.id}
+        lockMember={true}
+      />
+
+      <NewWithdrawModal
+        isOpen={showWithdrawModal}
+        onClose={() => setShowWithdrawModal(false)}
+        initialMemberId={member.id}
+        lockMember={true}
+      />
+
+      <NewLoanModal
+        isOpen={showLoanModal}
+        onClose={() => setShowLoanModal(false)}
+        initialMemberId={member.id}
+        lockMember={true}
       />
 
       {/* Edit Transaction Modal */}
