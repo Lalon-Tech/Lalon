@@ -58,7 +58,7 @@ export const translations: Record<string, { bn: string; en: string }> = {
   reports_shares: { bn: 'শেয়ার সমর্পণ ও সমাপ্তি রেজিস্টার', en: 'Share Surrender & Closure Register' },
   excel: { bn: 'এক্সেল ব্যাকআপ/ইমপোর্ট', en: 'Excel Backup/Import' },
   settings: { bn: 'সমিতি সেটিংস ও রোলস', en: 'Settings & Roles' },
-  users_roles: { bn: 'ব্যবহারকারী ও রোলস', en: 'Users & Roles' },
+  users_roles: { bn: 'অফিস স্টাফ ও ইউজার', en: 'Staff & User Management' },
 
   // Common UI Actions & Labels
   somiti_name: { bn: 'বন্ধু সমিতি লিমিটেড', en: 'Bondhu Somiti Ltd.' },

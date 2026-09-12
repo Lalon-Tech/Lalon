@@ -237,6 +237,8 @@ export interface AppUser {
   dailyTarget?: number;
   collectedToday?: number;
   status: 'active' | 'inactive';
+  memberId?: string;
+  memberNo?: string;
 }
 
 export interface SomitiSettings {
