@@ -638,7 +638,7 @@ export const sampleDemoMembers: Member[] = [
   },
 ];
 
-export const initialMembers: Member[] = sampleDemoMembers;
+export const initialMembers: Member[] = [];
 
 export const sampleDemoSavingsSchemes: SavingsScheme[] = [
   {
@@ -736,7 +736,7 @@ export const sampleDemoSavingsSchemes: SavingsScheme[] = [
   },
 ];
 
-export const initialSavingsSchemes: SavingsScheme[] = sampleDemoSavingsSchemes;
+export const initialSavingsSchemes: SavingsScheme[] = [];
 
 export const sampleDemoLoans: Loan[] = [
   {
@@ -920,7 +920,7 @@ export const sampleDemoLoans: Loan[] = [
   },
 ];
 
-export const initialLoans: Loan[] = sampleDemoLoans;
+export const initialLoans: Loan[] = [];
 
 export const sampleDemoTransactions: Transaction[] = [
   {
@@ -1113,7 +1113,7 @@ export const sampleDemoTransactions: Transaction[] = [
   },
 ];
 
-export const initialTransactions: Transaction[] = sampleDemoTransactions;
+export const initialTransactions: Transaction[] = [];
 
 export const sampleDemoVouchers: IncomeExpenseItem[] = [
   {
@@ -1192,5 +1192,5 @@ export const sampleDemoVouchers: IncomeExpenseItem[] = [
   },
 ];
 
-export const initialVouchers: IncomeExpenseItem[] = sampleDemoVouchers;
+export const initialVouchers: IncomeExpenseItem[] = [];
 

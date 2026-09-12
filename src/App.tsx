@@ -51,11 +51,12 @@ const AppContent: React.FC = () => {
     showQuickLoanModal,
     setShowQuickLoanModal,
     showQuickKistiModal,
-    setShowQuickKistiModal
+    setShowQuickKistiModal,
+    isDataLoading
   } = useSomiti();
 
   // Loading state
-  if (loading) {
+  if (loading || (user && isDataLoading)) {
     return (
       <div className="min-h-screen bg-[#070d1e] flex flex-col items-center justify-center text-cyan-400 gap-3">
         <Loader2 className="w-8 h-8 animate-spin" />

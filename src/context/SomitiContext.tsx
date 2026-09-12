@@ -325,6 +325,7 @@ interface SomitiContextType {
   // Cloud Firestore Sync State
   firestoreConnected: boolean;
   isSyncing: boolean;
+  isDataLoading: boolean;
   lastSyncTime: string | null;
   syncAllToFirestore: () => Promise<boolean>;
   syncAllFromFirestore: () => Promise<boolean>;
@@ -669,38 +670,39 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return safeParse('bondhu_settings', initialSettings);
   });
 
+  const [isDataLoading, setIsDataLoading] = useState<boolean>(() => {
+    const cachedMembers = safeParse<any[]>('bondhu_members', [], true);
+    return !cachedMembers || cachedMembers.length === 0;
+  });
+
   const [members, setMembers] = useState<Member[]>(() => {
-    const raw = safeParse('bondhu_members', initialMembers, true);
-    const list = (raw && raw.length > 0) ? raw : sampleDemoMembers;
-    return list.map(sanitizeMember);
+    const raw = safeParse<Member[]>('bondhu_members', [], true);
+    return Array.isArray(raw) ? raw.map(sanitizeMember) : [];
   });
 
   const [loans, setLoans] = useState<Loan[]>(() => {
-    const raw = safeParse('bondhu_loans', initialLoans, true);
-    const list = (raw && raw.length > 0) ? raw : sampleDemoLoans;
-    return list.map(sanitizeLoan);
+    const raw = safeParse<Loan[]>('bondhu_loans', [], true);
+    return Array.isArray(raw) ? raw.map(sanitizeLoan) : [];
   });
 
   const [savingsSchemes, setSavingsSchemes] = useState<SavingsScheme[]>(() => {
-    const raw = safeParse('bondhu_savings', initialSavingsSchemes, true);
-    const list = (raw && raw.length > 0) ? raw : sampleDemoSavingsSchemes;
-    return list.map(sanitizeSavings);
+    const raw = safeParse<SavingsScheme[]>('bondhu_savings', [], true);
+    return Array.isArray(raw) ? raw.map(sanitizeSavings) : [];
   });
 
   const [shareClosures, setShareClosures] = useState<ShareClosure[]>(() => {
-    const raw = safeParse('bondhu_share_closures', [], true);
-    return raw.map(sanitizeShareClosure);
+    const raw = safeParse<ShareClosure[]>('bondhu_share_closures', [], true);
+    return Array.isArray(raw) ? raw.map(sanitizeShareClosure) : [];
   });
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    const raw = safeParse('bondhu_transactions', initialTransactions, true);
-    const list = (raw && raw.length > 0) ? raw : sampleDemoTransactions;
-    return list.map(sanitizeTransaction).sort(compareTransactionsDesc);
+    const raw = safeParse<Transaction[]>('bondhu_transactions', [], true);
+    return Array.isArray(raw) ? raw.map(sanitizeTransaction).sort(compareTransactionsDesc) : [];
   });
 
   const [vouchers, setVouchers] = useState<IncomeExpenseItem[]>(() => {
-    const raw = safeParse('bondhu_vouchers', initialVouchers, true);
-    return (raw && raw.length > 0) ? raw : sampleDemoVouchers;
+    const raw = safeParse<IncomeExpenseItem[]>('bondhu_vouchers', [], true);
+    return Array.isArray(raw) ? raw : [];
   });
 
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>(() => {
@@ -979,6 +981,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Setup Firestore Real-time Listeners with anti-wipe protection & automatic cloud seeding
   useEffect(() => {
     let unsubs: (() => void)[] = [];
+    const safetyTimer = setTimeout(() => {
+      setIsDataLoading(false);
+    }, 1000);
 
     const initFirestoreSync = async () => {
       try {
@@ -998,6 +1003,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         // 2. Members listener with sanitization & protection against empty wipe
         const unsubMembers = onSnapshot(collection(db, 'members'), (snapshot) => {
+          setIsDataLoading(false);
           if (!snapshot.empty) {
             const list: Member[] = [];
             snapshot.forEach(docSnap => {
@@ -1009,17 +1015,12 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             setLastSyncTime(new Date().toLocaleTimeString());
           } else {
             setFirestoreConnected(true);
-            if (isInitialLoadDone.current) {
-              setMembers([]);
-              localStorage.setItem('bondhu_members', JSON.stringify([]));
-            } else if (members.length > 0) {
-              const batch = writeBatch(db);
-              members.forEach(m => safeBatchSet(batch, doc(db, 'members', m.id), m));
-              batch.commit().catch(console.error);
-            }
+            setMembers([]);
+            localStorage.setItem('bondhu_members', JSON.stringify([]));
           }
         }, (err) => {
           console.warn('Firestore members snapshot error:', err);
+          setIsDataLoading(false);
         });
         unsubs.push(unsubMembers);
 
@@ -1033,14 +1034,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             });
             setLoans(list);
           } else {
-            if (isInitialLoadDone.current) {
-              setLoans([]);
-              localStorage.setItem('bondhu_loans', JSON.stringify([]));
-            } else if (loans.length > 0) {
-              const batch = writeBatch(db);
-              loans.forEach(l => safeBatchSet(batch, doc(db, 'loans', l.id), l));
-              batch.commit().catch(console.error);
-            }
+            setLoans([]);
+            localStorage.setItem('bondhu_loans', JSON.stringify([]));
           }
         }, (err) => {
           console.warn('Firestore loans snapshot error:', err);
@@ -1057,14 +1052,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             });
             setSavingsSchemes(list);
           } else {
-            if (isInitialLoadDone.current) {
-              setSavingsSchemes([]);
-              localStorage.setItem('bondhu_savings', JSON.stringify([]));
-            } else if (savingsSchemes.length > 0) {
-              const batch = writeBatch(db);
-              savingsSchemes.forEach(s => safeBatchSet(batch, doc(db, 'savings', s.id), s));
-              batch.commit().catch(console.error);
-            }
+            setSavingsSchemes([]);
+            localStorage.setItem('bondhu_savings', JSON.stringify([]));
           }
         }, (err) => {
           console.warn('Firestore savings snapshot error:', err);
@@ -1082,14 +1071,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
             setShareClosures(list);
           } else {
-            if (isInitialLoadDone.current) {
-              setShareClosures([]);
-              localStorage.setItem('bondhu_share_closures', JSON.stringify([]));
-            } else if (shareClosures.length > 0) {
-              const batch = writeBatch(db);
-              shareClosures.forEach(c => safeBatchSet(batch, doc(db, 'shareClosures', c.id), c));
-              batch.commit().catch(console.error);
-            }
+            setShareClosures([]);
+            localStorage.setItem('bondhu_share_closures', JSON.stringify([]));
           }
         }, (err) => {
           console.warn('Firestore shareClosures snapshot error:', err);
@@ -1107,18 +1090,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             list.sort(compareTransactionsDesc);
             setTransactions(list);
           } else {
-            if (isInitialLoadDone.current) {
-              setTransactions([]);
-              localStorage.setItem('bondhu_transactions', JSON.stringify([]));
-            } else {
-              const listToSeed = transactions.length > 0 ? transactions : sampleDemoTransactions;
-              if (transactions.length === 0) {
-                setTransactions(listToSeed);
-              }
-              const batch = writeBatch(db);
-              listToSeed.forEach(t => safeBatchSet(batch, doc(db, 'transactions', t.id), t));
-              batch.commit().catch(console.error);
-            }
+            setTransactions([]);
+            localStorage.setItem('bondhu_transactions', JSON.stringify([]));
           }
         }, (err) => {
           console.warn('Firestore transactions snapshot error:', err);
@@ -1132,14 +1105,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             snapshot.forEach(docSnap => list.push(docSnap.data() as IncomeExpenseItem));
             setVouchers(list);
           } else {
-            if (isInitialLoadDone.current) {
-              setVouchers([]);
-              localStorage.setItem('bondhu_vouchers', JSON.stringify([]));
-            } else if (vouchers.length > 0) {
-              const batch = writeBatch(db);
-              vouchers.forEach(v => safeBatchSet(batch, doc(db, 'incomeExpenses', v.id), v));
-              batch.commit().catch(console.error);
-            }
+            setVouchers([]);
+            localStorage.setItem('bondhu_vouchers', JSON.stringify([]));
           }
         }, (err) => {
           console.warn('Firestore incomeExpenses snapshot error:', err);
@@ -1156,11 +1123,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             });
             setBankAccounts(list);
           } else {
-            if (bankAccounts.length > 0 && !isInitialLoadDone.current) {
-              const batch = writeBatch(db);
-              bankAccounts.forEach(b => safeBatchSet(batch, doc(db, 'bankAccounts', b.id), b));
-              batch.commit().catch(console.error);
-            }
+            setBankAccounts(initialBankAccounts);
           }
         }, (err) => {
           console.warn('Firestore bankAccounts snapshot error:', err);
@@ -1177,11 +1140,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             });
             setUsers(list);
           } else {
-            if (users.length > 0 && !isInitialLoadDone.current) {
-              const batch = writeBatch(db);
-              users.forEach(u => safeBatchSet(batch, doc(db, 'systemUsers', u.id), u));
-              batch.commit().catch(console.error);
-            }
+            setUsers(initialUsers);
           }
         }, (err) => {
           console.warn('Firestore users snapshot error:', err);
@@ -1256,6 +1215,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     initFirestoreSync();
 
     return () => {
+      clearTimeout(safetyTimer);
       unsubs.forEach(unsub => unsub());
     };
   }, []);
@@ -5061,6 +5021,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         firestoreConnected,
         isSyncing,
+        isDataLoading,
         lastSyncTime,
         syncAllToFirestore,
         syncAllFromFirestore,
