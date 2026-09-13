@@ -183,17 +183,17 @@ export const DashboardView: React.FC = () => {
           <div className="bg-white p-5 rounded-2xl border border-indigo-200/80 shadow-2xs">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-indigo-700">
-                {isBn ? 'আমার শেয়ার ও মূলধন' : 'My Shares & Capital'}
+                {isBn ? 'আমার শেয়ার' : 'My Shares'}
               </span>
               <span className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
                 <Building className="w-4 h-4" />
               </span>
             </div>
-            <div className="text-2xl font-black text-slate-800 tracking-tight">
-              {formatCurrency(myShareAmount, isBengaliNum)}
+            <div className="text-2xl font-black text-slate-800 tracking-tight font-mono">
+              {num(mySharesCount)} <span className="text-base font-bold text-slate-500">{isBn ? 'টি' : 'Shares'}</span>
             </div>
             <div className="text-[11px] text-slate-500 mt-2">
-              {isBn ? `মোট শেয়ার: ${num(mySharesCount)} টি` : `Total Shares: ${mySharesCount}`}
+              {isBn ? 'মোট সক্রিয় শেয়ার সংখ্যা' : 'Total Active Shares Count'}
             </div>
           </div>
         </div>

@@ -15,7 +15,13 @@ import {
   FileCheck2,
   ExternalLink,
   UserCheck,
-  Sparkles
+  Sparkles,
+  Check,
+  X,
+  UserCog,
+  PiggyBank,
+  ArrowDownRight,
+  ArrowUpRight
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -32,13 +38,22 @@ export const ApprovalNotificationCenter: React.FC = () => {
     businessFundings, 
     members, 
     users,
+    transactions,
+    memberUpdateRequests,
     currentUser, 
     isUserAdmin,
     setActiveTab, 
-    useBengaliDigits 
+    useBengaliDigits,
+    approvePendingTransaction,
+    rejectPendingTransaction,
+    approveMemberUpdate,
+    rejectMemberUpdate
   } = useSomiti();
   const { language } = useLanguage();
   const isBn = language === 'bn';
+
+  // Action status message
+  const [actionAlert, setActionAlert] = useState<{ message: string; isError?: boolean } | null>(null);
 
   // Selected funding for the dedicated Details & Decision modal
   const [selectedFundingForModal, setSelectedFundingForModal] = useState<BusinessFunding | null>(null);
@@ -48,13 +63,13 @@ export const ApprovalNotificationCenter: React.FC = () => {
   const [selectedUserForModal, setSelectedUserForModal] = useState<AppUser | null>(null);
   const [isApproveUserModalOpen, setIsApproveUserModalOpen] = useState<boolean>(false);
 
-  // Active filter for categories: 'all' | 'loan' | 'business_funding' | 'user_registration'
+  // Active filter for categories: 'all' | 'loan' | 'business_funding' | 'user_registration' | 'deposit' | 'savings_withdrawal' | 'share_purchase' | 'member_profile_update'
   const [selectedCategory, setSelectedCategory] = useState<'all' | ApprovalCategory>('all');
 
   // Aggregated list from the extensible Central Approval Registry
   const allPendingItems = useMemo(() => {
-    return getAllPendingApprovals({ loans, businessFundings, members, users });
-  }, [loans, businessFundings, members, users]);
+    return getAllPendingApprovals({ loans, businessFundings, members, users, transactions, memberUpdateRequests });
+  }, [loans, businessFundings, members, users, transactions, memberUpdateRequests]);
 
   // Counts by category
   const loanPendingCount = useMemo(() => 
@@ -72,18 +87,55 @@ export const ApprovalNotificationCenter: React.FC = () => {
     [allPendingItems]
   );
 
+  const transactionPendingCount = useMemo(() => 
+    allPendingItems.filter(item => ['deposit', 'savings_withdrawal', 'share_purchase', 'share_surrender'].includes(item.category)).length, 
+    [allPendingItems]
+  );
+
+  const profilePendingCount = useMemo(() => 
+    allPendingItems.filter(item => item.category === 'member_profile_update').length, 
+    [allPendingItems]
+  );
+
   const filteredItems = useMemo(() => {
     if (selectedCategory === 'all') return allPendingItems;
+    if (selectedCategory === 'deposit') {
+      return allPendingItems.filter(item => ['deposit', 'savings_withdrawal', 'share_purchase', 'share_surrender'].includes(item.category));
+    }
     return allPendingItems.filter(item => item.category === selectedCategory);
   }, [allPendingItems, selectedCategory]);
 
   const num = (val: number | string) => isBn || useBengaliDigits ? toBengaliNumber(val) : val.toString();
   const fmt = (val: number) => formatCurrency(val, isBn || useBengaliDigits);
 
-  // If there are no pending items, return null (nothing pending)
-  if (allPendingItems.length === 0) {
+  // If user is not admin or there are no pending items, return null
+  if (!isUserAdmin || allPendingItems.length === 0) {
     return null;
   }
+
+  const handleApproveTx = async (txId: string) => {
+    const res = await approvePendingTransaction(txId);
+    setActionAlert({ message: res.message, isError: !res.success });
+    setTimeout(() => setActionAlert(null), 4000);
+  };
+
+  const handleRejectTx = async (txId: string) => {
+    const res = await rejectPendingTransaction(txId);
+    setActionAlert({ message: res.message, isError: !res.success });
+    setTimeout(() => setActionAlert(null), 4000);
+  };
+
+  const handleApproveProfile = async (reqId: string) => {
+    const res = await approveMemberUpdate(reqId);
+    setActionAlert({ message: res.message, isError: !res.success });
+    setTimeout(() => setActionAlert(null), 4000);
+  };
+
+  const handleRejectProfile = async (reqId: string) => {
+    const res = await rejectMemberUpdate(reqId);
+    setActionAlert({ message: res.message, isError: !res.success });
+    setTimeout(() => setActionAlert(null), 4000);
+  };
 
   const handleCardClick = (item: PendingApprovalItem) => {
     if (item.category === 'business_funding') {
@@ -125,8 +177,8 @@ export const ApprovalNotificationCenter: React.FC = () => {
               </div>
               <p className="text-xs text-slate-600 mt-0.5">
                 {isBn 
-                  ? 'নতুন সদস্য নিবন্ধন, ঋণ বিতরণ এবং ব্যবসা বিনিয়োগ প্রস্তাব প্রশাসনিক সিদ্ধান্তের অপেক্ষায় রয়েছে।'
-                  : 'New member registrations, loan applications, and business funding requests require admin review.'}
+                  ? 'নতুন সদস্য নিবন্ধন, ঋণ বিতরণ, সঞ্চয় লেনদেন এবং প্রোফাইল সংশোধনী প্রশাসনিক সিদ্ধান্তের অপেক্ষায় রয়েছে।'
+                  : 'Member registrations, loans, savings transactions, and profile updates require admin review.'}
               </p>
             </div>
           </div>
@@ -204,8 +256,66 @@ export const ApprovalNotificationCenter: React.FC = () => {
                 </span>
               </button>
             )}
+
+            {transactionPendingCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedCategory('deposit')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  selectedCategory === 'deposit'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'bg-white/80 hover:bg-white text-slate-700 border border-slate-200'
+                }`}
+              >
+                <PiggyBank className="w-3.5 h-3.5" />
+                <span>{isBn ? 'সঞ্চয় ও লেনদেন' : 'Transactions'}</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                  selectedCategory === 'deposit' ? 'bg-emerald-800 text-emerald-100' : 'bg-emerald-100 text-emerald-800'
+                }`}>
+                  {num(transactionPendingCount)}
+                </span>
+              </button>
+            )}
+
+            {profilePendingCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedCategory('member_profile_update')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  selectedCategory === 'member_profile_update'
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'bg-white/80 hover:bg-white text-slate-700 border border-slate-200'
+                }`}
+              >
+                <UserCog className="w-3.5 h-3.5" />
+                <span>{isBn ? 'প্রোফাইল সংশোধন' : 'Profile Edits'}</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                  selectedCategory === 'member_profile_update' ? 'bg-purple-800 text-purple-100' : 'bg-purple-100 text-purple-800'
+                }`}>
+                  {num(profilePendingCount)}
+                </span>
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Status Alert Banner */}
+        {actionAlert && (
+          <div className={`p-3 rounded-xl text-xs font-semibold flex items-center justify-between gap-2 ${
+            actionAlert.isError 
+              ? 'bg-rose-50 text-rose-800 border border-rose-200' 
+              : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+          }`}>
+            <span>{actionAlert.message}</span>
+            <button 
+              type="button" 
+              onClick={() => setActionAlert(null)}
+              className="p-1 hover:bg-black/5 rounded cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
@@ -213,6 +323,28 @@ export const ApprovalNotificationCenter: React.FC = () => {
             const isLoan = item.category === 'loan';
             const isBf = item.category === 'business_funding';
             const isUserReg = item.category === 'user_registration';
+            const isProfileUpdate = item.category === 'member_profile_update';
+            const isTx = ['deposit', 'savings_withdrawal', 'share_purchase', 'share_surrender'].includes(item.category);
+
+            const accentColor = isLoan 
+              ? 'bg-amber-500' 
+              : isBf 
+              ? 'bg-indigo-600' 
+              : isUserReg 
+              ? 'bg-blue-600' 
+              : isProfileUpdate 
+              ? 'bg-purple-600' 
+              : 'bg-emerald-600';
+
+            const badgeColor = isLoan
+              ? 'bg-amber-100 text-amber-800 border-amber-200'
+              : isBf
+              ? 'bg-indigo-100 text-indigo-800 border-indigo-200'
+              : isUserReg
+              ? 'bg-blue-100 text-blue-800 border-blue-200'
+              : isProfileUpdate
+              ? 'bg-purple-100 text-purple-800 border-purple-200'
+              : 'bg-emerald-100 text-emerald-800 border-emerald-200';
 
             return (
               <div 
@@ -220,20 +352,22 @@ export const ApprovalNotificationCenter: React.FC = () => {
                 className="bg-white rounded-xl border border-slate-200/90 hover:border-blue-400 p-4 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between gap-3 group relative overflow-hidden"
               >
                 {/* Top Accent Strip */}
-                <div className={`absolute top-0 left-0 right-0 h-1 ${
-                  isLoan ? 'bg-amber-500' : isBf ? 'bg-indigo-600' : 'bg-blue-600'
-                }`} />
+                <div className={`absolute top-0 left-0 right-0 h-1 ${accentColor}`} />
 
                 {/* Card Top: Type Badge & Application ID */}
                 <div className="flex items-center justify-between gap-2 pt-0.5">
-                  <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-                    isLoan 
-                      ? 'bg-amber-100 text-amber-800 border border-amber-200' 
-                      : isBf
-                      ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
-                      : 'bg-blue-100 text-blue-800 border border-blue-200'
-                  }`}>
-                    {isLoan ? <HandCoins className="w-3 h-3 text-amber-600" /> : isBf ? <Briefcase className="w-3 h-3 text-indigo-600" /> : <UserCheck className="w-3 h-3 text-blue-600" />}
+                  <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${badgeColor}`}>
+                    {isLoan ? (
+                      <HandCoins className="w-3 h-3 text-amber-600" />
+                    ) : isBf ? (
+                      <Briefcase className="w-3 h-3 text-indigo-600" />
+                    ) : isUserReg ? (
+                      <UserCheck className="w-3 h-3 text-blue-600" />
+                    ) : isProfileUpdate ? (
+                      <UserCog className="w-3 h-3 text-purple-600" />
+                    ) : (
+                      <PiggyBank className="w-3 h-3 text-emerald-600" />
+                    )}
                     <span>{isBn ? item.categoryLabelBn : item.categoryLabelEn}</span>
                   </span>
 
@@ -253,7 +387,11 @@ export const ApprovalNotificationCenter: React.FC = () => {
                     />
                   ) : (
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${
-                      isLoan ? 'bg-amber-50 text-amber-700 border border-amber-200' : isBf ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-blue-50 text-blue-700 border border-blue-200'
+                      isLoan ? 'bg-amber-50 text-amber-700 border border-amber-200' 
+                      : isBf ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' 
+                      : isUserReg ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                      : isProfileUpdate ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                     }`}>
                       {item.memberName ? item.memberName.charAt(0).toUpperCase() : 'U'}
                     </div>
@@ -294,11 +432,32 @@ export const ApprovalNotificationCenter: React.FC = () => {
                         <span>{item.profitOrInterestRate}</span>
                       </div>
                     </>
+                  ) : isProfileUpdate ? (
+                    <>
+                      <div className="flex items-center justify-between text-[11px] text-slate-600">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-slate-400" />
+                          {item.requestDate}
+                        </span>
+                        <span className="font-medium text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                          সংশোধন আবেদন
+                        </span>
+                      </div>
+                      {item.subTitle && (
+                        <div className="text-[11px] text-slate-700 bg-white p-1.5 rounded border border-slate-200">
+                          {item.subTitle}
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <>
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-500">{isBn ? 'অনুরোধকৃত অর্থ:' : 'Requested Amount:'}</span>
-                        <span className="font-extrabold text-sm text-slate-900">{fmt(item.amount)}</span>
+                        <span className="text-slate-500">
+                          {isTx ? (isBn ? 'লেনদেনের পরিমাণ:' : 'Amount:') : (isBn ? 'অনুরোধকৃত অর্থ:' : 'Requested Amount:')}
+                        </span>
+                        <span className={`font-extrabold text-sm ${isTx ? 'text-emerald-700' : 'text-slate-900'}`}>
+                          {fmt(item.amount)}
+                        </span>
                       </div>
 
                       <div className="flex items-center justify-between text-[11px] text-slate-600">
@@ -307,7 +466,7 @@ export const ApprovalNotificationCenter: React.FC = () => {
                           {item.requestDate}
                         </span>
                         {item.subTitle && (
-                          <span className="font-medium text-slate-700 bg-white px-1.5 py-0.2 rounded border border-slate-200">
+                          <span className="font-medium text-slate-700 bg-white px-1.5 py-0.2 rounded border border-slate-200 truncate max-w-[150px]">
                             {item.subTitle}
                           </span>
                         )}
@@ -347,6 +506,48 @@ export const ApprovalNotificationCenter: React.FC = () => {
                       <span>{isBn ? 'আবেদন ও সিদ্ধান্ত' : 'Review & Decide'}</span>
                       <ChevronRight className="w-3.5 h-3.5" />
                     </button>
+                  ) : isTx ? (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleApproveTx(item.id)}
+                        className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-2xs hover:shadow-xs cursor-pointer"
+                        title={isBn ? 'অনুমোদন করুন' : 'Approve'}
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>{isBn ? 'অনুমোদন' : 'Approve'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRejectTx(item.id)}
+                        className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                        title={isBn ? 'বাতিল করুন' : 'Reject'}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>{isBn ? 'বাতিল' : 'Reject'}</span>
+                      </button>
+                    </div>
+                  ) : isProfileUpdate ? (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleApproveProfile(item.id)}
+                        className="px-2.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-2xs hover:shadow-xs cursor-pointer"
+                        title={isBn ? 'অনুমোদন করুন' : 'Approve'}
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>{isBn ? 'অনুমোদন' : 'Approve'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRejectProfile(item.id)}
+                        className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                        title={isBn ? 'বাতিল করুন' : 'Reject'}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>{isBn ? 'বাতিল' : 'Reject'}</span>
+                      </button>
+                    </div>
                   ) : (
                     <button
                       type="button"

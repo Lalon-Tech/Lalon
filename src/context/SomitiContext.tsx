@@ -29,7 +29,8 @@ import {
   BusinessProfitRecord,
   MonthlyProfitDistribution,
   MemberProfitShareItem,
-  AuditLog
+  AuditLog,
+  MemberUpdateRequest
 } from '../types';
 import { 
   initialMembers, 
@@ -658,6 +659,14 @@ interface SomitiContextType {
   clearAllProfitDistributions: () => Promise<boolean>;
   resetMemberProfitShare: (memberId: string) => Promise<boolean>;
   getMemberSavingsBalance: (m: Member | any) => number;
+
+  // Approvals & Member Requests
+  memberUpdateRequests: MemberUpdateRequest[];
+  requestMemberUpdate: (memberId: string, changes: Partial<Member>) => Promise<{ success: boolean; message: string }>;
+  approveMemberUpdate: (requestId: string) => Promise<{ success: boolean; message: string }>;
+  rejectMemberUpdate: (requestId: string, reason?: string) => Promise<{ success: boolean; message: string }>;
+  approvePendingTransaction: (txId: string) => Promise<{ success: boolean; message: string }>;
+  rejectPendingTransaction: (txId: string, reason?: string) => Promise<{ success: boolean; message: string }>;
 }
 
 const SomitiContext = createContext<SomitiContextType | undefined>(undefined);
@@ -753,6 +762,11 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return safeParse('bondhu_audit_logs', []);
   });
 
+  const [memberUpdateRequests, setMemberUpdateRequests] = useState<MemberUpdateRequest[]>(() => {
+    const raw = safeParse<MemberUpdateRequest[]>('bondhu_member_updates', [], true);
+    return Array.isArray(raw) ? raw : [];
+  });
+
   const [currentUser, setCurrentUser] = useState<AppUser>(() => {
     return (users[0] ? sanitizeUser(users[0]) : sanitizeUser(initialUsers[0]));
   });
@@ -769,11 +783,26 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       );
 
       if (matched) {
-        setCurrentUser(sanitizeUser({
+        const sanitized = sanitizeUser({
           ...matched,
           name: matched.name || authName,
           avatarUrl: authUser.photoURL || matched.avatarUrl,
-        }));
+        });
+        setCurrentUser(prev => {
+          if (
+            prev &&
+            prev.id === sanitized.id &&
+            prev.email === sanitized.email &&
+            prev.role === sanitized.role &&
+            prev.name === sanitized.name &&
+            prev.avatarUrl === sanitized.avatarUrl &&
+            prev.status === sanitized.status &&
+            prev.memberId === sanitized.memberId
+          ) {
+            return prev;
+          }
+          return sanitized;
+        });
       } else {
         const matchedMember = members.find(m => m.email && m.email.toLowerCase() === authEmail);
         const isAdminEmail = authEmail === 'admin@bondhusomiti.com' || authEmail === 'sin4.riyas.lalon.dc@gmail.com';
@@ -794,11 +823,30 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           memberNo: matchedMember?.memberNo,
           createdAt: new Date().toISOString()
         };
-        setCurrentUser(dynamicUser);
+        setCurrentUser(prev => {
+          if (
+            prev &&
+            prev.id === dynamicUser.id &&
+            prev.email === dynamicUser.email &&
+            prev.role === dynamicUser.role &&
+            prev.name === dynamicUser.name &&
+            prev.status === dynamicUser.status &&
+            prev.memberId === dynamicUser.memberId
+          ) {
+            return prev;
+          }
+          return dynamicUser;
+        });
       }
     } else {
       if (users.length > 0) {
-        setCurrentUser(sanitizeUser(users[0]));
+        const sanitized = sanitizeUser(users[0]);
+        setCurrentUser(prev => {
+          if (prev && prev.id === sanitized.id && prev.role === sanitized.role && prev.status === sanitized.status) {
+            return prev;
+          }
+          return sanitized;
+        });
       }
     }
   }, [authUser, users, members]);
@@ -902,91 +950,11 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     localStorage.setItem('bondhu_audit_logs', JSON.stringify(auditLogs));
   }, [auditLogs]);
 
-  // Self-healing automatic reconciliation:
-  // Whenever the app loads or businessProfitRecords/profitDistributions change, detect and purge any
-  // orphaned profit distributions or orphaned profit_share transactions left behind by previously deleted profit records,
-  // and auto-reconcile member savings balances so that all metrics stay 100% accurate and consistent.
   useEffect(() => {
-    if (businessProfitRecords.length === 0 && profitDistributions.length === 0 && transactions.length === 0) return;
+    localStorage.setItem('bondhu_member_updates', JSON.stringify(memberUpdateRequests));
+  }, [memberUpdateRequests]);
 
-    const activeRecordIds = new Set(businessProfitRecords.map(r => r.id));
 
-    // 1. Detect orphaned profit distributions whose underlying business profit record was deleted
-    const orphanedDistIds = new Set<string>();
-    profitDistributions.forEach(d => {
-      const bprTag = d.id.startsWith('pd-')
-        ? d.id.slice(3)
-        : (d.id.startsWith('dist-bpr-')
-            ? d.id.slice(9)
-            : d.notes?.match(/\[(bpr-[^\]]+)\]/)?.[1]);
-      if (bprTag && !activeRecordIds.has(bprTag)) {
-        orphanedDistIds.add(d.id);
-      }
-    });
-
-    if (orphanedDistIds.size > 0) {
-      setProfitDistributions(prev => {
-        const cleaned = prev.filter(d => !orphanedDistIds.has(d.id));
-        localStorage.setItem('bondhu_profit_distributions', JSON.stringify(cleaned));
-        return cleaned;
-      });
-      orphanedDistIds.forEach(id => deleteDoc(doc(db, 'profitDistributions', id)).catch(console.error));
-    }
-
-    // 2. Detect orphaned profit_share transactions whose underlying business profit record or distribution was deleted
-    const activeDistIds = new Set(profitDistributions.filter(d => !orphanedDistIds.has(d.id)).map(d => d.id));
-    const orphanedTxIds = new Set<string>();
-    const memberOrphanDeductions: Record<string, number> = {};
-
-    transactions.forEach(t => {
-      if (t.type !== 'profit_share' || t.category === 'business_profit_member_share') return;
-
-      const bprTag = t.notes?.match(/\[(bpr-[^\]]+)\]/)?.[1]
-        || (t.id.startsWith('tx-bpr-') ? t.id.replace('tx-', '').split('-')[0] : null);
-      const distTag = t.notes?.match(/\[(dist-[^\]]+|pd-[^\]]+)\]/)?.[1];
-
-      let isOrphan = false;
-      if (bprTag && !activeRecordIds.has(bprTag)) {
-        isOrphan = true;
-      } else if (distTag && !activeDistIds.has(distTag) && !activeRecordIds.has(distTag.replace('pd-', '').replace('dist-', ''))) {
-        isOrphan = true;
-      }
-
-      if (isOrphan) {
-        orphanedTxIds.add(t.id);
-        if (t.memberId && t.amount > 0) {
-          memberOrphanDeductions[t.memberId] = (memberOrphanDeductions[t.memberId] || 0) + Number(t.amount);
-        }
-      }
-    });
-
-    if (orphanedTxIds.size > 0) {
-      setTransactions(prev => {
-        const cleaned = prev.filter(t => !orphanedTxIds.has(t.id));
-        localStorage.setItem('bondhu_transactions', JSON.stringify(cleaned));
-        return cleaned;
-      });
-      orphanedTxIds.forEach(id => deleteDoc(doc(db, 'transactions', id)).catch(console.error));
-
-      // Reconcile affected members
-      if (Object.keys(memberOrphanDeductions).length > 0) {
-        setMembers(prev => prev.map(m => {
-          const deduct = memberOrphanDeductions[m.id];
-          if (!deduct) return m;
-          const newGen = Math.max(0, Number(((m.generalSavingsBalance || 0) - deduct).toFixed(2)));
-          const newTot = Math.max(0, Number(((m.totalSavings || 0) - deduct).toFixed(2)));
-          const updated: Member = { ...m, generalSavingsBalance: newGen, totalSavings: newTot };
-          safeSetDoc(doc(db, 'members', m.id), updated, { merge: true }).catch(console.error);
-          safeSetDoc(doc(db, 'memberFinancials', m.id), {
-            generalSavingsBalance: newGen,
-            totalSavings: newTot,
-            updatedAt: new Date().toISOString(),
-          }, { merge: true }).catch(console.error);
-          return updated;
-        }));
-      }
-    }
-  }, [businessProfitRecords, profitDistributions.length]);
 
   // Helper date - returns local YYYY-MM-DD to match browser date pickers precisely
   const getTodayDateStr = () => {
@@ -1225,6 +1193,23 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           console.warn('Firestore profitDistributions snapshot error:', err);
         });
         unsubs.push(unsubDistributions);
+
+        const unsubMemberUpdates = onSnapshot(collection(db, 'memberUpdateRequests'), (snapshot) => {
+          if (!snapshot.empty) {
+            const list: MemberUpdateRequest[] = [];
+            snapshot.forEach(docSnap => {
+              list.push({ ...docSnap.data(), id: docSnap.id } as MemberUpdateRequest);
+            });
+            list.sort((a, b) => (b.requestDate || '').localeCompare(a.requestDate || ''));
+            setMemberUpdateRequests(list);
+          } else {
+            setMemberUpdateRequests([]);
+            localStorage.setItem('bondhu_member_updates', JSON.stringify([]));
+          }
+        }, (err) => {
+          console.warn('Firestore memberUpdateRequests snapshot error:', err);
+        });
+        unsubs.push(unsubMemberUpdates);
 
         if (!isInitialLoadDone.current) {
           isInitialLoadDone.current = true;
@@ -1626,6 +1611,27 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       normalizedData.joiningDate = normalizedData.joiningDate.split('T')[0].split(' ')[0];
     }
 
+    // If current user is a Member (non-admin), route changes as a Pending Approval Request
+    if (currentUser?.role === 'member') {
+      const targetMember = members.find(m => m.id === id);
+      if (!targetMember) return;
+
+      const newReq: MemberUpdateRequest = {
+        id: `mur-${Date.now()}`,
+        memberId: id,
+        memberNo: targetMember.memberNo,
+        memberName: targetMember.name,
+        requestedBy: currentUser.name || targetMember.name,
+        requestDate: getTodayDateStr(),
+        status: 'pending',
+        changes: normalizedData,
+      };
+
+      setMemberUpdateRequests(prev => [newReq, ...prev]);
+      safeSetDoc(doc(db, 'memberUpdateRequests', newReq.id), newReq).catch(console.error);
+      return;
+    }
+
     setMembers(prev => prev.map(m => {
       if (m.id !== id) return m;
       // Strictly maintain original member ID and memberNo to prevent duplicates or lost records
@@ -1819,6 +1825,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       createdAt: new Date().toISOString(),
     };
 
+    const isMemberRole = currentUser?.role === 'member';
+    const txStatus: 'pending' | 'completed' = isMemberRole ? 'pending' : 'completed';
+
     // 1. Transaction record for financial ledger
     const newTx: Transaction = {
       id: txId,
@@ -1834,10 +1843,20 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       paymentMethod: params.paymentMethod,
       bankAccountId: params.paymentMethod === 'bank' ? params.bankAccountId : undefined,
       collectedBy: currentUser?.name || 'Admin',
-      verifiedBy: currentUser?.name || 'Admin',
-      notes: `${sharesToClose} টি শেয়ার সমর্পণ ও নিষ্পত্তি বাবদ সদস্যকে মোট ৳${totalRefundAmount} প্রদান (মূলধন ৳${principalAmount} + লভ্যাংশ ৳${profitAmount})। অবশিষ্ট সক্রিয় শেয়ার: ${remainingShares} টি।`,
-      status: 'completed',
+      verifiedBy: isMemberRole ? undefined : (currentUser?.name || 'Admin'),
+      notes: `${sharesToClose} টি শেয়ার সমর্পণ বাবদ আবেদন (মূলধন ৳${principalAmount} + লভ্যাংশ ৳${profitAmount})${isMemberRole ? ' [অনুমোদন অপেক্ষমাণ]' : ''}`,
+      status: txStatus,
     };
+
+    if (isMemberRole) {
+      setTransactions(prev => [newTx, ...prev]);
+      try {
+        await safeSetDoc(doc(db, 'transactions', newTx.id), newTx);
+      } catch (e) {
+        console.warn('Firestore share surrender request sync error:', e);
+      }
+      return { success: true };
+    }
 
     // Update state
     setShareClosures(prev => [closureRecord, ...prev]);
@@ -1932,6 +1951,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const txId = `tx-sp-${Date.now()}`;
     const txDate = params.date || getTodayDateStr();
 
+    const isMemberRole = currentUser?.role === 'member';
+    const txStatus: 'pending' | 'completed' = isMemberRole ? 'pending' : 'completed';
+
     const newTx: Transaction = {
       id: txId,
       serialNo: getNextLedgerSerial(),
@@ -1945,11 +1967,21 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       time: getCurrentTimeStr(),
       paymentMethod: params.paymentMethod,
       bankAccountId: params.paymentMethod === 'bank' ? params.bankAccountId : undefined,
-      collectedBy: currentUser?.name || 'Admin',
-      verifiedBy: currentUser?.name || 'Admin',
-      notes: params.notes || `${sharesToBuy} টি নতুন শেয়ার ক্রয় বাবদ জমা`,
-      status: 'completed',
+      collectedBy: currentUser?.name || 'Member',
+      verifiedBy: isMemberRole ? undefined : (currentUser?.name || 'Admin'),
+      notes: params.notes || `${sharesToBuy} টি নতুন শেয়ার ক্রয় বাবদ আবেদন${isMemberRole ? ' [অনুমোদন অপেক্ষমাণ]' : ''}`,
+      status: txStatus,
     };
+
+    if (isMemberRole) {
+      setTransactions(prev => [newTx, ...prev]);
+      try {
+        await safeSetDoc(doc(db, 'transactions', newTx.id), newTx);
+      } catch (e) {
+        console.warn('Firestore share purchase sync error:', e);
+      }
+      return { success: true };
+    }
 
     setTransactions(prev => [newTx, ...prev]);
     setMembers(prev => prev.map(m => {
@@ -2035,6 +2067,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const voucherNo = `V-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const txType: TransactionType = params.schemeType === 'dps' ? 'dps_deposit' : params.schemeType === 'fdr' ? 'fdr_deposit' : 'deposit';
 
+    const isMemberRole = currentUser?.role === 'member';
+    const txStatus: 'pending' | 'completed' = isMemberRole ? 'pending' : 'completed';
+
     const newTx: Transaction = {
       id: `tx-${Date.now()}`,
       serialNo: getNextLedgerSerial(),
@@ -2049,7 +2084,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       paymentMethod: params.paymentMethod,
       bankAccountId: params.bankAccountId,
       collectedBy: currentUser.name,
-      verifiedBy: currentUser.name,
+      verifiedBy: isMemberRole ? undefined : currentUser.name,
       savingsSchemeId: params.schemeId,
       selectedShares: params.selectedShares,
       totalMemberShares: params.totalMemberShares,
@@ -2059,12 +2094,17 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       depositMonth: params.depositMonth,
       depositYear: params.depositYear,
       billingPeriod: params.billingPeriod,
-      notes: params.notes || (params.schemeType === 'dps' ? 'ডিপিএস কিস্তি জমা' : params.schemeType === 'fdr' ? 'এফডিআর জমা' : 'সাধারণ সঞ্চয় জমা'),
-      status: 'completed',
+      notes: (params.notes || (params.schemeType === 'dps' ? 'ডিপিএস কিস্তি জমা' : params.schemeType === 'fdr' ? 'এফডিআর জমা' : 'সাধারণ সঞ্চয় জমা')) + (isMemberRole ? ' [অনুমোদন অপেক্ষমাণ]' : ''),
+      status: txStatus,
     };
 
     setTransactions(prev => [newTx, ...prev]);
     safeSetDoc(doc(db, 'transactions', newTx.id), newTx).catch(console.error);
+
+    if (isMemberRole) {
+      setActiveReceipt(newTx);
+      return newTx;
+    }
 
     // Update Member balance
     setMembers(prev => prev.map(m => {
@@ -2127,6 +2167,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const member = members.find(m => m.id === params.memberId);
     const voucherNo = `V-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
+    const isMemberRole = currentUser?.role === 'member';
+    const txStatus: 'pending' | 'completed' = isMemberRole ? 'pending' : 'completed';
+
     const newTx: Transaction = {
       id: `tx-${Date.now()}`,
       serialNo: getNextLedgerSerial(),
@@ -2141,13 +2184,18 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       paymentMethod: params.paymentMethod,
       bankAccountId: params.bankAccountId,
       collectedBy: currentUser.name,
-      verifiedBy: currentUser.name,
-      notes: params.notes || 'সঞ্চয় তহবিল থেকে উত্তোলন',
-      status: 'completed',
+      verifiedBy: isMemberRole ? undefined : currentUser.name,
+      notes: (params.notes || 'সঞ্চয় তহবিল থেকে উত্তোলন') + (isMemberRole ? ' [অনুমোদন অপেক্ষমাণ]' : ''),
+      status: txStatus,
     };
 
     setTransactions(prev => [newTx, ...prev]);
     safeSetDoc(doc(db, 'transactions', newTx.id), newTx).catch(console.error);
+
+    if (isMemberRole) {
+      setActiveReceipt(newTx);
+      return newTx;
+    }
 
     // Deduct from member general balance
     setMembers(prev => prev.map(m => {
@@ -2820,6 +2868,258 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return {
       success: true,
       message: `ঋণ আবেদন #${loan.loanNo || loan.applicationNo} সফলভাবে প্রত্যাখ্যান করা হয়েছে। কারণ রেকর্ডভুক্ত হয়েছে।`,
+    };
+  };
+
+  // Approve Pending Transaction (Deposit, Withdrawal, Share Purchase, Share Surrender)
+  const approvePendingTransaction = async (txId: string): Promise<{ success: boolean; message: string }> => {
+    const tx = transactions.find(t => t.id === txId);
+    if (!tx) {
+      return { success: false, message: 'লেনদেন রেকর্ডটি খুঁজে পাওয়া যায়নি।' };
+    }
+    if (tx.status !== 'pending') {
+      return { success: false, message: 'এই লেনদেনটি ইতিমধ্যে অনুমোদিত বা বাতিল করা হয়েছে।' };
+    }
+
+    const member = members.find(m => m.id === tx.memberId);
+    if (!member && tx.memberId) {
+      return { success: false, message: 'সংশ্লিষ্ট সদস্য রেকর্ডটি পাওয়া যায়নি।' };
+    }
+
+    // 1. Process balance/shares mutations based on tx.type
+    if (member) {
+      if (tx.type === 'deposit') {
+        const newGen = (member.generalSavingsBalance || 0) + tx.amount;
+        const updated = {
+          ...member,
+          generalSavingsBalance: newGen,
+          totalSavings: newGen + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0),
+        };
+        setMembers(prev => prev.map(m => m.id === member.id ? updated : m));
+        safeSetDoc(doc(db, 'members', member.id), updated).catch(console.error);
+      } else if (tx.type === 'dps_deposit') {
+        const newDps = (member.dpsSavingsBalance || 0) + tx.amount;
+        const updated = {
+          ...member,
+          dpsSavingsBalance: newDps,
+          totalSavings: (member.generalSavingsBalance || 0) + newDps + (member.fdrSavingsBalance || 0),
+        };
+        setMembers(prev => prev.map(m => m.id === member.id ? updated : m));
+        safeSetDoc(doc(db, 'members', member.id), updated).catch(console.error);
+      } else if (tx.type === 'fdr_deposit') {
+        const newFdr = (member.fdrSavingsBalance || 0) + tx.amount;
+        const updated = {
+          ...member,
+          fdrSavingsBalance: newFdr,
+          totalSavings: (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + newFdr,
+        };
+        setMembers(prev => prev.map(m => m.id === member.id ? updated : m));
+        safeSetDoc(doc(db, 'members', member.id), updated).catch(console.error);
+      } else if (tx.type === 'withdraw') {
+        const newGen = Math.max(0, (member.generalSavingsBalance || 0) - tx.amount);
+        const updated = {
+          ...member,
+          generalSavingsBalance: newGen,
+          totalSavings: newGen + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0),
+        };
+        setMembers(prev => prev.map(m => m.id === member.id ? updated : m));
+        safeSetDoc(doc(db, 'members', member.id), updated).catch(console.error);
+      } else if (tx.type === 'share_purchase') {
+        const unitPrice = settings.sharePricePerUnit || 1000;
+        const sharesBought = Math.max(1, Math.round(tx.amount / unitPrice));
+        const updated = {
+          ...member,
+          shareCount: (member.shareCount || 0) + sharesBought,
+          shareValue: (member.shareValue || 0) + tx.amount,
+        };
+        setMembers(prev => prev.map(m => m.id === member.id ? updated : m));
+        safeSetDoc(doc(db, 'members', member.id), updated).catch(console.error);
+      } else if (tx.type === 'share_surrender') {
+        const unitPrice = settings.sharePricePerUnit || 1000;
+        const sharesClosed = Math.max(1, Math.round(tx.amount / unitPrice));
+        const updated = {
+          ...member,
+          shareCount: Math.max(0, (member.shareCount || 0) - sharesClosed),
+          shareValue: Math.max(0, (member.shareValue || 0) - tx.amount),
+        };
+        setMembers(prev => prev.map(m => m.id === member.id ? updated : m));
+        safeSetDoc(doc(db, 'members', member.id), updated).catch(console.error);
+      }
+    }
+
+    // 2. Bank account balance update if paid via bank
+    if (tx.paymentMethod === 'bank' && tx.bankAccountId) {
+      const isCredit = ['deposit', 'dps_deposit', 'fdr_deposit', 'share_purchase', 'income'].includes(tx.type);
+      setBankAccounts(prev => prev.map(b => {
+        if (b.id === tx.bankAccountId) {
+          const newBal = isCredit ? (b.balance + tx.amount) : Math.max(0, b.balance - tx.amount);
+          const up = { ...b, balance: newBal, updatedAt: new Date().toISOString() };
+          safeSetDoc(doc(db, 'bankAccounts', b.id), up).catch(console.error);
+          return up;
+        }
+        return b;
+      }));
+    }
+
+    // 3. Update transaction status
+    const updatedTx: Transaction = {
+      ...tx,
+      status: 'completed',
+      verifiedBy: currentUser?.name || 'অ্যাডমিন',
+    };
+
+    setTransactions(prev => prev.map(t => t.id === tx.id ? updatedTx : t));
+    await safeSetDoc(doc(db, 'transactions', tx.id), updatedTx);
+
+    addAuditLog({
+      action: 'APPROVE',
+      entity: 'Transaction',
+      entityId: tx.id,
+      details: `${tx.memberName}-এর ৳${tx.amount} টাকার (${tx.type}) লেনদেন অনুমোদন করা হয়েছে।`,
+      performedBy: currentUser?.name || 'অ্যাডমিন',
+    });
+
+    return {
+      success: true,
+      message: `ভাউচার #${tx.voucherNo} (${tx.type}) সফলভাবে অনুমোদিত হয়েছে এবং মূল অ্যাকাউন্টে কার্যকর হয়েছে।`,
+    };
+  };
+
+  // Reject Pending Transaction
+  const rejectPendingTransaction = async (txId: string, reason?: string): Promise<{ success: boolean; message: string }> => {
+    const tx = transactions.find(t => t.id === txId);
+    if (!tx) {
+      return { success: false, message: 'লেনদেন রেকর্ডটি খুঁজে পাওয়া যায়নি।' };
+    }
+    if (tx.status !== 'pending') {
+      return { success: false, message: 'এই লেনদেনটি ইতিমধ্যে নিষ্পত্তি করা হয়েছে।' };
+    }
+
+    const updatedTx: Transaction = {
+      ...tx,
+      status: 'cancelled',
+      verifiedBy: currentUser?.name || 'অ্যাডমিন',
+      notes: `${tx.notes || ''} [বাতিলকৃত: ${reason || 'প্রশাসনিক সিদ্ধান্তে প্রত্যাখ্যাত'}]`,
+    };
+
+    setTransactions(prev => prev.map(t => t.id === tx.id ? updatedTx : t));
+    await safeSetDoc(doc(db, 'transactions', tx.id), updatedTx);
+
+    addAuditLog({
+      action: 'REJECT',
+      entity: 'Transaction',
+      entityId: tx.id,
+      details: `${tx.memberName}-এর লেনদেন বাতিল: ${reason || 'প্রশাসনিক সিদ্ধান্ত'}`,
+      performedBy: currentUser?.name || 'অ্যাডমিন',
+    });
+
+    return {
+      success: true,
+      message: `ভাউচার #${tx.voucherNo} বাতিল করা হয়েছে। কোনো ব্যালেন্স পরিবর্তন হয়নি।`,
+    };
+  };
+
+  // Request Member Update (Created by Member, pending Admin approval)
+  const requestMemberUpdate = async (memberId: string, changes: Partial<Member>): Promise<{ success: boolean; message: string }> => {
+    const targetMember = members.find(m => m.id === memberId);
+    if (!targetMember) {
+      return { success: false, message: 'সদস্য খুঁজে পাওয়া যায়নি।' };
+    }
+
+    const newReq: MemberUpdateRequest = {
+      id: `mur-${Date.now()}`,
+      memberId,
+      memberNo: targetMember.memberNo,
+      memberName: targetMember.name,
+      requestedBy: currentUser?.name || targetMember.name,
+      requestDate: getTodayDateStr(),
+      status: 'pending',
+      changes,
+    };
+
+    setMemberUpdateRequests(prev => [newReq, ...prev]);
+    await safeSetDoc(doc(db, 'memberUpdateRequests', newReq.id), newReq);
+
+    return {
+      success: true,
+      message: 'আপনার প্রোফাইল সংশোধনের আবেদন সফলভাবে দাখিল করা হয়েছে। অ্যাডমিন পর্যালোচনার পর কার্যকর হবে।',
+    };
+  };
+
+  // Approve Member Update
+  const approveMemberUpdate = async (requestId: string): Promise<{ success: boolean; message: string }> => {
+    const req = memberUpdateRequests.find(r => r.id === requestId);
+    if (!req) {
+      return { success: false, message: 'সংশোধন আবেদনটি পাওয়া যায়নি।' };
+    }
+    if (req.status !== 'pending') {
+      return { success: false, message: 'এই আবেদনটি ইতিমধ্যে প্রক্রিয়াজাত হয়েছে।' };
+    }
+
+    const targetMember = members.find(m => m.id === req.memberId);
+    if (!targetMember) {
+      return { success: false, message: 'সংশ্লিষ্ট সদস্য রেকর্ড পাওয়া যায়নি।' };
+    }
+
+    // Apply allowed changes, keeping member ID and memberNo fixed
+    const updatedMember: Member = {
+      ...targetMember,
+      ...req.changes,
+      id: targetMember.id,
+      memberNo: targetMember.memberNo,
+    };
+
+    setMembers(prev => prev.map(m => m.id === targetMember.id ? updatedMember : m));
+    await safeSetDoc(doc(db, 'members', targetMember.id), updatedMember);
+
+    const updatedReq: MemberUpdateRequest = {
+      ...req,
+      status: 'approved',
+      reviewedBy: currentUser?.name || 'অ্যাডমিন',
+      reviewedAt: new Date().toISOString(),
+    };
+
+    setMemberUpdateRequests(prev => prev.map(r => r.id === req.id ? updatedReq : r));
+    await safeSetDoc(doc(db, 'memberUpdateRequests', req.id), updatedReq);
+
+    addAuditLog({
+      action: 'APPROVE',
+      entity: 'MemberProfile',
+      entityId: targetMember.id,
+      details: `${targetMember.name}-এর প্রোফাইল সংশোধনী আবেদন অনুমোদন করা হয়েছে।`,
+      performedBy: currentUser?.name || 'অ্যাডমিন',
+    });
+
+    return {
+      success: true,
+      message: `${targetMember.name}-এর প্রোফাইল তথ্য সফলভাবে আপডেট হয়েছে।`,
+    };
+  };
+
+  // Reject Member Update
+  const rejectMemberUpdate = async (requestId: string, reason?: string): Promise<{ success: boolean; message: string }> => {
+    const req = memberUpdateRequests.find(r => r.id === requestId);
+    if (!req) {
+      return { success: false, message: 'আবেদনটি পাওয়া যায়নি।' };
+    }
+    if (req.status !== 'pending') {
+      return { success: false, message: 'এই আবেদনটি ইতিমধ্যে প্রক্রিয়াজাত হয়েছে।' };
+    }
+
+    const updatedReq: MemberUpdateRequest = {
+      ...req,
+      status: 'rejected',
+      reviewNotes: reason || 'প্রশাসনিক সিদ্ধান্তে প্রত্যাখ্যাত',
+      reviewedBy: currentUser?.name || 'অ্যাডমিন',
+      reviewedAt: new Date().toISOString(),
+    };
+
+    setMemberUpdateRequests(prev => prev.map(r => r.id === req.id ? updatedReq : r));
+    await safeSetDoc(doc(db, 'memberUpdateRequests', req.id), updatedReq);
+
+    return {
+      success: true,
+      message: 'প্রোফাইল সংশোধনী আবেদনটি প্রত্যাখ্যান করা হয়েছে।',
     };
   };
 
@@ -3701,12 +4001,14 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     // Record audit log
-    await logAudit({
-      action: 'সদস্য একাউন্ট অনুমোদন',
-      entity: 'user',
-      details: `ব্যবহারকারী (${targetUser.email}) অনুমোদিত। নির্ধারিত UID: ${cleanUid}, সংযুক্ত সদস্য: ${targetMember.name} (${targetMember.memberNo})`,
+    addAuditLog({
+      action: 'update',
+      entityType: 'member',
+      entityId: memberId,
+      entityTitle: targetMember.name,
       performedBy: currentUser?.name || 'অ্যাডমিন',
       userRole: currentUser?.role || 'admin',
+      details: `ব্যবহারকারী (${targetUser.email}) অনুমোদিত। নির্ধারিত UID: ${cleanUid}, সংযুক্ত সদস্য: ${targetMember.name} (${targetMember.memberNo})`,
     });
   };
 
@@ -3717,12 +4019,14 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setUsers(prev => prev.filter(u => u.id !== userId));
     await deleteDoc(doc(db, 'systemUsers', userId)).catch(console.error);
 
-    await logAudit({
-      action: 'সদস্য নিবন্ধন প্রত্যাখ্যান',
-      entity: 'user',
-      details: `ব্যবহারকারীর নিবন্ধন (${targetUser.email}) বাতিল/প্রত্যাখ্যান করা হয়েছে। কারণ: ${reason || 'প্রশাসক কর্তৃক বাতিল'}`,
+    addAuditLog({
+      action: 'delete',
+      entityType: 'member',
+      entityId: userId,
+      entityTitle: targetUser.email,
       performedBy: currentUser?.name || 'অ্যাডমিন',
       userRole: currentUser?.role || 'admin',
+      details: `ব্যবহারকারীর নিবন্ধন (${targetUser.email}) বাতিল/প্রত্যাখ্যান করা হয়েছে। কারণ: ${reason || 'প্রশাসক কর্তৃক বাতিল'}`,
     });
   };
 
@@ -4628,105 +4932,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
-  // Safe Deduplication Effect for rapid accidental identical submits only
-  const isDeduplicatingProfitRef = useRef<boolean>(false);
-  useEffect(() => {
-    if (!isInitialLoadDone.current || isDeduplicatingProfitRef.current || businessProfitRecords.length === 0) return;
 
-    // Only flag exact identical submissions (same memberId, date, amount, and within 3000ms)
-    const exactTwinIdsToDelete: string[] = [];
-    const seen = new Set<string>();
-
-    for (const r of businessProfitRecords) {
-      const key = `${r.memberId}_${r.date}_${r.somitiProfitAmount}`;
-      if (seen.has(key)) {
-        // Only consider duplicate if id is different
-        exactTwinIdsToDelete.push(r.id);
-      } else {
-        seen.add(key);
-      }
-    }
-
-    if (exactTwinIdsToDelete.length > 0) {
-      isDeduplicatingProfitRef.current = true;
-      Promise.all(exactTwinIdsToDelete.map(id => deleteBusinessProfitRecord(id)))
-        .catch(console.error)
-        .finally(() => {
-          isDeduplicatingProfitRef.current = false;
-        });
-    }
-  }, [businessProfitRecords]);
-
-  // Automated Ledger Reconciliation & Self-Healing Engine:
-  // Guarantees that each member's generalSavingsBalance and totalSavings strictly match their
-  // actual transaction ledger (deposits + profit share - withdrawals).
-  // This completely eliminates any balance corruption, double deductions, or desynchronization.
-  useEffect(() => {
-    if (members.length === 0) return;
-
-    let hasAnyCorrection = false;
-    const reconciledMembers = members.map(member => {
-      const memberTxs = transactions.filter(t => t.memberId === member.id && t.status === 'completed');
-      
-      // Reconcile if this member has recorded transactions
-      if (memberTxs.length > 0) {
-        const totalDeposits = memberTxs
-          .filter(t => t.type === 'deposit')
-          .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-
-        const totalWithdrawals = memberTxs
-          .filter(t => t.type === 'withdraw')
-          .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-
-        const totalProfitShare = memberTxs
-          .filter(t => t.type === 'profit_share')
-          .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-
-        const expectedGen = Math.max(0, totalDeposits + totalProfitShare - totalWithdrawals);
-        const expectedTot = expectedGen + (Number(member.dpsSavingsBalance) || 0) + (Number(member.fdrSavingsBalance) || 0);
-
-        if (
-          Math.abs((member.generalSavingsBalance || 0) - expectedGen) > 0.01 ||
-          Math.abs((member.totalSavings || 0) - expectedTot) > 0.01
-        ) {
-          hasAnyCorrection = true;
-          const updated: Member = {
-            ...member,
-            generalSavingsBalance: expectedGen,
-            totalSavings: expectedTot,
-          };
-          safeSetDoc(doc(db, 'members', member.id), updated, { merge: true }).catch(console.error);
-          safeSetDoc(doc(db, 'memberFinancials', member.id), {
-            memberId: member.id,
-            memberNo: member.memberNo,
-            generalSavingsBalance: expectedGen,
-            totalSavings: expectedTot,
-            updatedAt: new Date().toISOString(),
-          }, { merge: true }).catch(console.error);
-          return updated;
-        }
-      }
-      return member;
-    });
-
-    if (hasAnyCorrection) {
-      setMembers(reconciledMembers);
-    }
-  }, [transactions]);
-
-  // Automated Cleanup: Automatically purge orphan transactions belonging to members that were deleted
-  useEffect(() => {
-    if (!isInitialLoadDone.current || members.length === 0 || transactions.length === 0) return;
-    const memberIdSet = new Set(members.map(m => m.id));
-    const orphanTxs = transactions.filter(t => t.memberId && !memberIdSet.has(t.memberId));
-    if (orphanTxs.length > 0) {
-      const orphanIds = new Set(orphanTxs.map(t => t.id));
-      setTransactions(prev => prev.filter(t => !orphanIds.has(t.id)));
-      orphanTxs.forEach(t => {
-        deleteDoc(doc(db, 'transactions', t.id)).catch(console.error);
-      });
-    }
-  }, [members, transactions]);
 
   // Helper to get active member's actual total deposit / savings
   // (Uses central getMemberSavingsBalance from utils)
@@ -5382,6 +5588,13 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         deleteMonthlyProfitDistribution,
         clearAllProfitDistributions,
         resetMemberProfitShare,
+
+        memberUpdateRequests,
+        requestMemberUpdate,
+        approveMemberUpdate,
+        rejectMemberUpdate,
+        approvePendingTransaction,
+        rejectPendingTransaction,
       }}
     >
       {children}

@@ -33,7 +33,8 @@ import {
   PiggyBank,
   Layers,
   Search,
-  Sparkles
+  Sparkles,
+  Upload
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -43,6 +44,7 @@ import { BuyShareModal } from './BuyShareModal';
 import { ShareClosuresList } from './ShareClosuresList';
 import { EditMemberModal } from './EditMemberModal';
 import { DeleteMemberModal } from './DeleteMemberModal';
+import { SignatureUploadModal } from './SignatureUploadModal';
 import { EditTransactionModal } from '../transactions/EditTransactionModal';
 import { NewDepositModal } from '../transactions/NewDepositModal';
 import { NewWithdrawModal } from '../transactions/NewWithdrawModal';
@@ -88,7 +90,8 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
     canViewMemberFinancials,
     businessProfitRecords,
     profitDistributions,
-    currentUser
+    currentUser,
+    requestMemberUpdate
   } = useSomiti();
 
   const isMember = currentUser?.role === 'member';
@@ -96,6 +99,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
   const [activeTab, setActiveTab] = useState<'profile' | 'passbook' | 'savings' | 'shares' | 'loans' | 'business' | 'nominee' | 'agreement'>('profile');
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [newPhotoUrl, setNewPhotoUrl] = useState('');
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [showNomineePhotoModal, setShowNomineePhotoModal] = useState(false);
   const [selectedNomineeId, setSelectedNomineeId] = useState<string>('');
   const [newNomineePhotoUrl, setNewNomineePhotoUrl] = useState('');
@@ -191,6 +195,23 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
   }
 
   const hasFinancialAccess = canViewMemberFinancials(member.id);
+
+  const isOwnProfile = Boolean(
+    currentUser && (
+      currentUser.memberId === member.id ||
+      currentUser.email === member.email ||
+      currentUser.id === member.userId
+    )
+  );
+
+  const handleSaveSignature = async (newSignatureUrl: string) => {
+    if (!member) return;
+    if (isUserAdmin) {
+      await updateMember(member.id, { signatureUrl: newSignatureUrl });
+    } else {
+      await requestMemberUpdate(member.id, { signatureUrl: newSignatureUrl });
+    }
+  };
 
   const memberTransactions = transactions.filter(t => t.memberId === member.id);
   const memberLoans = loans.filter(l => l.memberId === member.id);
@@ -999,12 +1020,15 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                     {isBn ? 'নমুনা স্বাক্ষর আপলোড করা নেই' : 'No Specimen Signature'}
                   </span>
                 )}
-                {isUserAdmin && (
+                {(isUserAdmin || isOwnProfile) && (
                   <button
-                    onClick={() => setShowEditMemberModal(true)}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                    onClick={() => setShowSignatureModal(true)}
+                    className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
                   >
-                    {isBn ? 'স্বাক্ষর পরিবর্তন' : 'Update'}
+                    <Upload className="w-3.5 h-3.5" />
+                    {isBn 
+                      ? (member.signatureUrl ? 'স্বাক্ষর পরিবর্তন' : 'স্বাক্ষর আপলোড') 
+                      : (member.signatureUrl ? 'Change Signature' : 'Upload Signature')}
                   </button>
                 )}
               </div>
@@ -2321,6 +2345,14 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
         onClose={() => setShowDeleteModal(false)}
         member={member}
         onDeleted={onBack}
+      />
+
+      {/* Signature Upload & Background Removal Modal */}
+      <SignatureUploadModal
+        isOpen={showSignatureModal}
+        onClose={() => setShowSignatureModal(false)}
+        member={member}
+        onSaveSignature={handleSaveSignature}
       />
     </div>
   );

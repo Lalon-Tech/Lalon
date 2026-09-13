@@ -6,6 +6,10 @@ export type ApprovalCategory =
   | 'user_registration'
   | 'member_admission' 
   | 'savings_withdrawal' 
+  | 'deposit'
+  | 'share_purchase'
+  | 'share_surrender'
+  | 'member_profile_update'
   | 'other';
 
 export interface PendingApprovalItem {

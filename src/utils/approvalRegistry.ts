@@ -1,4 +1,4 @@
-import { Loan, BusinessFunding, Member, AppUser } from '../types';
+import { Loan, BusinessFunding, Member, AppUser, Transaction, MemberUpdateRequest } from '../types';
 import { PendingApprovalItem } from '../types/approval';
 
 export interface ApprovalCollectorSources {
@@ -6,6 +6,8 @@ export interface ApprovalCollectorSources {
   businessFundings?: BusinessFunding[];
   members?: Member[];
   users?: AppUser[];
+  transactions?: Transaction[];
+  memberUpdateRequests?: MemberUpdateRequest[];
 }
 
 /**
@@ -109,8 +111,87 @@ export function getAllPendingApprovals(sources: ApprovalCollectorSources): Pendi
       });
   }
 
-  // 3. Extensible: Future collectors can be plugged in here seamlessly
-  // (e.g. member admission approval, savings withdrawal approval, etc.)
+  // 4. Pending Member Transactions Collector (Deposit, Withdraw, Share Purchase, Share Surrender)
+  if (sources.transactions && Array.isArray(sources.transactions)) {
+    sources.transactions
+      .filter(t => t.status === 'pending')
+      .forEach(tx => {
+        const member = tx.memberId ? memberMap.get(tx.memberId) : undefined;
+        let category: any = 'other';
+        let categoryLabelBn = 'আর্থিক লেনদেন অনুমোদন';
+        let categoryLabelEn = 'Transaction Approval';
+
+        if (tx.type === 'deposit' || tx.type === 'dps_deposit' || tx.type === 'fdr_deposit') {
+          category = 'deposit';
+          categoryLabelBn = 'সঞ্চয় জমা অনুমোদন';
+          categoryLabelEn = 'Savings Deposit Approval';
+        } else if (tx.type === 'withdraw') {
+          category = 'savings_withdrawal';
+          categoryLabelBn = 'সঞ্চয় উত্তোলন অনুমোদন';
+          categoryLabelEn = 'Savings Withdrawal Approval';
+        } else if (tx.type === 'share_purchase') {
+          category = 'share_purchase';
+          categoryLabelBn = 'শেয়ার ক্রয় অনুমোদন';
+          categoryLabelEn = 'Share Purchase Approval';
+        } else if (tx.type === 'share_surrender') {
+          category = 'share_surrender';
+          categoryLabelBn = 'শেয়ার সমর্পণ অনুমোদন';
+          categoryLabelEn = 'Share Surrender Approval';
+        }
+
+        items.push({
+          id: tx.id,
+          category,
+          categoryLabelBn,
+          categoryLabelEn,
+          applicationNo: tx.voucherNo || tx.id,
+          memberId: tx.memberId || '',
+          memberNo: tx.memberNo || member?.memberNo || '',
+          memberName: tx.memberName || member?.name || 'অজ্ঞাত সদস্য',
+          memberPhone: member?.phone,
+          memberPhoto: member?.photoUrl,
+          amount: tx.amount,
+          requestDate: tx.date || new Date().toISOString().split('T')[0],
+          status: 'pending',
+          statusLabelBn: 'অনুমোদন অপেক্ষমাণ',
+          statusLabelEn: 'Pending Approval',
+          title: tx.notes || categoryLabelBn,
+          subTitle: tx.paymentMethod ? `পদ্ধতি: ${tx.paymentMethod.toUpperCase()}` : undefined,
+          profitOrInterestRate: tx.bankAccountId ? 'ব্যাংক লেনদেন' : 'ক্যাশ লেনদেন',
+          rawItem: tx,
+        });
+      });
+  }
+
+  // 5. Member Profile Update Requests (Personal info, Nominee, Photo, Signature updates)
+  if (sources.memberUpdateRequests && sources.memberUpdateRequests.length > 0) {
+    sources.memberUpdateRequests
+      .filter(req => req.status === 'pending')
+      .forEach(req => {
+        const member = memberMap.get(req.memberId);
+        const changedKeys = Object.keys(req.changes || {}).join(', ');
+        items.push({
+          id: req.id,
+          category: 'member_profile_update',
+          categoryLabelBn: 'সদস্য প্রোফাইল পরিবর্তন আবেদন',
+          categoryLabelEn: 'Profile Update Request',
+          applicationNo: req.id,
+          memberId: req.memberId,
+          memberNo: req.memberNo || member?.memberNo || '',
+          memberName: req.memberName || member?.name || 'সদস্য',
+          memberPhone: member?.phone,
+          memberPhoto: (req.changes as any)?.photoUrl || member?.photoUrl,
+          amount: 0,
+          requestDate: req.requestDate || new Date().toISOString().split('T')[0],
+          status: 'pending',
+          statusLabelBn: 'অনুমোদন অপেক্ষমাণ',
+          statusLabelEn: 'Pending Approval',
+          title: `তথ্য সংশোধন: ${changedKeys || 'প্রোফাইল আপডেট'}`,
+          subTitle: `আবেদনকারী: ${req.requestedBy || member?.name}`,
+          rawItem: req,
+        });
+      });
+  }
 
   // Sort by requestDate descending (newest first)
   return items.sort((a, b) => {

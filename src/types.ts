@@ -363,10 +363,11 @@ export interface MonthlyProfitDistribution {
 
 export interface AuditLog {
   id: string;
-  action: 'create' | 'update' | 'delete' | 'reversal' | 'installment';
-  entityType: 'loan' | 'member' | 'savings' | 'transaction' | 'voucher';
+  action: 'create' | 'update' | 'delete' | 'reversal' | 'installment' | 'approve' | 'reject' | string;
+  entityType?: 'loan' | 'member' | 'savings' | 'transaction' | 'voucher' | string;
+  entity?: string;
   entityId: string;
-  entityTitle: string;
+  entityTitle?: string;
   performedBy: string;
   userRole?: string;
   timestamp: string;
@@ -374,5 +375,19 @@ export interface AuditLog {
   time: string;
   details: string;
   changes?: Record<string, { old: any; new: any }>;
+}
+
+export interface MemberUpdateRequest {
+  id: string;
+  memberId: string;
+  memberNo: string;
+  memberName: string;
+  requestedBy: string;
+  requestDate: string;
+  status: 'pending' | 'approved' | 'rejected';
+  changes: Partial<Member>;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  reviewNotes?: string;
 }
 

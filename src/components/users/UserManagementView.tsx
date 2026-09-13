@@ -44,6 +44,7 @@ import {
   MIN_ACTIVE_ADMINS 
 } from '../../utils/userUtils';
 import { createAuthAccountWithoutSignout } from '../../lib/firebase';
+import { ApproveUserModal } from './ApproveUserModal';
 
 export const UserManagementView: React.FC = () => {
   const { users, addUser, updateUser, deleteUser, toggleUserStatus, currentUser, members, setSelectedMemberId, setActiveTab } = useSomiti();
@@ -57,9 +58,13 @@ export const UserManagementView: React.FC = () => {
 
   // Filter, View & Search state
   const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'committee' | 'manager' | 'field_officer' | 'members'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'committee' | 'manager' | 'field_officer' | 'members' | 'pending'>('all');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [adminWarning, setAdminWarning] = useState<string | null>(null);
+
+  // User approval modal state
+  const [userToApprove, setUserToApprove] = useState<AppUser | null>(null);
+  const [showApproveModal, setShowApproveModal] = useState(false);
 
   // Add User Form State (Rule 1 & 2)
   const [creationMode, setCreationMode] = useState<'member' | 'direct'>('member');
@@ -415,6 +420,7 @@ export const UserManagementView: React.FC = () => {
       if (roleFilter === 'manager') return user.role === 'manager';
       if (roleFilter === 'field_officer') return user.role === 'field_officer';
       if (roleFilter === 'members') return user.role === 'member' || !!user.memberId;
+      if (roleFilter === 'pending') return user.status === 'pending' || (user.role === 'member' && !user.memberId);
 
       return true;
     });
@@ -426,7 +432,8 @@ export const UserManagementView: React.FC = () => {
     const adminCount = users.filter(u => u.role === 'admin' && u.status === 'active').length;
     const committeeCount = users.filter(u => ['president', 'secretary', 'cashier'].includes(u.role)).length;
     const memberAccountsCount = users.filter(u => u.role === 'member' || !!u.memberId).length;
-    return { total, adminCount, committeeCount, memberAccountsCount };
+    const pendingCount = users.filter(u => u.status === 'pending' || (u.role === 'member' && !u.memberId)).length;
+    return { total, adminCount, committeeCount, memberAccountsCount, pendingCount };
   }, [users]);
 
   return (
@@ -629,6 +636,25 @@ export const UserManagementView: React.FC = () => {
           >
             {isBn ? 'কমিটি' : 'Committee'}
           </button>
+
+          {stats.pendingCount > 0 && (
+            <button
+              onClick={() => setRoleFilter('pending')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer ${
+                roleFilter === 'pending' 
+                  ? 'bg-amber-600 text-white shadow-xs' 
+                  : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
+              }`}
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              <span>{isBn ? 'অনুমোদন অপেক্ষমাণ' : 'Pending Approval'}</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                roleFilter === 'pending' ? 'bg-white text-amber-800' : 'bg-amber-700 text-white'
+              }`}>
+                {isBn ? toBengaliNumber(stats.pendingCount) : stats.pendingCount}
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -745,18 +771,41 @@ export const UserManagementView: React.FC = () => {
 
                       {/* 6. Status */}
                       <td className="py-3.5 px-4 text-center">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold inline-block ${
-                          user.status === 'active' 
-                            ? 'bg-emerald-100 text-emerald-800' 
-                            : 'bg-rose-100 text-rose-800'
-                        }`}>
-                          {user.status === 'active' ? (isBn ? 'সক্রিয়' : 'Active') : (isBn ? 'স্থগিত' : 'Inactive')}
-                        </span>
+                        {user.status === 'pending' ? (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 bg-amber-100 text-amber-800 border border-amber-300">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            {isBn ? 'অপেক্ষমাণ' : 'Pending'}
+                          </span>
+                        ) : (
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold inline-block ${
+                            user.status === 'active' 
+                              ? 'bg-emerald-100 text-emerald-800' 
+                              : 'bg-rose-100 text-rose-800'
+                          }`}>
+                            {user.status === 'active' ? (isBn ? 'সক্রিয়' : 'Active') : (isBn ? 'স্থগিত' : 'Inactive')}
+                          </span>
+                        )}
                       </td>
 
                       {/* 7. Actions (Requirement 8) */}
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {/* Approve Pending User Button */}
+                          {(user.status === 'pending' || (!user.memberId && user.role === 'member')) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setUserToApprove(user);
+                                setShowApproveModal(true);
+                              }}
+                              className="px-2.5 py-1 text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                              title={isBn ? 'সদস্য লিংক ও অনুমোদন করুন' : 'Link Member & Approve'}
+                            >
+                              <UserCheck className="w-3.5 h-3.5" />
+                              <span>{isBn ? 'অনুমোদন' : 'Approve'}</span>
+                            </button>
+                          )}
+
                           {/* Promote to Admin / Demote to Member */}
                           {!isUserAdminRole ? (
                             <button
@@ -918,13 +967,34 @@ export const UserManagementView: React.FC = () => {
 
                 {/* Bottom Actions Bar */}
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                    user.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                  }`}>
-                    {user.status === 'active' ? (isBn ? 'সক্রিয়' : 'Active') : (isBn ? 'স্থগিত' : 'Inactive')}
-                  </span>
+                  {user.status === 'pending' ? (
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 bg-amber-100 text-amber-800 border border-amber-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                      {isBn ? 'অপেক্ষমাণ' : 'Pending'}
+                    </span>
+                  ) : (
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                      user.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                    }`}>
+                      {user.status === 'active' ? (isBn ? 'সক্রিয়' : 'Active') : (isBn ? 'স্থগিত' : 'Inactive')}
+                    </span>
+                  )}
 
                   <div className="flex items-center gap-2">
+                    {(user.status === 'pending' || (!user.memberId && user.role === 'member')) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUserToApprove(user);
+                          setShowApproveModal(true);
+                        }}
+                        className="px-2.5 py-1 text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                      >
+                        <UserCheck className="w-3.5 h-3.5" />
+                        <span>{isBn ? 'অনুমোদন' : 'Approve'}</span>
+                      </button>
+                    )}
+
                     {!isUserAdminRole ? (
                       <button
                         type="button"
@@ -1501,6 +1571,17 @@ export const UserManagementView: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+      {/* Approve User Registration Modal */}
+      {showApproveModal && userToApprove && (
+        <ApproveUserModal
+          user={userToApprove}
+          isOpen={showApproveModal}
+          onClose={() => {
+            setShowApproveModal(false);
+            setUserToApprove(null);
+          }}
+        />
       )}
     </div>
   );
