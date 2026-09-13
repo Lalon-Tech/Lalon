@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { AppUser, Member } from '../../types';
 import { useSomiti } from '../../context/SomitiContext';
-import { generateNextUserUid } from '../../utils/mockData';
+import { generateNextUserUid } from '../../utils/userUtils';
 
 interface ApproveUserModalProps {
   user: AppUser | null;
