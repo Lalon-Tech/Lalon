@@ -619,7 +619,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
             }`}
           >
             <Archive className="w-4 h-4 text-amber-600" />
-            <span>{isBn ? (isMember ? `আমার শেয়ার ও মূলধন (${displayCount(member.shareCount || 0)})` : `শেয়ার ও সমর্পণ আর্কাইভ (${displayCount(memberShareClosures.length)})`) : (isMember ? `My Shares & Capital (${displayCount(member.shareCount || 0)})` : `Shares & Closures (${displayCount(memberShareClosures.length)})`)}</span>
+            <span>{isBn ? `আমার শেয়ার ও মূলধন (${displayCount(member.shareCount || 0)})` : `My Shares & Capital (${displayCount(member.shareCount || 0)})`}</span>
           </button>
           <button
             onClick={() => setActiveTab('loans')}
@@ -1229,10 +1229,10 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                 <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl relative overflow-hidden">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-semibold text-amber-900 block">
-                      {isBn ? 'সক্রিয় শেয়ার মূলধন' : 'Active Share Capital'}
+                      {isBn ? 'সক্রিয় শেয়ার মূলধন / Active Share Capital' : 'Active Share Capital'}
                     </span>
                     <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900 font-mono">
-                      {isBn ? 'সক্রিয় শেয়ার' : 'Active'}
+                      {isBn ? 'মোট শেয়ার' : 'Total Shares'}
                     </span>
                   </div>
                   <div className="text-xl font-bold text-amber-950 font-mono">
@@ -1512,10 +1512,10 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                       </span>
                       <div>
                         <h4 className="font-bold text-slate-800 text-base">
-                          {isBn ? (isMember ? 'আমার শেয়ার ও মূলধন (সক্রিয় শেয়ার)' : 'সদস্যের বর্তমান সক্রিয় শেয়ার') : (isMember ? 'My Shares & Capital (Active Shares)' : 'Member Active Shares')}
+                          {isBn ? 'আমার শেয়ার ও মূলধন / My Shares & Capital' : 'My Shares & Capital / আমার শেয়ার ও মূলধন'}
                         </h4>
                         <p className="text-xs text-slate-500">
-                          {isBn ? 'সমিতিতে সদস্যের বর্তমান মোট সক্রিয় শেয়ার সংখ্যা' : 'Current active equity shares count held in the somiti'}
+                          {isBn ? 'সদস্যের মোট সক্রিয় শেয়ার সংখ্যা' : "Member's Total Number of Shares"}
                         </p>
                       </div>
                     </div>
@@ -1541,25 +1541,25 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-amber-200/60">
                   <div className="bg-white p-3.5 rounded-xl border border-blue-100 shadow-2xs">
-                    <span className="text-[11px] text-slate-500 block font-medium">বর্তমান সক্রিয় শেয়ার</span>
-                    <span className="text-xl font-black text-blue-700 font-mono">
-                      {displayCount(member.shareCount || 0)} টি
+                    <span className="text-[11px] text-slate-500 block font-medium">{isBn ? 'সদস্যের মোট সক্রিয় শেয়ার সংখ্যা' : "Member's Total Active Shares"}</span>
+                    <span className="text-2xl font-black text-blue-700 font-mono">
+                      {displayCount(member.shareCount || 0)} {isBn ? 'টি' : 'Shares'}
                     </span>
-                    <span className="text-[10px] text-slate-400 block mt-0.5">সদস্যের অর্জিত অংশীদারিত্ব</span>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">{isBn ? 'সদস্যের অর্জিত মোট শেয়ার' : 'Total active equity shares'}</span>
+                  </div>
+                  <div className="bg-white p-3.5 rounded-xl border border-amber-100 shadow-2xs">
+                    <span className="text-[11px] text-slate-500 block font-medium">{isBn ? 'পূর্বে সমর্পিত / বন্ধকৃত শেয়ার' : 'Surrendered / Closed Shares'}</span>
+                    <span className="text-2xl font-bold text-amber-800 font-mono">
+                      {displayCount(memberShareClosures.reduce((s, c) => s + (c.closedSharesCount || 0), 0))} {isBn ? 'টি' : 'Shares'}
+                    </span>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">{isBn ? 'ক্লোজকৃত শেয়ার রেকর্ড' : 'Closed shares archive'}</span>
                   </div>
                   <div className="bg-white p-3.5 rounded-xl border border-emerald-100 shadow-2xs">
-                    <span className="text-[11px] text-slate-500 block font-medium">মোট জমাকৃত সঞ্চয় স্থিতি</span>
-                    <span className="text-xl font-black text-emerald-700">
-                      {formatCurrency(member.totalSavings || 0, isBn && useBengaliDigits)}
+                    <span className="text-[11px] text-slate-500 block font-medium">{isBn ? 'অংশীদারিত্বের অবস্থা' : 'Membership Status'}</span>
+                    <span className="text-lg font-black text-emerald-700">
+                      {member.status === 'active' ? (isBn ? 'সক্রিয় অংশীদার' : 'Active Partner') : (isBn ? 'নিষ্ক্রিয়' : 'Inactive')}
                     </span>
-                    <span className="text-[10px] text-emerald-600 font-medium block mt-0.5">ডিপোজিটকৃত আসল জমা</span>
-                  </div>
-                  <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
-                    <span className="text-[11px] text-slate-500 block font-medium">পূর্বে সমর্পিত/বন্ধকৃত শেয়ার</span>
-                    <span className="text-xl font-bold text-slate-600 font-mono">
-                      {displayCount(memberShareClosures.reduce((s, c) => s + (c.closedSharesCount || 0), 0))} টি
-                    </span>
-                    <span className="text-[10px] text-slate-400 block mt-0.5">ক্লোজকৃত শেয়ার রেকর্ড</span>
+                    <span className="text-[10px] text-emerald-600 font-medium block mt-0.5">{isBn ? 'সমিতির অনুমোদিত সদস্য' : 'Official Somiti Partner'}</span>
                   </div>
                 </div>
               </div>

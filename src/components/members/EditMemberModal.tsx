@@ -847,7 +847,7 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
             <div className="text-xs text-slate-500 font-medium">
               {activeTab === 'shares' && (
                 <span>
-                  {isBn ? 'শেয়ার মূলধন:' : 'Share Capital:'} <strong className="text-blue-900">{formatCurrency(shareValue, isBn && useBengaliDigits)}</strong>
+                  {isBn ? 'মোট সক্রিয় শেয়ার সংখ্যা:' : 'Total Active Shares:'} <strong className="text-blue-900 font-mono">{isBn || useBengaliDigits ? toBengaliNumber(shareCount) : shareCount} {isBn ? 'টি' : 'Shares'}</strong>
                 </span>
               )}
             </div>
