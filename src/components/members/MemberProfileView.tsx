@@ -619,7 +619,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
             }`}
           >
             <Archive className="w-4 h-4 text-amber-600" />
-            <span>{isBn ? `শেয়ার ও সমর্পণ আর্কাইভ (${displayCount(memberShareClosures.length)})` : `Shares & Closures (${displayCount(memberShareClosures.length)})`}</span>
+            <span>{isBn ? (isMember ? `আমার শেয়ার ও মূলধন (${displayCount(member.shareCount || 0)})` : `শেয়ার ও সমর্পণ আর্কাইভ (${displayCount(memberShareClosures.length)})`) : (isMember ? `My Shares & Capital (${displayCount(member.shareCount || 0)})` : `Shares & Closures (${displayCount(memberShareClosures.length)})`)}</span>
           </button>
           <button
             onClick={() => setActiveTab('loans')}
@@ -864,8 +864,8 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                   </div>
                   <div className="py-2.5 flex items-center justify-between gap-4">
                     <span className="text-slate-500 font-medium">Active Shares / মোট শেয়ার সংখ্যা</span>
-                    <span className="font-bold text-slate-800 text-right">
-                      {displayCount(member.shareCount)} টি (মূলধন: ৳{formatCurrency(member.shareValue, isBn && useBengaliDigits)})
+                    <span className="font-bold text-slate-800 text-right font-mono">
+                      {displayCount(member.shareCount)} {isBn ? 'টি' : 'Shares'}
                     </span>
                   </div>
                   <div className="py-2.5 flex items-center justify-between gap-4">
@@ -1232,11 +1232,11 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                       {isBn ? 'সক্রিয় শেয়ার মূলধন' : 'Active Share Capital'}
                     </span>
                     <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900 font-mono">
-                      {displayCount(member.shareCount || 0)} {isBn ? 'টি' : ''}
+                      {isBn ? 'সক্রিয় শেয়ার' : 'Active'}
                     </span>
                   </div>
-                  <div className="text-lg font-bold text-amber-950">
-                    {formatCurrency(member.shareValue || 0, isBn && useBengaliDigits)}
+                  <div className="text-xl font-bold text-amber-950 font-mono">
+                    {displayCount(member.shareCount || 0)} <span className="text-xs font-semibold text-amber-850">{isBn ? 'টি' : 'Shares'}</span>
                   </div>
                   <div className="flex items-center gap-2 mt-2 pt-1.5 border-t border-amber-200/60">
                     <button
@@ -1512,10 +1512,10 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                       </span>
                       <div>
                         <h4 className="font-bold text-slate-800 text-base">
-                          {isBn ? 'সদস্যের বর্তমান সক্রিয় শেয়ার মূলধন' : 'Member Active Share Capital'}
+                          {isBn ? (isMember ? 'আমার শেয়ার ও মূলধন (সক্রিয় শেয়ার)' : 'সদস্যের বর্তমান সক্রিয় শেয়ার') : (isMember ? 'My Shares & Capital (Active Shares)' : 'Member Active Shares')}
                         </h4>
                         <p className="text-xs text-slate-500">
-                          {isBn ? 'সমিতিতে সদস্যের বর্তমান অংশীদারিত্ব ও মূলধন স্থিতি' : 'Current equity holding and share status in the somiti'}
+                          {isBn ? 'সমিতিতে সদস্যের বর্তমান মোট সক্রিয় শেয়ার সংখ্যা' : 'Current active equity shares count held in the somiti'}
                         </p>
                       </div>
                     </div>

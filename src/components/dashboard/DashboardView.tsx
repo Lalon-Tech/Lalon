@@ -71,7 +71,7 @@ export const DashboardView: React.FC = () => {
 
     const mySavingsTotal = Number(myMember?.totalSavings ?? myMember?.generalSavingsBalance ?? 0);
     const myActiveLoanBalance = Number(myMember?.activeLoanBalance ?? 0);
-    const mySharesCount = Number(myMember?.sharesCount ?? 1);
+    const mySharesCount = Number(myMember?.shareCount ?? (myMember as any)?.sharesCount ?? 0);
     const myShareAmount = Number(myMember?.shareAmount ?? (mySharesCount * 1000));
 
     return (
@@ -179,11 +179,11 @@ export const DashboardView: React.FC = () => {
             </div>
           </div>
 
-          {/* Card 4: My Shares */}
+          {/* Card 4: My Shares & Capital */}
           <div className="bg-white p-5 rounded-2xl border border-indigo-200/80 shadow-2xs">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-indigo-700">
-                {isBn ? 'আমার শেয়ার' : 'My Shares'}
+                {isBn ? 'আমার শেয়ার ও মূলধন' : 'My Shares & Capital'}
               </span>
               <span className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
                 <Building className="w-4 h-4" />
