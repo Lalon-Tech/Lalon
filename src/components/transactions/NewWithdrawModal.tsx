@@ -28,21 +28,28 @@ export const NewWithdrawModal: React.FC<NewWithdrawModalProps> = ({
     bankAccounts, 
     addWithdrawal, 
     useBengaliDigits,
-    selectedMemberId
+    selectedMemberId,
+    currentUser
   } = useSomiti();
 
-  const isMemberLocked = lockMember !== undefined 
-    ? lockMember 
-    : Boolean(initialMemberId || (selectedMemberId && !isEmbedded));
+  const isMember = currentUser?.role === 'member';
 
-  const effectiveTargetId = (initialMemberId && members.some(m => m.id === initialMemberId))
-    ? initialMemberId
-    : (selectedMemberId && members.some(m => m.id === selectedMemberId))
-      ? selectedMemberId
-      : (members[0]?.id || '');
+  const isMemberLocked = isMember ? true : (lockMember !== undefined 
+    ? lockMember 
+    : Boolean(initialMemberId || (selectedMemberId && !isEmbedded)));
+
+  const effectiveTargetId = (isMember && currentUser?.memberId)
+    ? currentUser.memberId
+    : (initialMemberId && members.some(m => m.id === initialMemberId))
+      ? initialMemberId
+      : (selectedMemberId && members.some(m => m.id === selectedMemberId))
+        ? selectedMemberId
+        : (members[0]?.id || '');
 
   const [selectedId, setSelectedId] = useState(effectiveTargetId);
-  const memberId = isMemberLocked ? effectiveTargetId : (selectedId || effectiveTargetId);
+  const memberId = (isMember && currentUser?.memberId)
+    ? currentUser.memberId
+    : (isMemberLocked ? effectiveTargetId : (selectedId || effectiveTargetId));
   const setMemberId = setSelectedId;
   const [amount, setAmount] = useState<number>(1000);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
@@ -53,26 +60,40 @@ export const NewWithdrawModal: React.FC<NewWithdrawModalProps> = ({
 
   // Automatically sync with the active member whenever the modal opens or active member changes
   React.useEffect(() => {
+    if (isMember && currentUser?.memberId) {
+      setSelectedId(currentUser.memberId);
+      return;
+    }
     const targetId = initialMemberId || selectedMemberId;
     if (targetId && members.some(m => m.id === targetId)) {
       setSelectedId(targetId);
     }
-  }, [isOpen, initialMemberId, selectedMemberId, members]);
+  }, [isOpen, initialMemberId, selectedMemberId, members, isMember, currentUser?.memberId]);
 
   React.useEffect(() => {
     if (isOpen) {
       setErrorMsg(null);
       setConfirmOverdraw(false);
+      if (isMember && currentUser?.memberId) {
+        setSelectedId(currentUser.memberId);
+        return;
+      }
       const targetId = initialMemberId || selectedMemberId;
       if (targetId && members.some(m => m.id === targetId)) {
         setSelectedId(targetId);
       }
     }
-  }, [isOpen]);
+  }, [isOpen, isMember, currentUser?.memberId]);
 
   if (!isOpen) return null;
 
-  const selectedMember = members.find(m => m.id === memberId);
+  const availableMembers = isMember && currentUser?.memberId
+    ? members.filter(m => m.id === currentUser.memberId)
+    : members;
+
+  const selectedMember = (isMember && currentUser?.memberId)
+    ? (members.find(m => m.id === currentUser.memberId) || members[0])
+    : members.find(m => m.id === memberId);
   const availableBalance = selectedMember ? (selectedMember.generalSavingsBalance || 0) : 0;
   const isOverdraw = amount > availableBalance;
 
@@ -213,7 +234,7 @@ export const NewWithdrawModal: React.FC<NewWithdrawModalProps> = ({
                 }}
                 className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-rose-500 focus:outline-hidden cursor-pointer font-medium"
               >
-                {members.map((m) => (
+                {availableMembers.map((m) => (
                   <option key={m.id} value={m.id}>
                     #{m.memberNo} - {m.name} ({isBn ? 'সাধারণ সঞ্চয়:' : 'General Savings:'} {formatCurrency(m.generalSavingsBalance, isBn && useBengaliDigits)})
                   </option>

@@ -211,22 +211,26 @@ export const TransactionManager: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setActiveTab('loans_kisti')}
-            className="flex items-center gap-1 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
-          >
-            <Coins className="w-3.5 h-3.5" />
-            <span>{isBn ? 'কিস্তি আদায়' : 'Collect Kisti'}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('loans_apply')}
-            className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
-          >
-            <CreditCard className="w-3.5 h-3.5" />
-            <span>{isBn ? 'নতুন ঋণ' : 'New Loan'}</span>
-          </button>
+          {!isMember && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('loans_kisti')}
+              className="flex items-center gap-1 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+            >
+              <Coins className="w-3.5 h-3.5" />
+              <span>{isBn ? 'কিস্তি আদায়' : 'Collect Kisti'}</span>
+            </button>
+          )}
+          {!isMember && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('loans_apply')}
+              className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              <span>{isBn ? 'নতুন ঋণ' : 'New Loan'}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -244,10 +248,16 @@ export const TransactionManager: React.FC = () => {
               ← {isBn ? 'লেনদেন লেজারে ফিরে যান' : 'Back to Ledger'}
             </button>
           </div>
-          <NewDepositModal isOpen={true} isEmbedded={true} onClose={() => {
-            setCurrentTab('ledger');
-            setActiveTab('transactions');
-          }} />
+          <NewDepositModal 
+            isOpen={true} 
+            isEmbedded={true} 
+            initialMemberId={isMember ? currentUser?.memberId : undefined}
+            lockMember={isMember}
+            onClose={() => {
+              setCurrentTab('ledger');
+              setActiveTab('transactions');
+            }} 
+          />
         </div>
       )}
 
@@ -265,10 +275,16 @@ export const TransactionManager: React.FC = () => {
               ← {isBn ? 'লেনদেন লেজারে ফিরে যান' : 'Back to Ledger'}
             </button>
           </div>
-          <NewWithdrawModal isOpen={true} isEmbedded={true} onClose={() => {
-            setCurrentTab('ledger');
-            setActiveTab('transactions');
-          }} />
+          <NewWithdrawModal 
+            isOpen={true} 
+            isEmbedded={true} 
+            initialMemberId={isMember ? currentUser?.memberId : undefined}
+            lockMember={isMember}
+            onClose={() => {
+              setCurrentTab('ledger');
+              setActiveTab('transactions');
+            }} 
+          />
         </div>
       )}
 
@@ -429,18 +445,20 @@ export const TransactionManager: React.FC = () => {
 
                       <td className="py-3 px-4 text-center">
                         <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingTx(tx);
-                            }}
-                            className="px-2 py-1 text-xs font-bold bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-md transition-colors cursor-pointer flex items-center gap-1"
-                            title={isBn ? 'লেনদেন সংশোধন / এডিট' : 'Edit Transaction'}
-                          >
-                            <Edit3 className="w-3 h-3" />
-                            <span>{isBn ? 'সংশোধন' : 'Edit'}</span>
-                          </button>
+                          {!isMember && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingTx(tx);
+                              }}
+                              className="px-2 py-1 text-xs font-bold bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-md transition-colors cursor-pointer flex items-center gap-1"
+                              title={isBn ? 'লেনদেন সংশোধন / এডিট' : 'Edit Transaction'}
+                            >
+                              <Edit3 className="w-3 h-3" />
+                              <span>{isBn ? 'সংশোধন' : 'Edit'}</span>
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={(e) => {

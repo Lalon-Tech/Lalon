@@ -89,7 +89,7 @@ const AppContent: React.FC = () => {
     'excel', 'excel_import', 'reports', 'reports_daily', 'reports_monthly',
     'reports_member', 'reports_income_expense', 'reports_yearly',
     'business_funding', 'all_members', 'new_member', 'active_members',
-    'members', 'members_all', 'loans_pending', 'loans_apply'
+    'members', 'members_all', 'loans_kisti', 'transactions_kisti'
   ];
 
   const renderActiveView = () => {

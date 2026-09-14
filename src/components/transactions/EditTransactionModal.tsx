@@ -151,7 +151,8 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
     }
   }, [transaction, currentUser.name, bankAccounts, settings.sharePricePerUnit]);
 
-  if (!isOpen || !transaction) return null;
+  const isMember = currentUser?.role === 'member';
+  if (!isOpen || !transaction || isMember) return null;
 
   const member = members.find(m => m.id === transaction.memberId);
   const totalShares = transaction.totalMemberShares || member?.shareCount || 0;

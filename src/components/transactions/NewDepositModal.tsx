@@ -68,25 +68,32 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
     savingsSchemes,
     settings, 
     useBengaliDigits,
-    selectedMemberId
+    selectedMemberId,
+    currentUser
   } = useSomiti();
 
-  const isMemberLocked = lockMember !== undefined 
-    ? lockMember 
-    : Boolean(initialMemberId || (selectedMemberId && !isEmbedded));
+  const isMember = currentUser?.role === 'member';
 
-  const effectiveTargetId = (initialMemberId && members.some(m => m.id === initialMemberId))
-    ? initialMemberId
-    : (selectedMemberId && members.some(m => m.id === selectedMemberId))
-      ? selectedMemberId
-      : (members[0]?.id || '');
+  const isMemberLocked = isMember ? true : (lockMember !== undefined 
+    ? lockMember 
+    : Boolean(initialMemberId || (selectedMemberId && !isEmbedded)));
+
+  const effectiveTargetId = (isMember && currentUser?.memberId)
+    ? currentUser.memberId
+    : (initialMemberId && members.some(m => m.id === initialMemberId))
+      ? initialMemberId
+      : (selectedMemberId && members.some(m => m.id === selectedMemberId))
+        ? selectedMemberId
+        : (members[0]?.id || '');
 
   const getTodayDate = () => new Date().toISOString().split('T')[0];
   const getCurrentMonthStr = () => String(new Date().getMonth() + 1).padStart(2, '0');
   const getCurrentYearNum = () => new Date().getFullYear();
 
   const [selectedId, setSelectedId] = useState(effectiveTargetId);
-  const memberId = isMemberLocked ? effectiveTargetId : (selectedId || effectiveTargetId);
+  const memberId = (isMember && currentUser?.memberId)
+    ? currentUser.memberId
+    : (isMemberLocked ? effectiveTargetId : (selectedId || effectiveTargetId));
   const setMemberId = setSelectedId;
   const [schemeType, setSchemeType] = useState<'general' | 'dps' | 'fdr'>('general');
   const [schemeId, setSchemeId] = useState('');
@@ -110,7 +117,13 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
   const [showShareEditor, setShowShareEditor] = useState(false);
   const [customShareCountInput, setCustomShareCountInput] = useState<number>(4);
 
-  const currentMember = members.find(m => m.id === memberId);
+  const availableMembers = isMember && currentUser?.memberId
+    ? members.filter(m => m.id === currentUser.memberId)
+    : members;
+
+  const currentMember = (isMember && currentUser?.memberId)
+    ? (members.find(m => m.id === currentUser.memberId) || members[0])
+    : (members.find(m => m.id === memberId) || members[0]);
   const memberTotalShares = currentMember?.shareCount || 0;
 
   const displayCount = (num: number) => (isBn || useBengaliDigits ? toBengaliNumber(num) : num.toString());
@@ -154,11 +167,15 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
 
   // Initialize or update state when member or modal opens
   useEffect(() => {
+    if (isMember && currentUser?.memberId) {
+      setSelectedId(currentUser.memberId);
+      return;
+    }
     const targetId = initialMemberId || selectedMemberId;
     if (targetId && members.some(m => m.id === targetId)) {
       setSelectedId(targetId);
     }
-  }, [isOpen, initialMemberId, selectedMemberId, members]);
+  }, [isOpen, initialMemberId, selectedMemberId, members, isMember, currentUser?.memberId]);
 
   // When member changes, initialize share amounts and selections
   useEffect(() => {
@@ -483,13 +500,15 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
                     <span className="text-sm font-black text-emerald-700 font-mono">
                       {formatCurrency(currentMember.totalSavings || 0, isBn && useBengaliDigits)}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setShowShareEditor(!showShareEditor)}
-                      className="text-[10px] text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer mt-0.5 block"
-                    >
-                      {isBn ? 'শেয়ার পরিবর্তন' : 'Edit Shares'}
-                    </button>
+                    {!isMember && (
+                      <button
+                        type="button"
+                        onClick={() => setShowShareEditor(!showShareEditor)}
+                        className="text-[10px] text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer mt-0.5 block"
+                      >
+                        {isBn ? 'শেয়ার পরিবর্তন' : 'Edit Shares'}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -505,7 +524,7 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
                 onChange={(e) => setMemberId(e.target.value)}
                 className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-hidden font-medium"
               >
-                {members.map((m) => (
+                {availableMembers.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.memberNo} - {m.name} ({isBn ? 'শেয়ার:' : 'Shares:'} {displayCount(m.shareCount || 0)} {isBn ? 'টি' : ''}) • {m.phone}
                   </option>
