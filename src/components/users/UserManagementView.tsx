@@ -1019,6 +1019,29 @@ export const UserManagementView: React.FC = () => {
                       </button>
                     )}
 
+                    {user.status === 'pending' && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const reason = window.prompt(
+                            isBn ? 'নিবন্ধন আবেদন বাতিলের কারণ লিখুন (ঐচ্ছিক):' : 'Reason for rejection (optional):',
+                            isBn ? 'প্রশাসনিক সিদ্ধান্তে বাতিল' : 'Rejected by admin'
+                          );
+                          if (reason === null) return;
+                          try {
+                            await rejectUserRegistration(user.id, reason);
+                          } catch (err: any) {
+                            alert(err?.message || 'বাতিল করা যায়নি।');
+                          }
+                        }}
+                        className="px-2 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                        title={isBn ? 'নিবন্ধন আবেদন বাতিল করুন' : 'Reject Registration'}
+                      >
+                        <X className="w-3.5 h-3.5 text-rose-600" />
+                        <span>{isBn ? 'বাতিল' : 'Reject'}</span>
+                      </button>
+                    )}
+
                     {!isUserAdminRole ? (
                       <button
                         type="button"

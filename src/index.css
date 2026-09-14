@@ -27,14 +27,17 @@
     display: block !important;
   }
 
-  .printable-area {
+  .printable-area,
+  #printable-receipt {
     position: absolute;
     left: 0;
     top: 0;
-    width: 100%;
-    margin: 0;
-    padding: 0;
-    background: white;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 8mm 6mm !important;
+    background: white !important;
+    border: none !important;
+    box-shadow: none !important;
   }
 
   .passbook-scroll-container {

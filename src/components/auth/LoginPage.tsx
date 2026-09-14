@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, ShieldCheck, ArrowRight, Clock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { LanguageSwitcher } from '../common/LanguageSwitcher';
@@ -8,7 +8,17 @@ interface LoginPageProps {}
 
 export const LoginPage: React.FC<LoginPageProps> = () => {
   const { language, t } = useLanguage();
-  const { signIn, signUp, signInWithGoogle, signInAsDemo, resetPassword, error, clearError } = useAuth();
+  const { 
+    signIn, 
+    signUp, 
+    signInWithGoogle, 
+    signInAsDemo, 
+    resetPassword, 
+    error, 
+    clearError,
+    wasAutoLoggedOut,
+    clearAutoLoggedOut
+  } = useAuth();
   
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
   const [email, setEmail] = useState('');
@@ -132,6 +142,26 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
               : (language === 'bn' ? 'পাসওয়ার্ড পুনরুদ্ধার করুন' : 'Recover your account password')}
           </p>
         </div>
+
+        {/* Auto Logout Notification (10 minutes inactivity) */}
+        {wasAutoLoggedOut && (
+          <div className="mb-4 p-3.5 bg-amber-950/70 border border-amber-500/60 rounded-xl flex items-start gap-2.5 text-xs text-amber-200 animate-in fade-in">
+            <Clock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div className="flex-1 leading-relaxed">
+              {language === 'bn' 
+                ? '১০ মিনিট কোনো কার্যকলাপ না থাকায় আপনার সেশনটি স্বয়ংক্রিয়ভাবে লগআউট হয়েছে। আপনার অ্যাকাউন্ট নিরাপত্তার স্বার্থে অনুগ্রহ করে পুনরায় লগইন করুন।' 
+                : 'Your session was automatically logged out after 10 minutes of inactivity. For your security, please sign in again.'}
+            </div>
+            <button 
+              type="button" 
+              onClick={clearAutoLoggedOut}
+              className="text-amber-400 hover:text-amber-200 text-xs font-bold px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+              title="Close"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Error Notification */}
         {(validationError || error) && (

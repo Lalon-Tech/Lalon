@@ -12,7 +12,8 @@ import {
   CreditCard,
   Eye,
   CheckCircle2,
-  Share2
+  Share2,
+  UserCheck
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useSomiti } from '../../context/SomitiContext';
@@ -346,9 +347,15 @@ export const ReceiptsView: React.FC = () => {
 
                       {/* Collector & Method */}
                       <td className="py-3 px-4">
-                        <div className="text-xs text-slate-700 font-medium">
-                          {tx.collectedBy}
+                        <div className="flex items-center gap-1.5 text-xs text-slate-800 font-semibold">
+                          <UserCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>{tx.collectedBy || tx.verifiedBy || (isBn ? 'দায়িত্বপ্রাপ্ত কর্মকর্তা' : 'Staff Officer')}</span>
                         </div>
+                        {tx.verifiedBy && tx.verifiedBy !== tx.collectedBy && (
+                          <div className="text-[10px] text-slate-400">
+                            {isBn ? 'অনুমোদন: ' : 'Verified: '}{tx.verifiedBy}
+                          </div>
+                        )}
                         <span className="text-[11px] text-slate-400 uppercase">
                           {tx.paymentMethod === 'cash' ? (isBn ? 'নগদ ক্যাশ' : 'Cash') : (isBn ? 'ব্যাংক ট্রান্সফার' : 'Bank')}
                         </span>

@@ -189,7 +189,9 @@ export const ApprovalNotificationCenter: React.FC = () => {
       if (rejectModalData.type === 'user_registration') {
         await rejectUserRegistration(rejectModalData.id, reason);
         setActionAlert({ 
-          message: isBn ? 'নতুন ব্যবহারকারী নিবন্ধন সফলভাবে বাতিল ও স্ট্যাটাস "rejected" এ আপডেট করা হয়েছে।' : 'Registration rejected successfully and marked as rejected.' 
+          message: isBn 
+            ? 'নতুন ব্যবহারকারী নিবন্ধন বাতিল করা হয়েছে এবং ফায়ারস্টোর থেকে ইমেইল মুছে ফেলা হয়েছে। আবেদনকারী চাইলে পুনরায় সাইন-আপ করতে পারবেন।' 
+            : 'Registration rejected and email removed from Firestore. Applicant can sign up again.' 
         });
       } else if (rejectModalData.type === 'member_admission') {
         const res = await rejectMemberAdmission(rejectModalData.id, reason);

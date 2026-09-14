@@ -17,7 +17,7 @@ import {
   Sparkles,
   Link2
 } from 'lucide-react';
-import { AppUser, Member } from '../../types';
+import { AppUser, Member, UserRole } from '../../types';
 import { useSomiti } from '../../context/SomitiContext';
 import { generateNextUserUid } from '../../utils/userUtils';
 
@@ -39,6 +39,7 @@ export const ApproveUserModal: React.FC<ApproveUserModalProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMemberId, setSelectedMemberId] = useState<string>('');
   const [userUid, setUserUid] = useState<string>('');
+  const [assignedRole, setAssignedRole] = useState<UserRole>('member');
   const [loading, setLoading] = useState(false);
   const [rejectLoading, setRejectLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +51,7 @@ export const ApproveUserModal: React.FC<ApproveUserModalProps> = ({
       setError(null);
       setSuccess(null);
       setSearchTerm('');
+      setAssignedRole(user.role && user.role !== 'member' ? user.role : 'member');
 
       // Auto-suggest next User UID
       const nextUid = user.userUid || generateNextUserUid(users);
@@ -123,11 +125,11 @@ export const ApproveUserModal: React.FC<ApproveUserModalProps> = ({
 
     setLoading(true);
     try {
-      await approveUserRegistration(user.id, selectedMemberId, cleanUid);
+      await approveUserRegistration(user.id, selectedMemberId, cleanUid, assignedRole);
       setSuccess(
         language === 'bn'
-          ? `সফলভাবে অনুমোদিত হয়েছে! অ্যাকাউন্টটি সক্রিয় করা হয়েছে এবং সদস্য প্রোফাইলে (${user.email}) যুক্ত হয়েছে।`
-          : `Account approved and linked successfully! Email updated on member profile.`
+          ? `সফলভাবে অনুমোদিত হয়েছে! অ্যাকাউন্টটি সক্রিয় করা হয়েছে এবং সদস্য প্রোফাইলে (${user.email}) যুক্ত হয়েছে। রোল: ${assignedRole === 'member' ? 'সদস্য (Member)' : assignedRole}`
+          : `Account approved and linked successfully! Email updated on member profile. Role: ${assignedRole}`
       );
       setTimeout(() => {
         if (onSuccess) onSuccess();
@@ -141,7 +143,7 @@ export const ApproveUserModal: React.FC<ApproveUserModalProps> = ({
   };
 
   const handleReject = async () => {
-    if (!window.confirm(language === 'bn' ? 'আপনি কি নিশ্চিত এই রেজিস্ট্রেশন আবেদনটি প্রত্যাখ্যান করতে চান? আবেদনটির স্ট্যাটাস "rejected" হিসেবে আপডেট হবে।' : 'Are you sure you want to reject this registration? The status will be updated to "rejected".')) {
+    if (!window.confirm(language === 'bn' ? 'আপনি কি নিশ্চিত এই রেজিস্ট্রেশন আবেদনটি প্রত্যাখ্যান করতে চান? ফায়ারস্টোর থেকে ইমেইলটি মুছে ফেলা হবে যাতে আবেদনকারী পরবর্তীতে পুনরায় সাইন-আপ করতে পারেন।' : 'Are you sure you want to reject this registration? The email will not be saved in Firestore so the user can register again.')) {
       return;
     }
 
@@ -395,6 +397,48 @@ export const ApproveUserModal: React.FC<ApproveUserModalProps> = ({
             </p>
           </div>
 
+          {/* Step 3: Role Assignment (Strict default to Member - Never automatic Staff) */}
+          <div className="space-y-2 pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-800 font-black text-[11px] flex items-center justify-center">3</span>
+                <span>{language === 'bn' ? 'ইউজার রোল / পদবী নির্ধারণ করুন' : 'Assign User Role'}</span>
+                <span className="text-rose-500 font-bold">*</span>
+              </label>
+              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                {language === 'bn' ? 'ডিফল্ট: সদস্য (Member)' : 'Default: Member'}
+              </span>
+            </div>
+
+            <select
+              value={assignedRole}
+              onChange={(e) => setAssignedRole(e.target.value as UserRole)}
+              className="w-full px-3.5 py-2.5 text-xs sm:text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
+            >
+              <option value="member">
+                {language === 'bn' ? '👤 সাধারণ সদস্য (Member - ডিফল্ট)' : '👤 General Member (Member - Default)'}
+              </option>
+              <option value="field_officer">
+                {language === 'bn' ? '💼 মাঠকর্মী / কালেক্টর (Field Officer)' : '💼 Field Officer / Collector'}
+              </option>
+              <option value="cashier">
+                {language === 'bn' ? '💰 ক্যাশ অফিসার / ক্যাশিয়ার (Cashier)' : '💰 Cashier'}
+              </option>
+              <option value="manager">
+                {language === 'bn' ? '🏢 ব্রাঞ্চ ম্যানেজার (Branch Manager)' : '🏢 Branch Manager'}
+              </option>
+              <option value="admin">
+                {language === 'bn' ? '🛡️ প্রধান প্রশাসক (Admin - অনুমোদন সাপেক্ষে)' : '🛡️ Admin'}
+              </option>
+            </select>
+
+            <p className="text-[11px] text-amber-700 bg-amber-50/80 p-2 rounded-lg border border-amber-200 leading-relaxed">
+              {language === 'bn'
+                ? 'ℹ️ নিরাপত্তা নীতি: নতুন সদস্য কখনোই স্বয়ংক্রিয়ভাবে স্টাফ হবেন না। ডিফল্ট রোল সর্বদা "সদস্য (Member)" থাকবে। শুধুমাত্র এডমিন অনুমোদন দিলে স্টাফ/এডমিন এক্সেস কার্যকর হবে।'
+                : 'ℹ️ Policy: New members never become staff automatically. The default role is Member. Only an admin can explicitly assign staff/admin roles.'}
+            </p>
+          </div>
+
           {/* Final Summary Card */}
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 space-y-1">
             <span className="font-bold text-slate-800 flex items-center gap-1">
@@ -402,7 +446,7 @@ export const ApproveUserModal: React.FC<ApproveUserModalProps> = ({
               {language === 'bn' ? 'অনুমোদনের পর কার্যকারিতা:' : 'Workflow Chain:'}
             </span>
             <p className="font-semibold text-blue-900">
-              User Account ({user.email}) → User UID ({userUid || 'BS-####'}) → Linked Member ({selectedMember ? selectedMember.name : 'প্রোফাইল'}) → Member Dashboard
+              User ({user.email}) → UID ({userUid || 'BS-####'}) → Role ({assignedRole === 'member' ? 'সদস্য (Member)' : assignedRole}) → Linked Member ({selectedMember ? selectedMember.name : 'প্রোফাইল'})
             </p>
           </div>
         </div>

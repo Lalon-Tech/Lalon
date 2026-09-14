@@ -1200,8 +1200,16 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                             <td className="py-2.5 px-3 text-right font-bold text-rose-600 whitespace-nowrap">
                               {!typeInfo.isCredit ? formatCurrency(tx.amount, isBn && useBengaliDigits) : '-'}
                             </td>
-                            <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">
-                              {tx.collectedBy}
+                            <td className="py-2.5 px-3 text-slate-700 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5 font-semibold text-slate-800 text-xs">
+                                <UserCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                <span>{tx.collectedBy || tx.verifiedBy || (isBn ? 'দায়িত্বপ্রাপ্ত কর্মকর্তা' : 'Staff Officer')}</span>
+                              </div>
+                              {tx.verifiedBy && tx.verifiedBy !== tx.collectedBy && (
+                                <span className="text-[10px] text-slate-400 block font-normal">
+                                  {isBn ? 'অনুমোদন: ' : 'Verified: '}{tx.verifiedBy}
+                                </span>
+                              )}
                             </td>
                             <td className="py-2.5 px-3 text-center whitespace-nowrap">
                               <div className="flex items-center justify-center gap-1">

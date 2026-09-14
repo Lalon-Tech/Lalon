@@ -1,5 +1,11 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { 
+  getAuth, 
+  createUserWithEmailAndPassword, 
+  updateProfile,
+  setPersistence,
+  browserSessionPersistence 
+} from 'firebase/auth';
 import { 
   initializeFirestore, 
   getFirestore, 
@@ -14,8 +20,11 @@ import firebaseConfig from '../../firebase-applet-config.json';
 // Initialize Firebase App
 export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Firebase Authentication
+// Initialize Firebase Authentication with browserSessionPersistence for independent browser tab sessions
 export const auth = getAuth(app);
+setPersistence(auth, browserSessionPersistence).catch((err) => {
+  console.warn("Could not set browserSessionPersistence:", err);
+});
 
 // Suppress transient offline/retry logging that causes false positive connection alerts
 setLogLevel('error');

@@ -458,9 +458,19 @@ export const DashboardView: React.FC = () => {
 
           <div className="space-y-3 flex-1 overflow-y-auto max-h-[360px] pr-1 scrollbar-thin">
             {(() => {
-              const staffList = currentUser && !users.some(u => u.name === currentUser.name || u.id === currentUser.id)
-                ? [currentUser, ...users]
-                : users;
+              const staffRoles = ['admin', 'manager', 'cashier', 'field_officer', 'president', 'secretary'];
+              const allStaffUsers = users.filter(u => u.role && staffRoles.includes(u.role) && u.status === 'active');
+              const staffList = (currentUser && staffRoles.includes(currentUser.role) && !allStaffUsers.some(u => u.id === currentUser.id))
+                ? [currentUser, ...allStaffUsers]
+                : allStaffUsers;
+
+              if (staffList.length === 0) {
+                return (
+                  <div className="py-6 text-center text-xs text-slate-400">
+                    {isBn ? 'কোনো সক্রিয় কর্মচারী একাউন্ট নেই' : 'No active staff accounts'}
+                  </div>
+                );
+              }
 
               const d = new Date();
               const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -492,7 +502,10 @@ export const DashboardView: React.FC = () => {
                           {isBn ? u.roleTitle : (
                             u.role === 'admin' ? 'Admin & CEO' :
                             u.role === 'manager' ? 'Branch Manager' :
-                            u.role === 'cashier' ? 'Cashier' : 'Field Officer'
+                            u.role === 'cashier' ? 'Cashier' :
+                            u.role === 'field_officer' ? 'Field Officer' :
+                            u.role === 'president' ? 'President' :
+                            u.role === 'secretary' ? 'Secretary' : 'Staff'
                           )}
                         </span>
                       </div>
@@ -749,10 +762,16 @@ export const DashboardView: React.FC = () => {
                 : {num(users.filter(u => u.role === 'field_officer').length)} {isBn ? 'জন' : ''}
               </span>
             </div>
-            <div className="flex justify-between py-1">
+            <div className="flex justify-between py-1 border-b border-slate-50">
               <span className="text-slate-600">{isBn ? '💰 ক্যাশিয়ার' : '💰 Cashiers'}</span>
               <span className="font-bold text-slate-800">
                 : {num(users.filter(u => u.role === 'cashier').length)} {isBn ? 'জন' : ''}
+              </span>
+            </div>
+            <div className="flex justify-between py-1 bg-emerald-50/50 px-1 rounded-md">
+              <span className="text-emerald-800 font-medium">{isBn ? '👥 সাধারণ সদস্য অ্যাকাউন্ট' : '👥 Member Accounts'}</span>
+              <span className="font-bold text-emerald-800">
+                : {num(users.filter(u => u.role === 'member').length)} {isBn ? 'জন' : ''}
               </span>
             </div>
           </div>

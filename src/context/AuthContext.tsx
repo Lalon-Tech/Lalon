@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { 
   User,
   onAuthStateChanged,
@@ -32,7 +32,16 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   logOut: () => Promise<void>;
   clearError: () => void;
+  // Inactivity Auto-Logout helpers
+  wasAutoLoggedOut: boolean;
+  clearAutoLoggedOut: () => void;
+  inactivityWarning: boolean;
+  inactivitySecondsRemaining: number;
+  stayLoggedIn: () => void;
 }
+
+const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+const INACTIVITY_WARNING_MS = 9 * 60 * 1000;  // 9 minutes (warning 60 seconds before logout)
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -41,13 +50,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Auto-logout state
+  const [wasAutoLoggedOut, setWasAutoLoggedOut] = useState<boolean>(() => {
+    return sessionStorage.getItem('somiti_auto_logout_notice') === 'true';
+  });
+  const [inactivityWarning, setInactivityWarning] = useState<boolean>(false);
+  const [inactivitySecondsRemaining, setInactivitySecondsRemaining] = useState<number>(60);
+  const lastActivityRef = useRef<number>(Date.now());
+  const lastThrottleRef = useRef<number>(Date.now());
+
+  // One-time cleanup of legacy shared localStorage session to guarantee independent tabs
+  useEffect(() => {
+    try {
+      localStorage.removeItem('somiti_local_user');
+    } catch {}
+  }, []);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        localStorage.removeItem('somiti_local_user');
+        sessionStorage.removeItem('somiti_session_user');
       } else {
-        const saved = localStorage.getItem('somiti_local_user');
+        const saved = sessionStorage.getItem('somiti_session_user');
         if (saved) {
           try {
             setUser(JSON.parse(saved));
@@ -61,7 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
     }, (err) => {
       console.error("Firebase auth state error:", err);
-      const saved = localStorage.getItem('somiti_local_user');
+      const saved = sessionStorage.getItem('somiti_session_user');
       if (saved) {
         try {
           setUser(JSON.parse(saved));
@@ -74,6 +99,91 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => unsubscribe();
   }, []);
+
+  // 10-Minute Inactivity Auto-Logout Tracker
+  const resetActivity = useCallback(() => {
+    const now = Date.now();
+    lastActivityRef.current = now;
+    if (inactivityWarning) {
+      setInactivityWarning(false);
+    }
+  }, [inactivityWarning]);
+
+  const stayLoggedIn = useCallback(() => {
+    resetActivity();
+    setInactivityWarning(false);
+  }, [resetActivity]);
+
+  useEffect(() => {
+    if (!user) {
+      setInactivityWarning(false);
+      return;
+    }
+
+    // Initialize activity timestamp when user is logged in
+    lastActivityRef.current = Date.now();
+
+    const handleUserInteraction = () => {
+      const now = Date.now();
+      // Throttle event listener updates to every 2 seconds for optimal UI responsiveness
+      if (now - lastThrottleRef.current > 2000) {
+        lastThrottleRef.current = now;
+        lastActivityRef.current = now;
+        if (inactivityWarning) {
+          setInactivityWarning(false);
+        }
+      }
+    };
+
+    const events: (keyof WindowEventMap)[] = [
+      'mousedown',
+      'mousemove',
+      'keydown',
+      'scroll',
+      'touchstart',
+      'click'
+    ];
+
+    events.forEach(eventName => {
+      window.addEventListener(eventName, handleUserInteraction, { passive: true });
+    });
+
+    // Check inactivity every 5 seconds
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const elapsed = now - lastActivityRef.current;
+
+      if (elapsed >= INACTIVITY_TIMEOUT_MS) {
+        // Automatically log out user after 10 minutes of inactivity
+        console.warn("User auto-logged out due to 10 minutes of inactivity.");
+        sessionStorage.setItem('somiti_auto_logout_notice', 'true');
+        setWasAutoLoggedOut(true);
+        setInactivityWarning(false);
+        logOut();
+      } else if (elapsed >= INACTIVITY_WARNING_MS) {
+        // Warning 1 minute before auto logout
+        setInactivityWarning(true);
+        const remainingSecs = Math.max(1, Math.round((INACTIVITY_TIMEOUT_MS - elapsed) / 1000));
+        setInactivitySecondsRemaining(remainingSecs);
+      } else {
+        if (inactivityWarning) {
+          setInactivityWarning(false);
+        }
+      }
+    }, 5000);
+
+    return () => {
+      events.forEach(eventName => {
+        window.removeEventListener(eventName, handleUserInteraction);
+      });
+      clearInterval(interval);
+    };
+  }, [user, inactivityWarning]);
+
+  const clearAutoLoggedOut = () => {
+    sessionStorage.removeItem('somiti_auto_logout_notice');
+    setWasAutoLoggedOut(false);
+  };
 
   const clearError = () => setError(null);
 
@@ -131,7 +241,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       const cred = await signInWithEmailAndPassword(auth, cleanEmail, pass);
-      localStorage.removeItem('somiti_local_user');
+      sessionStorage.removeItem('somiti_session_user');
       setUser(cred.user);
     } catch (err: any) {
       console.warn("Firebase signIn info:", err?.code, err?.message);
@@ -144,7 +254,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           displayName: resolvedUser?.name || cleanEmail.split('@')[0],
           photoURL: resolvedUser?.avatarUrl || null,
         };
-        localStorage.setItem('somiti_local_user', JSON.stringify(localUser));
+        sessionStorage.setItem('somiti_session_user', JSON.stringify(localUser));
         setUser(localUser);
         setError(null);
         return;
@@ -154,7 +264,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (err.code === 'auth/user-not-found') {
         try {
           const cred = await createUserWithEmailAndPassword(auth, cleanEmail, pass);
-          localStorage.removeItem('somiti_local_user');
+          sessionStorage.removeItem('somiti_session_user');
           setUser(cred.user);
           return;
         } catch (createErr: any) {
@@ -182,9 +292,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (email: string, pass: string, name?: string) => {
     setError(null);
     const cleanEmail = email.trim();
+    const lowerEmail = cleanEmail.toLowerCase();
     try {
       const cred = await createUserWithEmailAndPassword(auth, cleanEmail, pass);
-      localStorage.removeItem('somiti_local_user');
+      sessionStorage.removeItem('somiti_session_user');
       if (name && cred.user) {
         await updateProfile(cred.user, { displayName: name });
         setUser({ ...cred.user, displayName: name } as User);
@@ -192,14 +303,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(cred.user);
       }
 
-      // Sync to Firestore systemUsers collection
+      // Sync to Firestore systemUsers collection with default role strictly 'member'
       try {
-        const isAdmin = cleanEmail.toLowerCase() === 'sin4.riyas.lalon.dc@gmail.com' || cleanEmail.toLowerCase() === 'admin@bondhusomiti.com';
+        const isAdmin = lowerEmail === 'sin4.riyas.lalon.dc@gmail.com' || lowerEmail === 'admin@bondhusomiti.com';
         await safeSetDoc(doc(db, 'systemUsers', cred.user.uid), {
           id: cred.user.uid,
           name: name || cleanEmail.split('@')[0],
-          email: cleanEmail,
+          email: lowerEmail,
           role: isAdmin ? 'admin' : 'member',
+          roleTitle: isAdmin ? 'প্রধান প্রশাসক (Super Admin)' : 'সদস্য (Member)',
           status: isAdmin ? 'active' : 'pending',
           createdAt: new Date().toISOString().split('T')[0]
         }, { merge: true });
@@ -209,19 +321,73 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err: any) {
       console.warn("Firebase signUp info:", err?.code, err?.message);
 
-      // 1. If email already exists, try logging in with the provided password
+      // If email already exists in Firebase Auth:
       if (err.code === 'auth/email-already-in-use') {
+        let hasActiveApprovedAccount = false;
+        try {
+          const q = query(collection(db, 'systemUsers'), where('email', '==', lowerEmail));
+          const snap = await getDocs(q);
+          hasActiveApprovedAccount = snap.docs.some(d => d.data().status === 'active');
+        } catch (checkErr) {
+          console.warn("Check active account error:", checkErr);
+        }
+
+        if (hasActiveApprovedAccount) {
+          const msg = "এই ইমেইল দিয়ে ইতিমধ্যে একটি সক্রিয় একাউন্ট রয়েছে। অনুগ্রহ করে Sign In পেজ থেকে লগইন করুন।";
+          setError(msg);
+          throw new Error(msg);
+        }
+
+        // The user was previously rejected (and thus deleted from Firestore) or is re-registering
         try {
           const cred = await signInWithEmailAndPassword(auth, cleanEmail, pass);
-          localStorage.removeItem('somiti_local_user');
-          setUser(cred.user);
+          sessionStorage.removeItem('somiti_session_user');
+          if (name && cred.user) {
+            await updateProfile(cred.user, { displayName: name }).catch(() => {});
+            setUser({ ...cred.user, displayName: name } as User);
+          } else if (cred.user) {
+            setUser(cred.user);
+          }
+
+          // Create a new pending registration request in Firestore systemUsers with default 'member' role
+          const isAdmin = lowerEmail === 'sin4.riyas.lalon.dc@gmail.com' || lowerEmail === 'admin@bondhusomiti.com';
+          await safeSetDoc(doc(db, 'systemUsers', cred.user.uid), {
+            id: cred.user.uid,
+            name: name || cred.user.displayName || cleanEmail.split('@')[0],
+            email: lowerEmail,
+            role: isAdmin ? 'admin' : 'member',
+            roleTitle: isAdmin ? 'প্রধান প্রশাসক (Super Admin)' : 'সদস্য (Member)',
+            status: isAdmin ? 'active' : 'pending',
+            createdAt: new Date().toISOString().split('T')[0],
+          }, { merge: true });
+
           setError(null);
           return;
         } catch (signInErr: any) {
-          console.warn("Existing account sign in attempt failed:", signInErr?.code);
-          const msg = "এই ইমেইল দিয়ে ইতিমধ্যে একাউন্ট খোলা রয়েছে। দয়া করে সঠিক পাসওয়ার্ড দিন অথবা Sign in পেজ থেকে লগইন করুন।";
-          setError(msg);
-          throw new Error(msg);
+          console.warn("Re-signup with existing auth credentials fallback:", signInErr?.code);
+          const regUid = 'reg_' + Date.now() + '_' + btoa(lowerEmail).replace(/[^a-zA-Z0-9]/g, '').substring(0, 8);
+          const isAdmin = lowerEmail === 'sin4.riyas.lalon.dc@gmail.com' || lowerEmail === 'admin@bondhusomiti.com';
+          
+          await safeSetDoc(doc(db, 'systemUsers', regUid), {
+            id: regUid,
+            name: name || cleanEmail.split('@')[0],
+            email: lowerEmail,
+            role: isAdmin ? 'admin' : 'member',
+            roleTitle: isAdmin ? 'প্রধান প্রশাসক (Super Admin)' : 'সদস্য (Member)',
+            status: isAdmin ? 'active' : 'pending',
+            createdAt: new Date().toISOString().split('T')[0],
+          }, { merge: true });
+
+          const localUser: AppAuthUser = {
+            uid: regUid,
+            email: lowerEmail,
+            displayName: name || cleanEmail.split('@')[0],
+            photoURL: null,
+          };
+          sessionStorage.setItem('somiti_session_user', JSON.stringify(localUser));
+          setUser(localUser);
+          setError(null);
+          return;
         }
       }
 
@@ -233,7 +399,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           displayName: name || cleanEmail.split('@')[0],
           photoURL: null,
         };
-        localStorage.setItem('somiti_local_user', JSON.stringify(localUser));
+        sessionStorage.setItem('somiti_session_user', JSON.stringify(localUser));
         setUser(localUser);
         setError(null);
         return;
@@ -258,7 +424,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
       const cred = await signInWithPopup(auth, provider);
-      localStorage.removeItem('somiti_local_user');
+      sessionStorage.removeItem('somiti_session_user');
       setUser(cred.user);
 
       // Sync to Firestore systemUsers collection
@@ -300,13 +466,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInAsDemo = (role: string = 'Super Admin') => {
     setError(null);
+    const isMemberRole = role.toLowerCase().includes('member') || role.toLowerCase().includes('সদস্য');
     const localUser: AppAuthUser = {
-      uid: 'admin_demo_user',
-      email: 'admin@bondhusomiti.com',
-      displayName: `মোঃ আব্দুল্লাহ (${role})`,
+      uid: isMemberRole ? 'member_demo_user' : 'admin_demo_user',
+      email: isMemberRole ? 'member@bondhusomiti.com' : 'admin@bondhusomiti.com',
+      displayName: isMemberRole ? 'মোঃ রফিকুল ইসলাম (সদস্য)' : `মোঃ আব্দুল্লাহ (${role})`,
       photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
     };
-    localStorage.setItem('somiti_local_user', JSON.stringify(localUser));
+    sessionStorage.setItem('somiti_session_user', JSON.stringify(localUser));
     setUser(localUser);
   };
 
@@ -328,7 +495,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logOut = async () => {
     setError(null);
-    localStorage.removeItem('somiti_local_user');
+    sessionStorage.removeItem('somiti_session_user');
     try {
       await signOut(auth);
     } catch (err: any) {
@@ -349,7 +516,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signInAsDemo,
       resetPassword, 
       logOut, 
-      clearError 
+      clearError,
+      wasAutoLoggedOut,
+      clearAutoLoggedOut,
+      inactivityWarning,
+      inactivitySecondsRemaining,
+      stayLoggedIn
     }}>
       {children}
     </AuthContext.Provider>

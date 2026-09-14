@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { SomitiProvider, useSomiti } from './context/SomitiContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -29,10 +29,17 @@ import { BusinessFundingView } from './components/business/BusinessFundingView';
 import { ReceiptModal } from './components/receipts/ReceiptModal';
 import { AuthModal } from './components/auth/AuthModal';
 import { PendingApprovalView } from './components/auth/PendingApprovalView';
-import { Loader2, ShieldAlert } from 'lucide-react';
+import { Loader2, ShieldAlert, Clock, AlertTriangle } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { user, loading } = useAuth();
+  const { 
+    user, 
+    loading, 
+    inactivityWarning, 
+    inactivitySecondsRemaining, 
+    stayLoggedIn, 
+    logOut 
+  } = useAuth();
   const { language } = useLanguage();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -56,6 +63,17 @@ const AppContent: React.FC = () => {
     isDataLoading,
     currentUser
   } = useSomiti();
+
+  // Post Login Redirect: After successful login or session switch, always redirect to the Dashboard
+  const previousUserUidRef = useRef<string | null>(null);
+  useEffect(() => {
+    const currentUid = user ? user.uid : null;
+    if (currentUid && previousUserUidRef.current !== currentUid) {
+      setActiveTab('dashboard');
+      setSelectedMemberId(null);
+    }
+    previousUserUidRef.current = currentUid;
+  }, [user, setActiveTab, setSelectedMemberId]);
 
   const isMember = currentUser?.role === 'member';
 
@@ -310,6 +328,41 @@ const AppContent: React.FC = () => {
       />
 
       <ReceiptModal />
+
+      {/* Inactivity Auto-Logout Warning (at 9 minutes) */}
+      {inactivityWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-amber-200 text-center space-y-4">
+            <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto ring-8 ring-amber-50">
+              <Clock className="w-6 h-6 animate-pulse" />
+            </div>
+            <div>
+              <h4 className="text-base font-bold text-slate-900">
+                {language === 'bn' ? 'নিষ্ক্রিয়তা সতর্কতা' : 'Inactivity Warning'}
+              </h4>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                {language === 'bn' 
+                  ? `আপনি দীর্ঘক্ষণ নিষ্ক্রিয় রয়েছেন। আপনার অ্যাকাউন্ট সুরক্ষার্থে আর ${inactivitySecondsRemaining} সেকেন্ড পর স্বয়ংক্রিয়ভাবে লগআউট হবে।`
+                  : `You have been inactive. For your security, you will be automatically logged out in ${inactivitySecondsRemaining} seconds.`}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                onClick={logOut}
+                className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+              >
+                {language === 'bn' ? 'এখনই লগআউট' : 'Log Out Now'}
+              </button>
+              <button
+                onClick={stayLoggedIn}
+                className="flex-1 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer"
+              >
+                {language === 'bn' ? 'সেশন চালু রাখুন' : 'Stay Signed In'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Firebase Auth Modal */}
       <AuthModal

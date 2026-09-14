@@ -20,6 +20,59 @@ export const PendingApprovalView: React.FC = () => {
     ? new Date(currentUser.createdAt).toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' })
     : 'সম্প্রতি';
 
+  const isRejected = currentUser?.status === 'rejected';
+
+  if (isRejected) {
+    return (
+      <div className="min-h-screen bg-[#070d1e] text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans relative overflow-hidden">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative z-10 w-full max-w-lg bg-[#0d162d]/90 backdrop-blur-md border border-rose-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-rose-950/20 text-center space-y-6">
+          <div className="relative mx-auto w-20 h-20 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center shadow-lg shadow-rose-500/10">
+            <ShieldAlert className="w-10 h-10 text-rose-400" />
+          </div>
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-bold tracking-wide">
+              <span>{language === 'bn' ? 'আবেদন বাতিল করা হয়েছে' : 'Application Rejected'}</span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+              {language === 'bn' ? 'নিবন্ধন আবেদনটি বাতিল করা হয়েছে' : 'Registration Was Rejected'}
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-md mx-auto">
+              {language === 'bn'
+                ? 'আপনার পূর্ববর্তী আবেদনটি বাতিল করা হয়েছে এবং ফায়ারস্টোর থেকে তথ্যটি মুছে ফেলা হয়েছে। আপনি এই একই ইমেইল ঠিকানা দিয়ে পুনরায় নতুন করে সাইন-আপ করতে পারবেন।'
+                : 'Your previous application was rejected and removed from Firestore. You can sign up again with this same email address.'}
+            </p>
+          </div>
+
+          <div className="bg-[#131d38] border border-slate-700/60 rounded-2xl p-4 text-left space-y-2">
+            <div className="flex items-center justify-between text-xs py-1 border-b border-slate-800">
+              <span className="text-slate-400 flex items-center gap-1.5">
+                <Mail className="w-3.5 h-3.5 text-cyan-400" />
+                {language === 'bn' ? 'ইমেইল:' : 'Email:'}
+              </span>
+              <span className="font-semibold text-slate-200">{emailDisplay}</span>
+            </div>
+            {currentUser?.rejectionReason && (
+              <div className="text-xs py-1 text-slate-400">
+                <span className="text-rose-400 font-medium">{language === 'bn' ? 'বাতিলের কারণ: ' : 'Reason: '}</span>
+                <span>{currentUser.rejectionReason}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
+            <button
+              onClick={() => logOut()}
+              className="w-full py-3 px-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20 cursor-pointer"
+            >
+              <span>{language === 'bn' ? 'পুনরায় সাইন আপ করুন' : 'Sign Up Again'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#070d1e] text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans relative overflow-hidden">
       {/* Background radial glow */}

@@ -5,7 +5,9 @@ import {
   getDocs, 
   deleteDoc, 
   onSnapshot, 
-  writeBatch 
+  writeBatch,
+  query,
+  where
 } from 'firebase/firestore';
 import { db, safeSetDoc, safeBatchSet } from '../lib/firebase';
 import { useAuth } from './AuthContext';
@@ -511,7 +513,7 @@ interface SomitiContextType {
   updateUser: (id: string, userData: Partial<AppUser>) => void;
   deleteUser: (id: string) => void;
   toggleUserStatus: (id: string) => void;
-  approveUserRegistration: (userId: string, memberId?: string, userUid?: string) => Promise<void>;
+  approveUserRegistration: (userId: string, memberId?: string, userUid?: string, role?: UserRole, roleTitle?: string) => Promise<void>;
   rejectUserRegistration: (userId: string, reason?: string) => Promise<void>;
 
   // Banking
@@ -529,6 +531,8 @@ interface SomitiContextType {
   activeReceipt: Transaction | null;
   setActiveReceipt: (tx: Transaction | null) => void;
   openReceiptForTx: (tx: Transaction) => void;
+  selectedReceiptTx?: Transaction | null;
+  closeReceiptModal?: () => void;
   showQuickDepositModal: boolean;
   setShowQuickDepositModal: (show: boolean) => void;
   showQuickWithdrawModal: boolean;
@@ -2964,10 +2968,12 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     // 3. Update transaction status
+    const approverName = currentUser?.name || 'প্রধান প্রশাসক (Admin)';
     const updatedTx: Transaction = {
       ...tx,
       status: 'completed',
-      verifiedBy: currentUser?.name || 'অ্যাডমিন',
+      collectedBy: (tx.collectedBy && tx.collectedBy !== 'সদস্য' && tx.collectedBy !== 'Member') ? tx.collectedBy : approverName,
+      verifiedBy: approverName,
     };
 
     setTransactions(prev => prev.map(t => t.id === tx.id ? updatedTx : t));
@@ -3886,13 +3892,25 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const cleanEmail = (userData.email || '').trim().toLowerCase();
 
-    // Rule 2: New accounts default to Member role
+    const finalRole: UserRole = userData.role || 'member';
+    const finalRoleTitle = userData.roleTitle || (
+      finalRole === 'admin' ? 'প্রধান প্রশাসক (Admin)' :
+      finalRole === 'manager' ? 'ব্রাঞ্চ ম্যানেজার' :
+      finalRole === 'cashier' ? 'ক্যাশ অফিসার' :
+      finalRole === 'field_officer' ? 'মাঠকর্মী' :
+      finalRole === 'president' ? 'সভাপতি' :
+      finalRole === 'secretary' ? 'সাধারণ সম্পাদক' :
+      'সদস্য (Member)'
+    );
+
+    // Rule 2: New accounts strictly default to Member role - never automatically Staff
     const newUser: AppUser = {
       ...userData,
       id: (userData as any).id || `usr-${Date.now()}`,
       userUid: finalUid,
       email: cleanEmail,
-      role: userData.role || 'member',
+      role: finalRole,
+      roleTitle: finalRoleTitle,
       status: userData.status || 'active',
       createdAt: userData.createdAt || new Date().toISOString(),
     };
@@ -3963,7 +3981,13 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     deleteDoc(doc(db, 'systemUsers', id)).catch(console.error);
   };
 
-  const approveUserRegistration = async (userId: string, memberId?: string, userUid?: string) => {
+  const approveUserRegistration = async (
+    userId: string, 
+    memberId?: string, 
+    userUid?: string,
+    role?: UserRole,
+    roleTitle?: string
+  ) => {
     const targetUser = users.find(u => u.id === userId);
     if (!targetUser) throw new Error('ইউজার অ্যাকাউন্ট খুঁজে পাওয়া যায়নি!');
     
@@ -3979,6 +4003,19 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       cleanUid = generateNextUserUid(users);
     }
 
+    // Default role must strictly be 'member', never staff automatically.
+    // Only if admin explicitly assigns a role, grant that role.
+    const assignedRole: UserRole = role || 'member';
+    const assignedRoleTitle: string = roleTitle || (
+      assignedRole === 'admin' ? 'প্রধান প্রশাসক (Admin)' : 
+      assignedRole === 'manager' ? 'ব্রাঞ্চ ম্যানেজার' :
+      assignedRole === 'cashier' ? 'ক্যাশ অফিসার' :
+      assignedRole === 'field_officer' ? 'মাঠকর্মী' :
+      assignedRole === 'president' ? 'সভাপতি' :
+      assignedRole === 'secretary' ? 'সাধারণ সম্পাদক' :
+      'সদস্য (Member)'
+    );
+
     const updatedUserData: Partial<AppUser> = {
       status: 'active',
       userUid: cleanUid,
@@ -3987,8 +4024,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       name: targetMember?.name || targetUser.name,
       phone: targetMember?.phone || targetUser.phone || '',
       avatarUrl: targetMember?.photoUrl || targetUser.avatarUrl || '',
-      role: targetUser.role || 'member',
-      roleTitle: targetMember ? 'সদস্য (Member)' : (targetUser.roleTitle || 'ব্যবহারকারী'),
+      role: assignedRole,
+      roleTitle: assignedRoleTitle,
     };
 
     // Update systemUsers in state and Firestore
@@ -4012,7 +4049,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       entityTitle: targetMember?.name || targetUser.name || targetUser.email,
       performedBy: currentUser?.name || 'অ্যাডমিন',
       userRole: currentUser?.role || 'admin',
-      details: `ব্যবহারকারী (${targetUser.email}) অনুমোদিত। নির্ধারিত UID: ${cleanUid}${targetMember ? `, সংযুক্ত সদস্য: ${targetMember.name} (${targetMember.memberNo})` : ''}`,
+      details: `ব্যবহারকারী (${targetUser.email}) অনুমোদিত। রোল: ${assignedRoleTitle}, নির্ধারিত UID: ${cleanUid}${targetMember ? `, সংযুক্ত সদস্য: ${targetMember.name} (${targetMember.memberNo})` : ''}`,
     });
   };
 
@@ -4021,22 +4058,44 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!targetUser) return;
 
     const rejectionReason = reason || 'প্রশাসক কর্তৃক বাতিল';
-    const updatedData: Partial<AppUser> = {
-      status: 'rejected',
-      rejectionReason,
-    };
+    const targetEmail = (targetUser.email || '').trim().toLowerCase();
 
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updatedData } : u));
-    await safeSetDoc(doc(db, 'systemUsers', userId), updatedData, { merge: true }).catch(console.error);
+    // 1. Remove from local state immediately
+    setUsers(prev => prev.filter(u => u.id !== userId));
+
+    // 2. CRITICAL: Do NOT save the email address in Firestore!
+    // Delete the rejected user document completely from Firestore systemUsers collection
+    await deleteDoc(doc(db, 'systemUsers', userId)).catch(console.error);
+
+    // Also query and clean up any other documents in systemUsers with this email
+    if (targetEmail) {
+      try {
+        const q = query(collection(db, 'systemUsers'), where('email', '==', targetEmail));
+        const snap = await getDocs(q);
+        for (const docSnap of snap.docs) {
+          if (docSnap.id === userId || docSnap.data().status === 'pending' || docSnap.data().status === 'rejected') {
+            await deleteDoc(docSnap.ref).catch(console.error);
+          }
+        }
+      } catch (err) {
+        console.warn("Clean rejected email from systemUsers error:", err);
+      }
+
+      // If any member profile had this email assigned tentatively from this registration, clear it
+      if (targetUser.memberId) {
+        setMembers(prev => prev.map(m => m.id === targetUser.memberId ? { ...m, email: '' } : m));
+        await safeSetDoc(doc(db, 'members', targetUser.memberId), { email: '' }, { merge: true }).catch(console.error);
+      }
+    }
 
     addAuditLog({
-      action: 'update',
+      action: 'delete',
       entityType: 'member',
       entityId: userId,
-      entityTitle: targetUser.email,
+      entityTitle: targetUser.name || targetEmail || 'রেজিস্ট্রেশন',
       performedBy: currentUser?.name || 'অ্যাডমিন',
       userRole: currentUser?.role || 'admin',
-      details: `ব্যবহারকারীর নিবন্ধন (${targetUser.email}) বাতিল/প্রত্যাখ্যান করা হয়েছে। স্ট্যাটাস: 'rejected' আপডেট করা হলো। কারণ: ${rejectionReason}`,
+      details: `ব্যবহারকারীর রেজিস্ট্রেশন আবেদন বাতিল করা হয়েছে। ফায়ারস্টোর থেকে ইমেইল(${targetEmail}) মুছে ফেলা হয়েছে যাতে আবেদনকারী পরবর্তীতে পুনরায় সাইন-আপ করতে পারেন। কারণ: ${rejectionReason}`,
     });
   };
 
@@ -4049,11 +4108,11 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'active' } : m));
     await safeSetDoc(doc(db, 'members', memberId), { status: 'active' }, { merge: true }).catch(console.error);
 
-    // If an associated user account exists in pending status, activate that too
+    // If an associated user account exists in pending status, activate that too with default Member role
     const linkedUser = users.find(u => u.memberId === memberId || (targetMember.email && u.email?.toLowerCase() === targetMember.email.toLowerCase()));
     if (linkedUser && linkedUser.status === 'pending') {
-      setUsers(prev => prev.map(u => u.id === linkedUser.id ? { ...u, status: 'active', memberId: targetMember.id, memberNo: targetMember.memberNo } : u));
-      await safeSetDoc(doc(db, 'systemUsers', linkedUser.id), { status: 'active', memberId: targetMember.id, memberNo: targetMember.memberNo }, { merge: true }).catch(console.error);
+      setUsers(prev => prev.map(u => u.id === linkedUser.id ? { ...u, status: 'active', memberId: targetMember.id, memberNo: targetMember.memberNo, role: 'member', roleTitle: 'সদস্য (Member)' } : u));
+      await safeSetDoc(doc(db, 'systemUsers', linkedUser.id), { status: 'active', memberId: targetMember.id, memberNo: targetMember.memberNo, role: 'member', roleTitle: 'সদস্য (Member)' }, { merge: true }).catch(console.error);
     }
 
     addAuditLog({
@@ -4075,24 +4134,41 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return { success: false, message: 'সদস্য খুঁজে পাওয়া যায়নি।' };
     }
     const rejectionReason = reason || 'প্রশাসক কর্তৃক বাতিল';
-    setMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'rejected', rejectionReason } : m));
-    await safeSetDoc(doc(db, 'members', memberId), { status: 'rejected', rejectionReason }, { merge: true }).catch(console.error);
+    const memberEmail = (targetMember.email || '').trim().toLowerCase();
 
-    // Also update any linked pending user to rejected
-    const linkedUser = users.find(u => u.memberId === memberId || (targetMember.email && u.email?.toLowerCase() === targetMember.email.toLowerCase()));
-    if (linkedUser && linkedUser.status === 'pending') {
-      setUsers(prev => prev.map(u => u.id === linkedUser.id ? { ...u, status: 'rejected', rejectionReason } : u));
-      await safeSetDoc(doc(db, 'systemUsers', linkedUser.id), { status: 'rejected', rejectionReason }, { merge: true }).catch(console.error);
+    // Clear email from member record in state and Firestore so the email is not retained in Firestore
+    setMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'rejected', email: '', rejectionReason } : m));
+    await safeSetDoc(doc(db, 'members', memberId), { status: 'rejected', email: '', rejectionReason }, { merge: true }).catch(console.error);
+
+    // If any linked pending user exists in systemUsers, delete it completely from Firestore
+    const linkedUsers = users.filter(u => u.memberId === memberId || (memberEmail && u.email?.toLowerCase() === memberEmail));
+    for (const linkedUser of linkedUsers) {
+      setUsers(prev => prev.filter(u => u.id !== linkedUser.id));
+      await deleteDoc(doc(db, 'systemUsers', linkedUser.id)).catch(console.error);
+    }
+
+    if (memberEmail) {
+      try {
+        const q = query(collection(db, 'systemUsers'), where('email', '==', memberEmail));
+        const snap = await getDocs(q);
+        for (const docSnap of snap.docs) {
+          if (docSnap.data().status === 'pending' || docSnap.data().status === 'rejected') {
+            await deleteDoc(docSnap.ref).catch(console.error);
+          }
+        }
+      } catch (err) {
+        console.warn("Clean member email from systemUsers error:", err);
+      }
     }
 
     addAuditLog({
-      action: 'update',
+      action: 'delete',
       entityType: 'member',
       entityId: memberId,
       entityTitle: targetMember.name,
       performedBy: currentUser?.name || 'অ্যাডমিন',
       userRole: currentUser?.role || 'admin',
-      details: `নতুন সদস্য ভর্তি আবেদন বাতিল করা হয়েছে। স্ট্যাটাস: 'rejected' আপডেট করা হয়েছে। কারণ: ${rejectionReason}`,
+      details: `নতুন সদস্য ভর্তি আবেদন বাতিল করা হয়েছে। ফায়ারস্টোর থেকে ইমেইল মুছে ফেলা হয়েছে যাতে আবেদনকারী পরবর্তীতে পুনরায় সাইন-আপ করতে পারেন। কারণ: ${rejectionReason}`,
     });
 
     return { success: true, message: 'নতুন সদস্য ভর্তি আবেদন বাতিল করা হয়েছে।' };
@@ -5609,6 +5685,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         activeReceipt,
         setActiveReceipt,
         openReceiptForTx,
+        selectedReceiptTx: activeReceipt,
+        closeReceiptModal: () => setActiveReceipt(null),
         showQuickDepositModal,
         setShowQuickDepositModal,
         showQuickWithdrawModal,
