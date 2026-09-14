@@ -57,14 +57,14 @@ export const DashboardView: React.FC = () => {
 
   const isBengaliNum = isBn && useBengaliDigits;
   const activeMembers = members.filter(m => m.status === 'active');
-  const recentTransactions = transactions.slice(0, 8);
+  const recentTransactions = transactions.filter(t => t.status === 'completed').slice(0, 8);
 
   const num = (n: number | string) => (isBengaliNum ? toBengaliNumber(n) : n.toString());
 
   // Rule 7: Dedicated personalized Member Dashboard
   if (currentUser?.role === 'member') {
     const myMember = members.find(m => m.id === currentUser.memberId);
-    const myTransactions = transactions.filter(t => t.memberId === currentUser.memberId);
+    const myTransactions = transactions.filter(t => t.memberId === currentUser.memberId && t.status === 'completed');
     const myLoans = loans.filter(l => l.memberId === currentUser.memberId);
     const myActiveLoans = myLoans.filter(l => l.status === 'active');
     const mySavings = savingsSchemes.filter(s => s.memberId === currentUser.memberId);

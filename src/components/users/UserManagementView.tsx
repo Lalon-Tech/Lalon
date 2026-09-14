@@ -47,7 +47,7 @@ import { createAuthAccountWithoutSignout } from '../../lib/firebase';
 import { ApproveUserModal } from './ApproveUserModal';
 
 export const UserManagementView: React.FC = () => {
-  const { users, addUser, updateUser, deleteUser, toggleUserStatus, currentUser, members, setSelectedMemberId, setActiveTab } = useSomiti();
+  const { users, addUser, updateUser, deleteUser, toggleUserStatus, currentUser, members, setSelectedMemberId, setActiveTab, approveUserRegistration, rejectUserRegistration } = useSomiti();
   const { language } = useLanguage();
   const isBn = language === 'bn';
 
@@ -792,18 +792,42 @@ export const UserManagementView: React.FC = () => {
                         <div className="flex items-center justify-end gap-1.5">
                           {/* Approve Pending User Button */}
                           {(user.status === 'pending' || (!user.memberId && user.role === 'member')) && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setUserToApprove(user);
-                                setShowApproveModal(true);
-                              }}
-                              className="px-2.5 py-1 text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
-                              title={isBn ? 'সদস্য লিংক ও অনুমোদন করুন' : 'Link Member & Approve'}
-                            >
-                              <UserCheck className="w-3.5 h-3.5" />
-                              <span>{isBn ? 'অনুমোদন' : 'Approve'}</span>
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setUserToApprove(user);
+                                  setShowApproveModal(true);
+                                }}
+                                className="px-2.5 py-1 text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                                title={isBn ? 'সদস্য লিংক ও অনুমোদন করুন' : 'Link Member & Approve'}
+                              >
+                                <UserCheck className="w-3.5 h-3.5" />
+                                <span>{isBn ? 'অনুমোদন' : 'Approve'}</span>
+                              </button>
+                              {user.status === 'pending' && (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const reason = window.prompt(
+                                      isBn ? 'নিবন্ধন আবেদন বাতিলের কারণ লিখুন (ঐচ্ছিক):' : 'Reason for rejection (optional):',
+                                      isBn ? 'প্রশাসনিক সিদ্ধান্তে বাতিল' : 'Rejected by admin'
+                                    );
+                                    if (reason === null) return;
+                                    try {
+                                      await rejectUserRegistration(user.id, reason);
+                                    } catch (err: any) {
+                                      alert(err?.message || 'বাতিল করা যায়নি।');
+                                    }
+                                  }}
+                                  className="px-2 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                                  title={isBn ? 'নিবন্ধন আবেদন বাতিল করুন' : 'Reject Registration'}
+                                >
+                                  <X className="w-3.5 h-3.5 text-rose-600" />
+                                  <span>{isBn ? 'বাতিল' : 'Reject'}</span>
+                                </button>
+                              )}
+                            </>
                           )}
 
                           {/* Promote to Admin / Demote to Member */}

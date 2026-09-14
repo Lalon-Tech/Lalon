@@ -12,7 +12,8 @@ import {
   Receipt,
   Calendar,
   Layers,
-  Edit3
+  Edit3,
+  Clock
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useSomiti } from '../../context/SomitiContext';
@@ -75,7 +76,17 @@ export const TransactionManager: React.FC = () => {
 
   const displayCount = (num: number) => (isBn || useBengaliDigits ? toBengaliNumber(num) : num.toString());
 
+  // Pending transactions awaiting admin approval
+  const pendingTransactions = useMemo(() => {
+    return transactions.filter(t => t.status === 'pending');
+  }, [transactions]);
+
   const filteredTransactions = transactions.filter((tx) => {
+    // Only Admin-approved transactions in General Ledger
+    if (tx.status !== 'completed') {
+      return false;
+    }
+
     // Rule 7: Member can only view their own transactions
     if (isMember && currentUser?.memberId && tx.memberId !== currentUser.memberId) {
       return false;
@@ -290,6 +301,33 @@ export const TransactionManager: React.FC = () => {
 
       {currentTab === 'ledger' && (
         <>
+      {/* Pending Transactions Alert Banner */}
+      {pendingTransactions.length > 0 && !isMember && (
+        <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-amber-900 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-amber-600 shrink-0 animate-pulse" />
+            <span>
+              {isBn 
+                ? `সিস্টেমে মোট ${displayCount(pendingTransactions.length)}টি লেনদেন অ্যাডমিন অনুমোদনের অপেক্ষায় রয়েছে। সাধারণ লেজারে শুধুমাত্র অ্যাডমিন অনুমোদিত লেনদেন প্রদর্শিত হচ্ছে।`
+                : `${pendingTransactions.length} transaction(s) pending Admin approval. General Ledger displays only approved transactions.`}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('dashboard');
+              setTimeout(() => {
+                const el = document.getElementById('approval-notification-center');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
+            }}
+            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs whitespace-nowrap cursor-pointer shadow-2xs"
+          >
+            {isBn ? 'অনুমোদন কেন্দ্রে যান' : 'Go to Approval Center'}
+          </button>
+        </div>
+      )}
+
       {/* Filter and Search Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-3">
         <div className="flex items-center gap-3 w-full md:w-auto flex-1 max-w-xl">

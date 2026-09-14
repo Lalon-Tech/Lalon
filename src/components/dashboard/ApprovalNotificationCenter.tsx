@@ -21,7 +21,10 @@ import {
   UserCog,
   PiggyBank,
   ArrowDownRight,
-  ArrowUpRight
+  ArrowUpRight,
+  Link2,
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -47,7 +50,11 @@ export const ApprovalNotificationCenter: React.FC = () => {
     approvePendingTransaction,
     rejectPendingTransaction,
     approveMemberUpdate,
-    rejectMemberUpdate
+    rejectMemberUpdate,
+    approveUserRegistration,
+    rejectUserRegistration,
+    approveMemberAdmission,
+    rejectMemberAdmission
   } = useSomiti();
   const { language } = useLanguage();
   const isBn = language === 'bn';
@@ -63,7 +70,17 @@ export const ApprovalNotificationCenter: React.FC = () => {
   const [selectedUserForModal, setSelectedUserForModal] = useState<AppUser | null>(null);
   const [isApproveUserModalOpen, setIsApproveUserModalOpen] = useState<boolean>(false);
 
-  // Active filter for categories: 'all' | 'loan' | 'business_funding' | 'user_registration' | 'deposit' | 'savings_withdrawal' | 'share_purchase' | 'member_profile_update'
+  // Dedicated reject modal state
+  const [rejectModalData, setRejectModalData] = useState<{
+    id: string;
+    type: 'user_registration' | 'member_admission' | 'transaction' | 'profile_update';
+    title: string;
+    subTitle?: string;
+  } | null>(null);
+  const [rejectReason, setRejectReason] = useState<string>('');
+  const [isSubmittingReject, setIsSubmittingReject] = useState<boolean>(false);
+
+  // Active filter for categories: 'all' | 'loan' | 'business_funding' | 'user_registration' | 'member_admission' | 'deposit' | 'savings_withdrawal' | 'share_purchase' | 'member_profile_update'
   const [selectedCategory, setSelectedCategory] = useState<'all' | ApprovalCategory>('all');
 
   // Aggregated list from the extensible Central Approval Registry
@@ -83,7 +100,7 @@ export const ApprovalNotificationCenter: React.FC = () => {
   );
 
   const userRegistrationPendingCount = useMemo(() => 
-    allPendingItems.filter(item => item.category === 'user_registration').length, 
+    allPendingItems.filter(item => item.category === 'user_registration' || item.category === 'member_admission').length, 
     [allPendingItems]
   );
 
@@ -101,6 +118,9 @@ export const ApprovalNotificationCenter: React.FC = () => {
     if (selectedCategory === 'all') return allPendingItems;
     if (selectedCategory === 'deposit') {
       return allPendingItems.filter(item => ['deposit', 'savings_withdrawal', 'share_purchase', 'share_surrender'].includes(item.category));
+    }
+    if (selectedCategory === 'user_registration') {
+      return allPendingItems.filter(item => item.category === 'user_registration' || item.category === 'member_admission');
     }
     return allPendingItems.filter(item => item.category === selectedCategory);
   }, [allPendingItems, selectedCategory]);
@@ -133,6 +153,67 @@ export const ApprovalNotificationCenter: React.FC = () => {
 
   const handleRejectProfile = async (reqId: string) => {
     const res = await rejectMemberUpdate(reqId);
+    setActionAlert({ message: res.message, isError: !res.success });
+    setTimeout(() => setActionAlert(null), 4000);
+  };
+
+  const handleApproveUser = async (userId: string) => {
+    try {
+      await approveUserRegistration(userId);
+      setActionAlert({ 
+        message: isBn ? 'নতুন সদস্য অ্যাকাউন্ট সফলভাবে অনুমোদিত ও সক্রিয় হয়েছে!' : 'New member account approved successfully!' 
+      });
+      setTimeout(() => setActionAlert(null), 4000);
+    } catch (err: any) {
+      setActionAlert({ message: err?.message || 'অনুমোদন সম্পন্ন করা যায়নি।', isError: true });
+      setTimeout(() => setActionAlert(null), 4000);
+    }
+  };
+
+  const handleOpenRejectModal = (
+    id: string, 
+    type: 'user_registration' | 'member_admission' | 'transaction' | 'profile_update', 
+    title: string, 
+    subTitle?: string
+  ) => {
+    setRejectModalData({ id, type, title, subTitle });
+    setRejectReason('');
+  };
+
+  const handleConfirmReject = async () => {
+    if (!rejectModalData) return;
+    setIsSubmittingReject(true);
+    const reason = rejectReason.trim() || (isBn ? 'প্রশাসক কর্তৃক বাতিল' : 'Rejected by admin');
+
+    try {
+      if (rejectModalData.type === 'user_registration') {
+        await rejectUserRegistration(rejectModalData.id, reason);
+        setActionAlert({ 
+          message: isBn ? 'নতুন ব্যবহারকারী নিবন্ধন সফলভাবে বাতিল ও স্ট্যাটাস "rejected" এ আপডেট করা হয়েছে।' : 'Registration rejected successfully and marked as rejected.' 
+        });
+      } else if (rejectModalData.type === 'member_admission') {
+        const res = await rejectMemberAdmission(rejectModalData.id, reason);
+        setActionAlert({ message: res.message, isError: !res.success });
+      } else if (rejectModalData.type === 'transaction') {
+        const res = await rejectPendingTransaction(rejectModalData.id, reason);
+        setActionAlert({ message: res.message, isError: !res.success });
+      } else if (rejectModalData.type === 'profile_update') {
+        const res = await rejectMemberUpdate(rejectModalData.id, reason);
+        setActionAlert({ message: res.message, isError: !res.success });
+      }
+      setRejectModalData(null);
+      setRejectReason('');
+      setTimeout(() => setActionAlert(null), 4000);
+    } catch (err: any) {
+      setActionAlert({ message: err?.message || 'বাতিল প্রক্রিয়া সম্পন্ন করা সম্ভব হয়নি।', isError: true });
+      setTimeout(() => setActionAlert(null), 4000);
+    } finally {
+      setIsSubmittingReject(false);
+    }
+  };
+
+  const handleApproveMemberAdmission = async (memberId: string) => {
+    const res = await approveMemberAdmission(memberId);
     setActionAlert({ message: res.message, isError: !res.success });
     setTimeout(() => setActionAlert(null), 4000);
   };
@@ -317,12 +398,14 @@ export const ApprovalNotificationCenter: React.FC = () => {
           </div>
         )}
 
-        {/* Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-          {filteredItems.map(item => {
+        {/* Fixed-Height Scrollable Cards Panel */}
+        <div className="max-h-[380px] sm:max-h-[440px] overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-amber-300/80 hover:scrollbar-thumb-amber-400 scrollbar-track-transparent rounded-xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 pb-1">
+            {filteredItems.map(item => {
             const isLoan = item.category === 'loan';
             const isBf = item.category === 'business_funding';
             const isUserReg = item.category === 'user_registration';
+            const isMemberAdmission = item.category === 'member_admission';
             const isProfileUpdate = item.category === 'member_profile_update';
             const isTx = ['deposit', 'savings_withdrawal', 'share_purchase', 'share_surrender'].includes(item.category);
 
@@ -330,7 +413,7 @@ export const ApprovalNotificationCenter: React.FC = () => {
               ? 'bg-amber-500' 
               : isBf 
               ? 'bg-indigo-600' 
-              : isUserReg 
+              : (isUserReg || isMemberAdmission) 
               ? 'bg-blue-600' 
               : isProfileUpdate 
               ? 'bg-purple-600' 
@@ -340,7 +423,7 @@ export const ApprovalNotificationCenter: React.FC = () => {
               ? 'bg-amber-100 text-amber-800 border-amber-200'
               : isBf
               ? 'bg-indigo-100 text-indigo-800 border-indigo-200'
-              : isUserReg
+              : (isUserReg || isMemberAdmission)
               ? 'bg-blue-100 text-blue-800 border-blue-200'
               : isProfileUpdate
               ? 'bg-purple-100 text-purple-800 border-purple-200'
@@ -489,14 +572,56 @@ export const ApprovalNotificationCenter: React.FC = () => {
                   </span>
 
                   {isUserReg ? (
-                    <button
-                      type="button"
-                      onClick={() => handleCardClick(item)}
-                      className="px-3 py-1.5 bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-2xs hover:shadow-xs cursor-pointer"
-                    >
-                      <span>{isBn ? 'সদস্য লিংক ও অনুমোদন' : 'Link & Approve'}</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleApproveUser(item.id)}
+                        className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-2xs hover:shadow-xs cursor-pointer"
+                        title={isBn ? 'সরাসরি অনুমোদন ও সক্রিয় করুন' : 'Approve & Activate'}
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>{isBn ? 'অনুমোদন' : 'Approve'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleCardClick(item)}
+                        className="px-2 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-2xs hover:shadow-xs cursor-pointer"
+                        title={isBn ? 'বিদ্যমান প্রোফাইলে লিংক করুন' : 'Link Profile'}
+                      >
+                        <Link2 className="w-3.5 h-3.5" />
+                        <span>{isBn ? 'লিংক' : 'Link'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenRejectModal(item.id, 'user_registration', item.title, item.subTitle)}
+                        className="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                        title={isBn ? 'বাতিল করুন' : 'Reject'}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>{isBn ? 'বাতিল' : 'Reject'}</span>
+                      </button>
+                    </div>
+                  ) : isMemberAdmission ? (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleApproveMemberAdmission(item.id)}
+                        className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-2xs hover:shadow-xs cursor-pointer"
+                        title={isBn ? 'সদস্য ভর্তি অনুমোদন করুন' : 'Approve Member'}
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>{isBn ? 'অনুমোদন' : 'Approve'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenRejectModal(item.id, 'member_admission', item.title, item.subTitle)}
+                        className="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                        title={isBn ? 'ভর্তি বাতিল করুন' : 'Reject'}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>{isBn ? 'বাতিল' : 'Reject'}</span>
+                      </button>
+                    </div>
                   ) : isBf ? (
                     <button
                       type="button"
@@ -519,7 +644,7 @@ export const ApprovalNotificationCenter: React.FC = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleRejectTx(item.id)}
+                        onClick={() => handleOpenRejectModal(item.id, 'transaction', item.title, item.subTitle)}
                         className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
                         title={isBn ? 'বাতিল করুন' : 'Reject'}
                       >
@@ -540,7 +665,7 @@ export const ApprovalNotificationCenter: React.FC = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleRejectProfile(item.id)}
+                        onClick={() => handleOpenRejectModal(item.id, 'profile_update', item.title, item.subTitle)}
                         className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
                         title={isBn ? 'বাতিল করুন' : 'Reject'}
                       >
@@ -562,8 +687,117 @@ export const ApprovalNotificationCenter: React.FC = () => {
               </div>
             );
           })}
+          </div>
         </div>
+
+        {/* Scroll Indicator Footer when there are many items */}
+        {filteredItems.length > 3 && (
+          <div className="pt-2 text-center text-[11px] text-slate-500 font-medium border-t border-amber-200/50 flex items-center justify-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+            <span>
+              {isBn 
+                ? `মোট ${num(filteredItems.length)} টি পেন্ডিং আবেদন রয়েছে। সব দেখতে প্যানেলে স্ক্রোল করুন।` 
+                : `Total ${num(filteredItems.length)} pending requests. Scroll inside panel to view all.`}
+            </span>
+          </div>
+        )}
       </section>
+
+      {/* Reject Confirmation & Reason Modal */}
+      {rejectModalData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
+          <div 
+            className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden text-slate-800 animate-in zoom-in-95 duration-150"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-gradient-to-r from-rose-600 to-rose-700 text-white p-4 sm:p-5 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-white/20 text-white">
+                  <AlertCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-base leading-tight">
+                    {isBn ? 'আবেদন বাতিলের সিদ্ধান্ত' : 'Reject Application'}
+                  </h4>
+                  <p className="text-xs text-rose-100">
+                    {rejectModalData.type === 'user_registration'
+                      ? (isBn ? 'নতুন ব্যবহারকারী নিবন্ধন' : 'User Registration')
+                      : rejectModalData.type === 'member_admission'
+                      ? (isBn ? 'নতুন সদস্য ভর্তি' : 'Member Admission')
+                      : (isBn ? 'অনুমোদন প্রত্যাহার' : 'Rejection')}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRejectModalData(null)}
+                className="p-1 rounded-full hover:bg-white/20 text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4 text-xs sm:text-sm">
+              <div className="p-3 bg-rose-50/60 border border-rose-200 rounded-xl space-y-1">
+                <div className="font-bold text-slate-900 text-sm">{rejectModalData.title}</div>
+                {rejectModalData.subTitle && (
+                  <div className="text-xs text-slate-600">{rejectModalData.subTitle}</div>
+                )}
+                <div className="text-[11px] text-rose-700 font-medium pt-1">
+                  {isBn 
+                    ? '⚠️ বাতিল নিশ্চিত করলে আবেদনটির স্ট্যাটাস "rejected" হিসেবে সংরক্ষিত থাকবে।' 
+                    : 'Confirming will update the application status to "rejected".'}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-800 text-xs flex items-center justify-between">
+                  <span>{isBn ? 'বাতিলের কারণ লিখুন (ঐচ্ছিক):' : 'Rejection Reason (optional):'}</span>
+                  <span className="text-[11px] text-slate-400 font-normal">{isBn ? 'মন্তব্য' : 'Note'}</span>
+                </label>
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder={isBn ? 'যেমন: কাগজপত্র অসম্পূর্ণ, তথ্য যাচাইয়ে অসঙ্গতি ইত্যাদি...' : 'e.g. Incomplete documents, invalid information...'}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all resize-none h-20"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setRejectModalData(null)}
+                disabled={isSubmittingReject}
+                className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isBn ? 'ফিরে যান' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReject}
+                disabled={isSubmittingReject}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isSubmittingReject ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>{isBn ? 'বাতিল হচ্ছে...' : 'Rejecting...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <X className="w-3.5 h-3.5" />
+                    <span>{isBn ? 'বাতিল নিশ্চিত করুন' : 'Confirm Reject'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Business Funding Details & Admin Decision Modal */}
       <BusinessFundingDetailsModal

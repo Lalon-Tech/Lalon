@@ -511,7 +511,7 @@ interface SomitiContextType {
   updateUser: (id: string, userData: Partial<AppUser>) => void;
   deleteUser: (id: string) => void;
   toggleUserStatus: (id: string) => void;
-  approveUserRegistration: (userId: string, memberId: string, userUid: string) => Promise<void>;
+  approveUserRegistration: (userId: string, memberId?: string, userUid?: string) => Promise<void>;
   rejectUserRegistration: (userId: string, reason?: string) => Promise<void>;
 
   // Banking
@@ -667,6 +667,8 @@ interface SomitiContextType {
   rejectMemberUpdate: (requestId: string, reason?: string) => Promise<{ success: boolean; message: string }>;
   approvePendingTransaction: (txId: string) => Promise<{ success: boolean; message: string }>;
   rejectPendingTransaction: (txId: string, reason?: string) => Promise<{ success: boolean; message: string }>;
+  approveMemberAdmission: (memberId: string) => Promise<{ success: boolean; message: string }>;
+  rejectMemberAdmission: (memberId: string, reason?: string) => Promise<{ success: boolean; message: string }>;
 }
 
 const SomitiContext = createContext<SomitiContextType | undefined>(undefined);
@@ -3961,32 +3963,32 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     deleteDoc(doc(db, 'systemUsers', id)).catch(console.error);
   };
 
-  const approveUserRegistration = async (userId: string, memberId: string, userUid: string) => {
+  const approveUserRegistration = async (userId: string, memberId?: string, userUid?: string) => {
     const targetUser = users.find(u => u.id === userId);
     if (!targetUser) throw new Error('ইউজার অ্যাকাউন্ট খুঁজে পাওয়া যায়নি!');
     
-    const targetMember = members.find(m => m.id === memberId);
-    if (!targetMember) throw new Error('সদস্য প্রোফাইল খুঁজে পাওয়া যায়নি!');
-
-    const cleanUid = userUid.trim();
-    if (!cleanUid) throw new Error('User UID (যেমন: BS-1010) প্রদান করা আবশ্যক!');
-
-    // Check UID uniqueness among other users
-    const existingWithUid = users.find(u => u.id !== userId && u.userUid?.toLowerCase() === cleanUid.toLowerCase());
-    if (existingWithUid) {
-      throw new Error(`এই User UID (${cleanUid}) ইতিপূর্বে অন্য ব্যবহারকারীকে (${existingWithUid.name}) প্রদান করা হয়েছে!`);
+    // If memberId is not supplied, look for existing linked member or matching member by email/phone
+    const resolvedMemberId = memberId || targetUser.memberId;
+    const targetMember = resolvedMemberId 
+      ? members.find(m => m.id === resolvedMemberId)
+      : members.find(m => (targetUser.email && m.email?.toLowerCase() === targetUser.email.toLowerCase()) || (targetUser.phone && m.phone === targetUser.phone));
+    
+    // Auto-generate cleanUid if not passed
+    let cleanUid = (userUid || targetUser.userUid || '').trim();
+    if (!cleanUid || users.some(u => u.id !== userId && u.userUid?.toLowerCase() === cleanUid.toLowerCase())) {
+      cleanUid = generateNextUserUid(users);
     }
 
     const updatedUserData: Partial<AppUser> = {
       status: 'active',
       userUid: cleanUid,
-      memberId: targetMember.id,
-      memberNo: targetMember.memberNo,
-      name: targetMember.name,
-      phone: targetMember.phone || targetUser.phone || '',
-      avatarUrl: targetMember.photoUrl || targetUser.avatarUrl || '',
-      role: 'member',
-      roleTitle: 'সদস্য (Member)',
+      memberId: targetMember?.id || targetUser.memberId,
+      memberNo: targetMember?.memberNo || targetUser.memberNo,
+      name: targetMember?.name || targetUser.name,
+      phone: targetMember?.phone || targetUser.phone || '',
+      avatarUrl: targetMember?.photoUrl || targetUser.avatarUrl || '',
+      role: targetUser.role || 'member',
+      roleTitle: targetMember ? 'সদস্য (Member)' : (targetUser.roleTitle || 'ব্যবহারকারী'),
     };
 
     // Update systemUsers in state and Firestore
@@ -3994,21 +3996,23 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     await safeSetDoc(doc(db, 'systemUsers', userId), updatedUserData, { merge: true });
 
     // The registration email must automatically be added to the linked Member Profile
-    const cleanEmail = targetUser.email.trim().toLowerCase();
-    if (cleanEmail) {
-      setMembers(prev => prev.map(m => m.id === memberId ? { ...m, email: cleanEmail } : m));
-      await safeSetDoc(doc(db, 'members', memberId), { email: cleanEmail }, { merge: true });
+    if (targetMember && targetUser.email) {
+      const cleanEmail = targetUser.email.trim().toLowerCase();
+      if (cleanEmail && targetMember.email !== cleanEmail) {
+        setMembers(prev => prev.map(m => m.id === targetMember.id ? { ...m, email: cleanEmail } : m));
+        await safeSetDoc(doc(db, 'members', targetMember.id), { email: cleanEmail }, { merge: true });
+      }
     }
 
     // Record audit log
     addAuditLog({
       action: 'update',
       entityType: 'member',
-      entityId: memberId,
-      entityTitle: targetMember.name,
+      entityId: targetMember?.id || userId,
+      entityTitle: targetMember?.name || targetUser.name || targetUser.email,
       performedBy: currentUser?.name || 'অ্যাডমিন',
       userRole: currentUser?.role || 'admin',
-      details: `ব্যবহারকারী (${targetUser.email}) অনুমোদিত। নির্ধারিত UID: ${cleanUid}, সংযুক্ত সদস্য: ${targetMember.name} (${targetMember.memberNo})`,
+      details: `ব্যবহারকারী (${targetUser.email}) অনুমোদিত। নির্ধারিত UID: ${cleanUid}${targetMember ? `, সংযুক্ত সদস্য: ${targetMember.name} (${targetMember.memberNo})` : ''}`,
     });
   };
 
@@ -4016,18 +4020,82 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const targetUser = users.find(u => u.id === userId);
     if (!targetUser) return;
 
-    setUsers(prev => prev.filter(u => u.id !== userId));
-    await deleteDoc(doc(db, 'systemUsers', userId)).catch(console.error);
+    const rejectionReason = reason || 'প্রশাসক কর্তৃক বাতিল';
+    const updatedData: Partial<AppUser> = {
+      status: 'rejected',
+      rejectionReason,
+    };
+
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updatedData } : u));
+    await safeSetDoc(doc(db, 'systemUsers', userId), updatedData, { merge: true }).catch(console.error);
 
     addAuditLog({
-      action: 'delete',
+      action: 'update',
       entityType: 'member',
       entityId: userId,
       entityTitle: targetUser.email,
       performedBy: currentUser?.name || 'অ্যাডমিন',
       userRole: currentUser?.role || 'admin',
-      details: `ব্যবহারকারীর নিবন্ধন (${targetUser.email}) বাতিল/প্রত্যাখ্যান করা হয়েছে। কারণ: ${reason || 'প্রশাসক কর্তৃক বাতিল'}`,
+      details: `ব্যবহারকারীর নিবন্ধন (${targetUser.email}) বাতিল/প্রত্যাখ্যান করা হয়েছে। স্ট্যাটাস: 'rejected' আপডেট করা হলো। কারণ: ${rejectionReason}`,
     });
+  };
+
+  const approveMemberAdmission = async (memberId: string): Promise<{ success: boolean; message: string }> => {
+    const targetMember = members.find(m => m.id === memberId);
+    if (!targetMember) {
+      return { success: false, message: 'সদস্য খুঁজে পাওয়া যায়নি।' };
+    }
+
+    setMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'active' } : m));
+    await safeSetDoc(doc(db, 'members', memberId), { status: 'active' }, { merge: true }).catch(console.error);
+
+    // If an associated user account exists in pending status, activate that too
+    const linkedUser = users.find(u => u.memberId === memberId || (targetMember.email && u.email?.toLowerCase() === targetMember.email.toLowerCase()));
+    if (linkedUser && linkedUser.status === 'pending') {
+      setUsers(prev => prev.map(u => u.id === linkedUser.id ? { ...u, status: 'active', memberId: targetMember.id, memberNo: targetMember.memberNo } : u));
+      await safeSetDoc(doc(db, 'systemUsers', linkedUser.id), { status: 'active', memberId: targetMember.id, memberNo: targetMember.memberNo }, { merge: true }).catch(console.error);
+    }
+
+    addAuditLog({
+      action: 'update',
+      entityType: 'member',
+      entityId: memberId,
+      entityTitle: targetMember.name,
+      performedBy: currentUser?.name || 'অ্যাডমিন',
+      userRole: currentUser?.role || 'admin',
+      details: `সদস্য ভর্তি আবেদন অনুমোদিত ও সক্রিয় করা হয়েছে। সদস্য নং: ${targetMember.memberNo}`,
+    });
+
+    return { success: true, message: 'নতুন সদস্য ভর্তি সফলভাবে অনুমোদিত ও সক্রিয় হয়েছে।' };
+  };
+
+  const rejectMemberAdmission = async (memberId: string, reason?: string): Promise<{ success: boolean; message: string }> => {
+    const targetMember = members.find(m => m.id === memberId);
+    if (!targetMember) {
+      return { success: false, message: 'সদস্য খুঁজে পাওয়া যায়নি।' };
+    }
+    const rejectionReason = reason || 'প্রশাসক কর্তৃক বাতিল';
+    setMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'rejected', rejectionReason } : m));
+    await safeSetDoc(doc(db, 'members', memberId), { status: 'rejected', rejectionReason }, { merge: true }).catch(console.error);
+
+    // Also update any linked pending user to rejected
+    const linkedUser = users.find(u => u.memberId === memberId || (targetMember.email && u.email?.toLowerCase() === targetMember.email.toLowerCase()));
+    if (linkedUser && linkedUser.status === 'pending') {
+      setUsers(prev => prev.map(u => u.id === linkedUser.id ? { ...u, status: 'rejected', rejectionReason } : u));
+      await safeSetDoc(doc(db, 'systemUsers', linkedUser.id), { status: 'rejected', rejectionReason }, { merge: true }).catch(console.error);
+    }
+
+    addAuditLog({
+      action: 'update',
+      entityType: 'member',
+      entityId: memberId,
+      entityTitle: targetMember.name,
+      performedBy: currentUser?.name || 'অ্যাডমিন',
+      userRole: currentUser?.role || 'admin',
+      details: `নতুন সদস্য ভর্তি আবেদন বাতিল করা হয়েছে। স্ট্যাটাস: 'rejected' আপডেট করা হয়েছে। কারণ: ${rejectionReason}`,
+    });
+
+    return { success: true, message: 'নতুন সদস্য ভর্তি আবেদন বাতিল করা হয়েছে।' };
   };
 
   const toggleUserStatus = (id: string) => {
@@ -5595,6 +5663,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         rejectMemberUpdate,
         approvePendingTransaction,
         rejectPendingTransaction,
+        approveMemberAdmission,
+        rejectMemberAdmission,
       }}
     >
       {children}

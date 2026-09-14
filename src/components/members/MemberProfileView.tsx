@@ -34,7 +34,8 @@ import {
   Layers,
   Search,
   Sparkles,
-  Upload
+  Upload,
+  Clock
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -91,7 +92,8 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
     businessProfitRecords,
     profitDistributions,
     currentUser,
-    requestMemberUpdate
+    requestMemberUpdate,
+    setActiveTab: setGlobalActiveTab
   } = useSomiti();
 
   const isMember = currentUser?.role === 'member';
@@ -213,7 +215,16 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
     }
   };
 
-  const memberTransactions = transactions.filter(t => t.memberId === member.id);
+  // Only Admin-approved transactions are shown in Member Passbook & General Ledger and affect calculations
+  const memberTransactions = useMemo(() => {
+    return transactions.filter(t => t.memberId === member.id && t.status === 'completed');
+  }, [transactions, member.id]);
+
+  // Pending transactions awaiting admin approval
+  const pendingMemberTransactions = useMemo(() => {
+    return transactions.filter(t => t.memberId === member.id && t.status === 'pending');
+  }, [transactions, member.id]);
+
   const memberLoans = loans.filter(l => l.memberId === member.id);
   const memberSavings = savingsSchemes.filter(s => s.memberId === member.id);
   const memberShareClosures = shareClosures.filter(c => c.memberId === member.id);
@@ -1056,8 +1067,8 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                       {isBn ? 'সমস্ত ক্রেডিট (জমা) ও ডেবিট (উত্তোলন) লেনদেনের অডিট লেজার' : 'Full credit & debit audit ledger of this member'}
                     </p>
                   </div>
-                  <span className="text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200/70 px-2.5 py-0.5 rounded-full ml-1">
-                    {isBn ? `মোট লেনদেন: ${displayCount(filteredMemberTransactions.length)} টি` : `Total transactions: ${displayCount(filteredMemberTransactions.length)}`}
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-2.5 py-0.5 rounded-full ml-1">
+                    {isBn ? `অনুমোদিত লেনদেন: ${displayCount(filteredMemberTransactions.length)} টি` : `Approved: ${displayCount(filteredMemberTransactions.length)}`}
                   </span>
                 </div>
 
@@ -1097,6 +1108,35 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                   </div>
                 </div>
               </div>
+
+              {/* Pending Transactions Notice (Admin-approved transactions only) */}
+              {pendingMemberTransactions.length > 0 && (
+                <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs text-amber-900 shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-amber-600 shrink-0 animate-pulse" />
+                    <span>
+                      {isBn 
+                        ? `এই সদস্যের ${displayCount(pendingMemberTransactions.length)}টি লেনদেন অ্যাডমিন অনুমোদনের অপেক্ষায় রয়েছে। অ্যাডমিন অনুমোদনের পরই তা পাসবুকে যুক্ত হবে ও হিসাবে কার্যকর হবে।`
+                        : `${pendingMemberTransactions.length} transaction(s) pending Admin approval. Only approved transactions appear in this Passbook.`}
+                    </span>
+                  </div>
+                  {isUserAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGlobalActiveTab('dashboard');
+                        setTimeout(() => {
+                          const el = document.getElementById('approval-notification-center');
+                          if (el) el.scrollIntoView({ behavior: 'smooth' });
+                        }, 100);
+                      }}
+                      className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] whitespace-nowrap cursor-pointer shadow-2xs self-end sm:self-auto"
+                    >
+                      {isBn ? 'অনুমোদন কেন্দ্র' : 'Approval Center'}
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Scrollable Transaction Table Container with Sticky Column Headers */}
               <div className="passbook-scroll-container border border-slate-200 rounded-xl overflow-x-auto overflow-y-auto max-h-[520px] shadow-2xs relative bg-white">

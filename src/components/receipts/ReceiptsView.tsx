@@ -42,7 +42,9 @@ export const ReceiptsView: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<'all' | 'credit' | 'debit' | TransactionType>('all');
   const [dateFilter, setDateFilter] = useState('');
 
-  const filteredTransactions = transactions.filter((t) => {
+  const approvedTransactions = useMemo(() => transactions.filter(t => t.status === 'completed'), [transactions]);
+
+  const filteredTransactions = approvedTransactions.filter((t) => {
     const q = (searchTerm || '').toLowerCase();
     const matchesSearch = 
       (t.voucherNo ?? '').toLowerCase().includes(q) ||
@@ -65,9 +67,9 @@ export const ReceiptsView: React.FC = () => {
 
   const displayCount = (num: number) => (isBn || useBengaliDigits ? toBengaliNumber(num) : num.toString());
 
-  const totalReceiptsCount = transactions.length;
-  const creditReceipts = transactions.filter(t => getTransactionTypeName(t.type).isCredit);
-  const debitReceipts = transactions.filter(t => !getTransactionTypeName(t.type).isCredit);
+  const totalReceiptsCount = approvedTransactions.length;
+  const creditReceipts = approvedTransactions.filter(t => getTransactionTypeName(t.type).isCredit);
+  const debitReceipts = approvedTransactions.filter(t => !getTransactionTypeName(t.type).isCredit);
 
   const totalCreditAmount = creditReceipts.reduce((s, t) => s + t.amount, 0);
   const totalDebitAmount = debitReceipts.reduce((s, t) => s + t.amount, 0);

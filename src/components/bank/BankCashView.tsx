@@ -57,7 +57,7 @@ export const BankCashView: React.FC = () => {
     setAccountNumber('');
   };
 
-  const bankTransactions = transactions.filter(t => t.paymentMethod === 'bank');
+  const bankTransactions = transactions.filter(t => t.paymentMethod === 'bank' && t.status === 'completed');
   const displayCount = (num: number) => (isBn || useBengaliDigits ? toBengaliNumber(num) : num.toString());
 
   return (

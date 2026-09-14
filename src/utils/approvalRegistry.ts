@@ -111,6 +111,35 @@ export function getAllPendingApprovals(sources: ApprovalCollectorSources): Pendi
       });
   }
 
+  // 3.5. Pending Member Admissions Collector
+  if (sources.members && Array.isArray(sources.members)) {
+    sources.members
+      .filter(m => m.status === 'pending')
+      .forEach(member => {
+        items.push({
+          id: member.id,
+          category: 'member_admission',
+          categoryLabelBn: 'নতুন সদস্য ভর্তি আবেদন',
+          categoryLabelEn: 'New Member Admission',
+          applicationNo: member.memberNo ? `#${member.memberNo}` : member.id,
+          memberId: member.id,
+          memberNo: member.memberNo || '',
+          memberName: member.name || 'নতুন সদস্য',
+          memberPhone: member.phone || undefined,
+          memberPhoto: member.photoUrl,
+          amount: member.admissionFee || 0,
+          requestDate: member.joiningDate || new Date().toISOString().split('T')[0],
+          status: 'pending',
+          statusLabelBn: 'অনুমোদন অপেক্ষমাণ',
+          statusLabelEn: 'Pending Approval',
+          title: `নতুন সদস্য ভর্তি আবেদন (${member.name})`,
+          subTitle: `মোবাইল: ${member.phone || '-'} | শেয়ার: ${member.shareCount || 0} টি`,
+          profitOrInterestRate: member.admissionFee ? `ভর্তি ফি: ৳${member.admissionFee}` : undefined,
+          rawItem: member,
+        });
+      });
+  }
+
   // 4. Pending Member Transactions Collector (Deposit, Withdraw, Share Purchase, Share Surrender)
   if (sources.transactions && Array.isArray(sources.transactions)) {
     sources.transactions

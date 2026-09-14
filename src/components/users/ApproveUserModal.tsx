@@ -141,7 +141,7 @@ export const ApproveUserModal: React.FC<ApproveUserModalProps> = ({
   };
 
   const handleReject = async () => {
-    if (!window.confirm(language === 'bn' ? 'আপনি কি নিশ্চিত এই রেজিস্ট্রেশন আবেদনটি বাতিল করতে চান?' : 'Are you sure you want to reject and remove this registration?')) {
+    if (!window.confirm(language === 'bn' ? 'আপনি কি নিশ্চিত এই রেজিস্ট্রেশন আবেদনটি প্রত্যাখ্যান করতে চান? আবেদনটির স্ট্যাটাস "rejected" হিসেবে আপডেট হবে।' : 'Are you sure you want to reject this registration? The status will be updated to "rejected".')) {
       return;
     }
 
@@ -416,7 +416,7 @@ export const ApproveUserModal: React.FC<ApproveUserModalProps> = ({
             className="w-full sm:w-auto px-4 py-2.5 text-rose-700 hover:bg-rose-100/70 border border-rose-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
             {rejectLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-            <span>{language === 'bn' ? 'আবেদন প্রত্যাখ্যান ও মুছুন' : 'Reject & Delete'}</span>
+            <span>{language === 'bn' ? 'আবেদন প্রত্যাখ্যান করুন' : 'Reject Application'}</span>
           </button>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">

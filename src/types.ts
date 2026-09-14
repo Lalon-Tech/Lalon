@@ -1,4 +1,4 @@
-export type MemberStatus = 'active' | 'inactive' | 'pending' | 'defaulter';
+export type MemberStatus = 'active' | 'inactive' | 'pending' | 'defaulter' | 'rejected';
 
 export type Gender = 'male' | 'female' | 'other';
 
@@ -160,6 +160,7 @@ export interface Member {
   nominees: Nominee[];
   assignedCollectorId?: string;
   notes?: string;
+  rejectionReason?: string;
 }
 
 export interface Transaction {
@@ -237,9 +238,10 @@ export interface AppUser {
   assignedArea?: string;
   dailyTarget?: number;
   collectedToday?: number;
-  status: 'active' | 'inactive' | 'pending';
+  status: 'active' | 'inactive' | 'pending' | 'rejected';
   memberId?: string;
   memberNo?: string;
+  rejectionReason?: string;
   createdAt?: string;
 }
 
