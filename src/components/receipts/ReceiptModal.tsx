@@ -117,7 +117,50 @@ ${tx.billingPeriod ? `বিলিং কিস্তি  : ${tx.billingPeriod}\
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    setShareFeedback('রসিদ ফাইল ডাউনলোড সম্পন্ন হয়েছে!');
+    setShareFeedback('রসিদ টেক্সট ফাইল ডাউনলোড সম্পন্ন হয়েছে!');
+    setTimeout(() => setShareFeedback(null), 3000);
+  };
+
+  const handleDownloadHtmlReceipt = () => {
+    const receiptElement = document.getElementById('printable-receipt');
+    if (!receiptElement) return;
+
+    const fullHtml = `<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Money Receipt - ${tx.voucherNo}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Hind Siliguri', sans-serif; background-color: #f8fafc; padding: 20px; }
+    @media print {
+      body { background: white; padding: 0; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen">
+  <div class="no-print mb-4 flex gap-2">
+    <button onclick="window.print()" style="background:#059669;color:white;padding:8px 16px;border-radius:8px;font-weight:bold;cursor:pointer;border:none;">🖨️ প্রিন্ট করুন (Print)</button>
+  </div>
+  <div style="max-width: 680px; width: 100%; background: white; border-radius: 16px; border: 1px solid #cbd5e1; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); overflow: hidden;">
+    ${receiptElement.outerHTML}
+  </div>
+</body>
+</html>`;
+
+    const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Money-Receipt-${tx.voucherNo || tx.id}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setShareFeedback('ডিজিটাল রসিদ (HTML) ফাইল ডাউনলোড সম্পন্ন হয়েছে!');
     setTimeout(() => setShareFeedback(null), 3000);
   };
 
@@ -187,12 +230,21 @@ ${tx.billingPeriod ? `বিলিং কিস্তি  : ${tx.billingPeriod}\
               </button>
 
               <button
+                onClick={handleDownloadHtmlReceipt}
+                title="ডিজিটাল রসিদ (HTML) ফাইল ডাউনলোড করুন"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg text-xs font-medium transition-all cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">HTML রসিদ</span>
+              </button>
+
+              <button
                 onClick={handleDownloadTextFile}
                 title="রসিদ টেক্সট ফাইল ডাউনলোড করুন"
                 className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 hover:text-white rounded-lg text-xs font-medium transition-all cursor-pointer"
               >
-                <Download className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">ডাউনলোড</span>
+                <FileText className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">টেক্সট</span>
               </button>
 
               <button

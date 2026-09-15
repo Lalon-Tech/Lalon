@@ -53,7 +53,9 @@ export const BusinessProfitRecordModal: React.FC<BusinessProfitRecordModalProps>
     businessProfitRecords,
     recordBusinessProfit, 
     getMemberSavingsBalance,
-    useBengaliDigits 
+    useBengaliDigits,
+    isUserAdmin,
+    currentUser
   } = useSomiti();
   const { language } = useLanguage();
   const isBn = language === 'bn';
@@ -68,7 +70,7 @@ export const BusinessProfitRecordModal: React.FC<BusinessProfitRecordModalProps>
   
   // Selected Member Provider
   const [selectedMemberId, setSelectedMemberId] = useState<string>(
-    presetMemberId || (members[0]?.id || '')
+    presetMemberId || (!isUserAdmin && currentUser?.memberId ? currentUser.memberId : (members[0]?.id || ''))
   );
 
   // Selected Funding Provider
@@ -588,6 +590,19 @@ export const BusinessProfitRecordModal: React.FC<BusinessProfitRecordModalProps>
             />
           </div>
 
+          {/* Notice for non-admin members */}
+          {!isUserAdmin && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-900">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold">{isBn ? 'প্রশাসক অনুমোদন প্রক্রিয়া:' : 'Admin Approval Notice:'}</span>{' '}
+                {isBn 
+                  ? 'আপনার দাখিলকৃত ব্যবসায়িক লাভ পেন্ডিং হিসেবে সংরক্ষিত হবে। সমিতি কর্তৃপক্ষ অনুমোদন প্রদান করলে তা অবিলম্বে সমিতির মূল হিসাব ও সদস্যদের সঞ্চয়ে আনুপাতিক হারে বণ্টন হবে।'
+                  : 'Your recorded profit will be saved as pending. Once approved by an administrator, it will be added to the ledger and distributed proportionally to members.'}
+              </div>
+            </div>
+          )}
+
           {/* Footer Buttons */}
           <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-3">
             <button
@@ -605,7 +620,9 @@ export const BusinessProfitRecordModal: React.FC<BusinessProfitRecordModalProps>
               <CheckCircle2 className="w-4 h-4" />
               <span>
                 {isSubmitting
-                  ? isBn ? 'সংরক্ষণ ও বণ্টন হচ্ছে...' : 'Saving & Distributing...'
+                  ? isBn ? 'সংরক্ষণ হচ্ছে...' : 'Saving...'
+                  : !isUserAdmin
+                  ? isBn ? 'অনুমোদনের জন্য আবেদন জমা দিন' : 'Submit for Admin Approval'
                   : isBn ? 'লাভ সংরক্ষণ ও বণ্টন কার্যকর করুন' : 'Confirm Profit & Distribute'}
               </span>
             </button>

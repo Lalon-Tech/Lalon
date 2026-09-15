@@ -47,12 +47,13 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
     members,
     loans,
     businessFundings,
+    businessProfitRecords,
     users
   } = useSomiti();
 
   const pendingApprovalsCount = React.useMemo(() => {
-    return getAllPendingApprovals({ loans, businessFundings, members, users }).length;
-  }, [loans, businessFundings, members, users]);
+    return getAllPendingApprovals({ loans, businessFundings, businessProfitRecords, members, users }).length;
+  }, [loans, businessFundings, businessProfitRecords, members, users]);
 
   const { user: firebaseUser, logOut } = useAuth();
 

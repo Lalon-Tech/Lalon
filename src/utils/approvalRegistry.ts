@@ -1,9 +1,10 @@
-import { Loan, BusinessFunding, Member, AppUser, Transaction, MemberUpdateRequest } from '../types';
+import { Loan, BusinessFunding, BusinessProfitRecord, Member, AppUser, Transaction, MemberUpdateRequest } from '../types';
 import { PendingApprovalItem } from '../types/approval';
 
 export interface ApprovalCollectorSources {
   loans?: Loan[];
   businessFundings?: BusinessFunding[];
+  businessProfitRecords?: BusinessProfitRecord[];
   members?: Member[];
   users?: AppUser[];
   transactions?: Transaction[];
@@ -78,6 +79,36 @@ export function getAllPendingApprovals(sources: ApprovalCollectorSources): Pendi
           subTitle: `${funding.durationMonths} মাস মেয়াদ`,
           profitOrInterestRate: `সদস্য ${funding.memberProfitSharePercent}% • সমিতি ${funding.somitiProfitSharePercent}%`,
           rawItem: funding,
+        });
+      });
+  }
+
+  // 2.5. Pending Business Profit Records Collector
+  if (sources.businessProfitRecords && Array.isArray(sources.businessProfitRecords)) {
+    sources.businessProfitRecords
+      .filter(p => p.status === 'pending')
+      .forEach(profit => {
+        const member = memberMap.get(profit.memberId);
+        items.push({
+          id: profit.id,
+          category: 'business_profit',
+          categoryLabelBn: 'ব্যবসায়িক লভ্যাংশ জমা',
+          categoryLabelEn: 'Business Profit Record',
+          applicationNo: profit.applicationNo || profit.id,
+          memberId: profit.memberId,
+          memberNo: profit.memberNo || member?.memberNo || '',
+          memberName: profit.memberName || member?.name || 'সদস্য',
+          memberPhone: member?.phone,
+          memberPhoto: member?.photoUrl,
+          amount: profit.somitiProfitAmount || profit.profitAmount || profit.totalBusinessProfit || 0,
+          requestDate: profit.date || profit.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0],
+          status: 'pending',
+          statusLabelBn: 'অনুমোদন অপেক্ষমাণ',
+          statusLabelEn: 'Pending Approval',
+          title: `ব্যবসায়িক মুনাফা জমা (${profit.month})`,
+          subTitle: `মোট মুনাফা: ৳${profit.totalBusinessProfit} • সমিতি লভ্যাংশ: ৳${profit.somitiProfitAmount}`,
+          profitOrInterestRate: `সমিতি অংশ ${profit.somitiProfitPercent}% • সদস্য অংশ ${profit.memberProfitPercent}%`,
+          rawItem: profit,
         });
       });
   }

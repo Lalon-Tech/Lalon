@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { Mail, Lock, User, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, ShieldCheck, ArrowRight, Clock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useSomiti } from '../../context/SomitiContext';
 import { LanguageSwitcher } from '../common/LanguageSwitcher';
 
 interface LoginPageProps {}
 
 export const LoginPage: React.FC<LoginPageProps> = () => {
   const { language, t } = useLanguage();
+  const { setActiveTab, setSelectedMemberId } = useSomiti();
   const { 
     signIn, 
     signUp, 
@@ -84,6 +86,8 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
     try {
       if (mode === 'signin') {
         await signIn(email, password);
+        setActiveTab('dashboard');
+        setSelectedMemberId(null);
         setSuccessMsg(language === 'bn' ? 'সফলভাবে সাইন-ইন সম্পন্ন হয়েছে!' : 'Successfully signed in!');
       }
     } catch {
@@ -99,6 +103,8 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
     setGoogleLoading(true);
     try {
       await signInWithGoogle();
+      setActiveTab('dashboard');
+      setSelectedMemberId(null);
       setSuccessMsg(language === 'bn' ? 'Google একাউন্ট দিয়ে সফলভাবে লগইন হয়েছে!' : 'Logged in with Google successfully!');
     } catch {
       // error in context
@@ -111,6 +117,8 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
     clearError();
     setSuccessMsg('');
     signInAsDemo(presetRole);
+    setActiveTab('dashboard');
+    setSelectedMemberId(null);
   };
 
   return (

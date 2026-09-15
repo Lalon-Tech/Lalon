@@ -300,7 +300,7 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
 
       {/* Business Applications List */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-        <div className="p-4 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
+        <div className="p-4 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
           <div>
             <h4 className="font-bold text-sm text-slate-800 flex items-center gap-2">
               <Briefcase className="w-4 h-4 text-blue-600" />
@@ -312,9 +312,24 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
                 : 'All business investments and profit distributions for this member'}
             </p>
           </div>
-          <span className="text-xs font-bold text-slate-600 bg-white px-3 py-1 rounded-full border border-slate-200">
-            {isBn ? `মোট: ${toBengaliNumber(myFundings.length)} টি` : `Total: ${myFundings.length}`}
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const active = myFundings.find(f => f.status === 'active');
+                setSelectedFundingForProfit(active ? active.id : undefined);
+                setShowProfitModal(true);
+              }}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              title={isBn ? 'ব্যবসায়িক লভ্যাংশ এন্ট্রি করুন' : 'Record Business Profit'}
+            >
+              <TrendingUp className="w-3.5 h-3.5" />
+              <span>{isBn ? '+ লাভ এন্ট্রি (Record Profit)' : '+ Record Profit'}</span>
+            </button>
+            <span className="text-xs font-bold text-slate-600 bg-white px-3 py-1 rounded-full border border-slate-200">
+              {isBn ? `মোট: ${toBengaliNumber(myFundings.length)} টি` : `Total: ${myFundings.length}`}
+            </span>
+          </div>
         </div>
 
         {myFundings.length === 0 ? (
@@ -390,15 +405,16 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
                       </button>
                     )}
 
-                    {isUserAdmin && funding.status === 'active' && (
+                    {funding.status === 'active' && (
                       <button
                         onClick={() => {
                           setSelectedFundingForProfit(funding.id);
                           setShowProfitModal(true);
                         }}
-                        className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold border border-emerald-200 transition-colors cursor-pointer"
+                        className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold border border-emerald-200 transition-colors cursor-pointer flex items-center gap-1"
                       >
-                        {isBn ? '+ মাসিক লাভ এন্ট্রি' : '+ Record Profit'}
+                        <TrendingUp className="w-3.5 h-3.5" />
+                        <span>{isBn ? '+ মাসিক লাভ এন্ট্রি' : '+ Record Profit'}</span>
                       </button>
                     )}
 
@@ -495,10 +511,25 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
                                   +{formatCurrency(rec.somitiProfitAmount, isBn && useBengaliDigits)}
                                 </td>
                                 <td className="py-2 px-3 text-center">
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200">
-                                    <CheckCircle2 className="w-3 h-3 text-teal-600" />
-                                    <span>{isBn ? 'সদস্যদের প্রোফাইলে বণ্টিত' : 'Distributed to Members'}</span>
-                                  </span>
+                                  {rec.status === 'pending' ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                      <Clock className="w-3 h-3 text-amber-600 animate-spin" style={{ animationDuration: '6s' }} />
+                                      <span>{isBn ? 'অনুমোদনের অপেক্ষায়' : 'Pending Approval'}</span>
+                                    </span>
+                                  ) : rec.status === 'rejected' ? (
+                                    <span 
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200"
+                                      title={rec.rejectionReason}
+                                    >
+                                      <XIcon className="w-3 h-3 text-rose-600" />
+                                      <span>{isBn ? 'বাতিল' : 'Rejected'}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200">
+                                      <CheckCircle2 className="w-3 h-3 text-teal-600" />
+                                      <span>{isBn ? 'সদস্যদের প্রোফাইলে বণ্টিত' : 'Distributed to Members'}</span>
+                                    </span>
+                                  )}
                                 </td>
                                 <td className="py-2 px-3 text-right text-slate-500 text-[11px]">
                                   {formatBengaliDate(rec.date, false, isBn)}

@@ -148,7 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       window.addEventListener(eventName, handleUserInteraction, { passive: true });
     });
 
-    // Check inactivity every 5 seconds
+    // Check inactivity every second for accurate countdown and logout
     const interval = setInterval(() => {
       const now = Date.now();
       const elapsed = now - lastActivityRef.current;
@@ -170,7 +170,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setInactivityWarning(false);
         }
       }
-    }, 5000);
+    }, 1000);
 
     return () => {
       events.forEach(eventName => {

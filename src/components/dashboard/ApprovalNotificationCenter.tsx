@@ -24,7 +24,8 @@ import {
   ArrowUpRight,
   Link2,
   AlertCircle,
-  Loader2
+  Loader2,
+  TrendingUp
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -39,6 +40,7 @@ export const ApprovalNotificationCenter: React.FC = () => {
   const { 
     loans, 
     businessFundings, 
+    businessProfitRecords,
     members, 
     users,
     transactions,
@@ -54,7 +56,9 @@ export const ApprovalNotificationCenter: React.FC = () => {
     approveUserRegistration,
     rejectUserRegistration,
     approveMemberAdmission,
-    rejectMemberAdmission
+    rejectMemberAdmission,
+    approveBusinessProfitRecord,
+    rejectBusinessProfitRecord
   } = useSomiti();
   const { language } = useLanguage();
   const isBn = language === 'bn';
@@ -73,20 +77,20 @@ export const ApprovalNotificationCenter: React.FC = () => {
   // Dedicated reject modal state
   const [rejectModalData, setRejectModalData] = useState<{
     id: string;
-    type: 'user_registration' | 'member_admission' | 'transaction' | 'profile_update';
+    type: 'user_registration' | 'member_admission' | 'transaction' | 'profile_update' | 'business_profit';
     title: string;
     subTitle?: string;
   } | null>(null);
   const [rejectReason, setRejectReason] = useState<string>('');
   const [isSubmittingReject, setIsSubmittingReject] = useState<boolean>(false);
 
-  // Active filter for categories: 'all' | 'loan' | 'business_funding' | 'user_registration' | 'member_admission' | 'deposit' | 'savings_withdrawal' | 'share_purchase' | 'member_profile_update'
+  // Active filter for categories
   const [selectedCategory, setSelectedCategory] = useState<'all' | ApprovalCategory>('all');
 
   // Aggregated list from the extensible Central Approval Registry
   const allPendingItems = useMemo(() => {
-    return getAllPendingApprovals({ loans, businessFundings, members, users, transactions, memberUpdateRequests });
-  }, [loans, businessFundings, members, users, transactions, memberUpdateRequests]);
+    return getAllPendingApprovals({ loans, businessFundings, businessProfitRecords, members, users, transactions, memberUpdateRequests });
+  }, [loans, businessFundings, businessProfitRecords, members, users, transactions, memberUpdateRequests]);
 
   // Counts by category
   const loanPendingCount = useMemo(() => 
@@ -96,6 +100,11 @@ export const ApprovalNotificationCenter: React.FC = () => {
   
   const businessFundingPendingCount = useMemo(() => 
     allPendingItems.filter(item => item.category === 'business_funding').length, 
+    [allPendingItems]
+  );
+
+  const profitPendingCount = useMemo(() => 
+    allPendingItems.filter(item => item.category === 'business_profit').length, 
     [allPendingItems]
   );
 
@@ -170,9 +179,15 @@ export const ApprovalNotificationCenter: React.FC = () => {
     }
   };
 
+  const handleApproveBusinessProfit = async (recordId: string) => {
+    const res = await approveBusinessProfitRecord(recordId, true);
+    setActionAlert({ message: res.message, isError: !res.success });
+    setTimeout(() => setActionAlert(null), 4000);
+  };
+
   const handleOpenRejectModal = (
     id: string, 
-    type: 'user_registration' | 'member_admission' | 'transaction' | 'profile_update', 
+    type: 'user_registration' | 'member_admission' | 'transaction' | 'profile_update' | 'business_profit', 
     title: string, 
     subTitle?: string
   ) => {
@@ -201,6 +216,9 @@ export const ApprovalNotificationCenter: React.FC = () => {
         setActionAlert({ message: res.message, isError: !res.success });
       } else if (rejectModalData.type === 'profile_update') {
         const res = await rejectMemberUpdate(rejectModalData.id, reason);
+        setActionAlert({ message: res.message, isError: !res.success });
+      } else if (rejectModalData.type === 'business_profit') {
+        const res = await rejectBusinessProfitRecord(rejectModalData.id, reason);
         setActionAlert({ message: res.message, isError: !res.success });
       }
       setRejectModalData(null);
@@ -340,6 +358,26 @@ export const ApprovalNotificationCenter: React.FC = () => {
               </button>
             )}
 
+            {profitPendingCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedCategory('business_profit')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  selectedCategory === 'business_profit'
+                    ? 'bg-teal-600 text-white shadow-xs'
+                    : 'bg-white/80 hover:bg-white text-slate-700 border border-slate-200'
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span>{isBn ? 'ব্যবসায়িক লভ্যাংশ' : 'Business Profits'}</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                  selectedCategory === 'business_profit' ? 'bg-teal-800 text-teal-100' : 'bg-teal-100 text-teal-800'
+                }`}>
+                  {num(profitPendingCount)}
+                </span>
+              </button>
+            )}
+
             {transactionPendingCount > 0 && (
               <button
                 type="button"
@@ -406,6 +444,7 @@ export const ApprovalNotificationCenter: React.FC = () => {
             {filteredItems.map(item => {
             const isLoan = item.category === 'loan';
             const isBf = item.category === 'business_funding';
+            const isProfit = item.category === 'business_profit';
             const isUserReg = item.category === 'user_registration';
             const isMemberAdmission = item.category === 'member_admission';
             const isProfileUpdate = item.category === 'member_profile_update';
@@ -415,6 +454,8 @@ export const ApprovalNotificationCenter: React.FC = () => {
               ? 'bg-amber-500' 
               : isBf 
               ? 'bg-indigo-600' 
+              : isProfit
+              ? 'bg-teal-600'
               : (isUserReg || isMemberAdmission) 
               ? 'bg-blue-600' 
               : isProfileUpdate 
@@ -425,6 +466,8 @@ export const ApprovalNotificationCenter: React.FC = () => {
               ? 'bg-amber-100 text-amber-800 border-amber-200'
               : isBf
               ? 'bg-indigo-100 text-indigo-800 border-indigo-200'
+              : isProfit
+              ? 'bg-teal-100 text-teal-800 border-teal-200'
               : (isUserReg || isMemberAdmission)
               ? 'bg-blue-100 text-blue-800 border-blue-200'
               : isProfileUpdate
@@ -446,6 +489,8 @@ export const ApprovalNotificationCenter: React.FC = () => {
                       <HandCoins className="w-3 h-3 text-amber-600" />
                     ) : isBf ? (
                       <Briefcase className="w-3 h-3 text-indigo-600" />
+                    ) : isProfit ? (
+                      <TrendingUp className="w-3 h-3 text-teal-600" />
                     ) : isUserReg ? (
                       <UserCheck className="w-3 h-3 text-blue-600" />
                     ) : isProfileUpdate ? (
@@ -633,6 +678,27 @@ export const ApprovalNotificationCenter: React.FC = () => {
                       <span>{isBn ? 'আবেদন ও সিদ্ধান্ত' : 'Review & Decide'}</span>
                       <ChevronRight className="w-3.5 h-3.5" />
                     </button>
+                  ) : isProfit ? (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleApproveBusinessProfit(item.id)}
+                        className="px-2.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-2xs hover:shadow-xs cursor-pointer"
+                        title={isBn ? 'অনুমোদন ও বণ্টন করুন' : 'Approve & Distribute'}
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>{isBn ? 'অনুমোদন' : 'Approve'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenRejectModal(item.id, 'business_profit', item.title, item.subTitle)}
+                        className="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                        title={isBn ? 'বাতিল করুন' : 'Reject'}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>{isBn ? 'বাতিল' : 'Reject'}</span>
+                      </button>
+                    </div>
                   ) : isTx ? (
                     <div className="flex items-center gap-1.5">
                       <button

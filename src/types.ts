@@ -324,7 +324,11 @@ export interface BusinessProfitRecord {
   profitRatio?: number;         // Ratio: profitAmount / totalDepositSnapshot
   memberDistributions?: MemberProfitShareItem[]; // Individual member distributions
   totalDistributed?: number;    // Guaranteed to equal original profit amount
-  status?: 'completed' | 'active';
+  status?: 'completed' | 'pending' | 'rejected' | 'active';
+  recordedByRole?: 'admin' | 'member';
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectionReason?: string;
   notes?: string;
   recordedBy: string;
   createdAt: string;
