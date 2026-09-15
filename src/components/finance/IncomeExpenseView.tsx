@@ -19,6 +19,7 @@ import {
   formatBengaliDate, 
   toBengaliNumber 
 } from '../../utils/bengaliUtils';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 export const IncomeExpenseView: React.FC = () => {
   const { language, t } = useLanguage();
@@ -34,6 +35,8 @@ export const IncomeExpenseView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'all' | 'income' | 'expense'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
+
+  useModalScrollLock(showModal);
 
   // Form State
   const [type, setType] = useState<'income' | 'expense'>('expense');

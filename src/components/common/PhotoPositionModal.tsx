@@ -15,6 +15,7 @@ import {
   Maximize2
 } from 'lucide-react';
 import { cropAndPositionImage, loadImage } from '../../utils/imageUtils';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 interface PhotoPositionModalProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export const PhotoPositionModal: React.FC<PhotoPositionModalProps> = ({
   onSave,
   title = 'ছবি পজিশনিং ও ক্রপ (Photo Positioning & Quality)',
 }) => {
+  useModalScrollLock(isOpen);
   const [zoom, setZoom] = useState<number>(1.0);
   const [panX, setPanX] = useState<number>(0);
   const [panY, setPanY] = useState<number>(0);

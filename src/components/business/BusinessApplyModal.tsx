@@ -4,6 +4,7 @@ import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { formatCurrency, toBengaliNumber } from '../../utils/bengaliUtils';
 import { Member } from '../../types';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 interface BusinessApplyModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export const BusinessApplyModal: React.FC<BusinessApplyModalProps> = ({
   presetMemberId,
   onSuccess,
 }) => {
+  useModalScrollLock(isOpen);
   const { members, currentUser, isUserAdmin, addBusinessFunding, useBengaliDigits } = useSomiti();
   const { language } = useLanguage();
   const isBn = language === 'bn';

@@ -4,6 +4,7 @@ import confetti from 'canvas-confetti';
 import { useSomiti } from '../../context/SomitiContext';
 import { Gender } from '../../types';
 import { PhotoUploadField } from '../common/PhotoUploadField';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 interface NewMemberModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface NewMemberModalProps {
 }
 
 export const NewMemberModal: React.FC<NewMemberModalProps> = ({ isOpen, onClose, isEmbedded = false }) => {
+  useModalScrollLock(isOpen);
   const { addMember, settings, setSelectedMemberId, setActiveTab } = useSomiti();
 
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);

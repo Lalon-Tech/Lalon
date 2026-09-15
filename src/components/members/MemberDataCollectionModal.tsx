@@ -12,11 +12,13 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useSomiti } from '../../context/SomitiContext';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 export const MemberDataCollectionModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
 }> = ({ isOpen, onClose }) => {
+  useModalScrollLock(isOpen);
   const { language } = useLanguage();
   const isBn = language === 'bn';
   const { settings } = useSomiti();

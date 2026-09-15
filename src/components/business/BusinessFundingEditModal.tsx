@@ -4,6 +4,7 @@ import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { formatCurrency, toBengaliNumber } from '../../utils/bengaliUtils';
 import { BusinessFunding, BusinessFundingStatus } from '../../types';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 interface BusinessFundingEditModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export const BusinessFundingEditModal: React.FC<BusinessFundingEditModalProps> =
   funding,
   onSuccess,
 }) => {
+  useModalScrollLock(isOpen && Boolean(funding));
   const { updateBusinessFunding, useBengaliDigits } = useSomiti();
   const { language } = useLanguage();
   const isBn = language === 'bn';

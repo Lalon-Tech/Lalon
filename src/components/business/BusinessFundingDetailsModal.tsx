@@ -21,6 +21,7 @@ import { BusinessFunding, Member } from '../../types';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { formatCurrency, toBengaliNumber } from '../../utils/bengaliUtils';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 interface BusinessFundingDetailsModalProps {
   funding: BusinessFunding | null;
@@ -37,6 +38,7 @@ export const BusinessFundingDetailsModal: React.FC<BusinessFundingDetailsModalPr
   onSuccess,
   onNavigateToFunding
 }) => {
+  useModalScrollLock(isOpen && Boolean(funding));
   const { 
     members, 
     loans,

@@ -4,6 +4,7 @@ import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { PaymentMethod } from '../../types';
 import { formatCurrency } from '../../utils/bengaliUtils';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 interface NewWithdrawModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ export const NewWithdrawModal: React.FC<NewWithdrawModalProps> = ({
   lockMember,
   isEmbedded = false 
 }) => {
+  useModalScrollLock(isOpen);
   const { language } = useLanguage();
   const isBn = language === 'bn';
 

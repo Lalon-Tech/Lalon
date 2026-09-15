@@ -3,6 +3,7 @@ import { Upload, X, Check, FileSignature, Sparkles, RefreshCw, AlertCircle } fro
 import { removeSignatureBackground } from '../../utils/signatureUtils';
 import { useLanguage } from '../../context/LanguageContext';
 import { Member } from '../../types';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 interface SignatureUploadModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export const SignatureUploadModal: React.FC<SignatureUploadModalProps> = ({
   member,
   onSaveSignature
 }) => {
+  useModalScrollLock(isOpen && Boolean(member));
   const { language } = useLanguage();
   const isBn = language === 'bn';
 

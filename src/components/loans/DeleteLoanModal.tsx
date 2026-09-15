@@ -17,6 +17,7 @@ import { Loan } from '../../types';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { formatCurrency } from '../../utils/bengaliUtils';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 interface DeleteLoanModalProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export const DeleteLoanModal: React.FC<DeleteLoanModalProps> = ({
   loan,
   onDeleted
 }) => {
+  useModalScrollLock(isOpen);
   const { language } = useLanguage();
   const isBn = language === 'bn';
   const { deleteLoan, useBengaliDigits, transactions, currentUser } = useSomiti();

@@ -30,6 +30,7 @@ import { ReceiptModal } from './components/receipts/ReceiptModal';
 import { AuthModal } from './components/auth/AuthModal';
 import { PendingApprovalView } from './components/auth/PendingApprovalView';
 import { Loader2, ShieldAlert, Clock, AlertTriangle } from 'lucide-react';
+import { useModalScrollLock } from './hooks/useModalScrollLock';
 
 const AppContent: React.FC = () => {
   const { 
@@ -43,6 +44,9 @@ const AppContent: React.FC = () => {
   const { language } = useLanguage();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // Lock background scroll when inactivity modal or mobile drawer is open
+  useModalScrollLock(inactivityWarning || sidebarOpen);
 
   const { 
     activeTab, 

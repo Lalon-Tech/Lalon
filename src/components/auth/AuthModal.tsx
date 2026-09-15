@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Mail, Lock, User, LogIn, UserPlus, AlertCircle, CheckCircle2, Flame, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -8,6 +9,7 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
+  useModalScrollLock(isOpen);
   const { user, signIn, signUp, logOut, error, clearError } = useAuth();
   
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');

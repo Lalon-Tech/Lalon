@@ -27,6 +27,7 @@ import {
   getTransactionTypeName,
   toBengaliNumber 
 } from '../../utils/bengaliUtils';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 export const ReceiptModal: React.FC = () => {
   const { 
@@ -43,6 +44,7 @@ export const ReceiptModal: React.FC = () => {
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
   const tx = activeReceipt || selectedReceiptTx;
+  useModalScrollLock(Boolean(tx));
   if (!tx) return null;
 
   const handleClose = () => {

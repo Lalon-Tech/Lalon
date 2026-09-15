@@ -20,6 +20,7 @@ import {
 import { AppUser, Member, UserRole } from '../../types';
 import { useSomiti } from '../../context/SomitiContext';
 import { generateNextUserUid } from '../../utils/userUtils';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 interface ApproveUserModalProps {
   user: AppUser | null;
@@ -34,6 +35,7 @@ export const ApproveUserModal: React.FC<ApproveUserModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  useModalScrollLock(isOpen && Boolean(user));
   const { members, users, approveUserRegistration, rejectUserRegistration, language } = useSomiti();
 
   const [searchTerm, setSearchTerm] = useState('');

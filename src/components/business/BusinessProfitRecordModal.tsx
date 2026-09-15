@@ -21,6 +21,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { formatCurrency, toBengaliNumber } from '../../utils/bengaliUtils';
 import { BusinessFunding } from '../../types';
 import { calculateProportionalProfit, MemberDepositSnapshotItem } from '../../utils/profitCalculation';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 interface BusinessProfitRecordModalProps {
   isOpen: boolean;
@@ -47,6 +48,7 @@ export const BusinessProfitRecordModal: React.FC<BusinessProfitRecordModalProps>
   presetMemberId,
   onSuccess,
 }) => {
+  useModalScrollLock(isOpen);
   const { 
     members,
     businessFundings, 

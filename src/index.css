@@ -6,6 +6,33 @@
   }
 }
 
+/* Universal Background Scroll Lock when any Modal/Popup is active */
+html.modal-open,
+body.modal-open {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  touch-action: none;
+}
+
+/* Ensure modal overlays and their scrollable children can scroll freely without leaking to background */
+.modal-overlay,
+.modal-overlay *,
+[role="dialog"],
+[role="dialog"] *,
+[data-modal="true"],
+[data-modal="true"] *,
+.fixed.inset-0.z-50,
+.fixed.inset-0.z-50 * {
+  overscroll-behavior: contain;
+}
+
+.overflow-y-auto,
+.overflow-x-auto,
+.overflow-auto {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y pinch-zoom;
+}
+
 /* Print specific rules for Thermal receipt, Agreement/Contract, and Statement printing */
 @media print {
   body {

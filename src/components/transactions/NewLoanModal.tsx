@@ -4,6 +4,7 @@ import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { PaymentMethod } from '../../types';
 import { formatCurrency, toBengaliNumber } from '../../utils/bengaliUtils';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 export interface NewLoanModalProps { 
   isOpen: boolean; 
@@ -18,6 +19,7 @@ export const NewLoanModal: React.FC<NewLoanModalProps> = ({
   initialMemberId,
   lockMember 
 }) => {
+  useModalScrollLock(isOpen);
   const { language } = useLanguage();
   const isBn = language === 'bn';
 

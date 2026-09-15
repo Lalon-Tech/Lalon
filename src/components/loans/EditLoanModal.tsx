@@ -15,6 +15,7 @@ import { Loan, LoanInstallmentSchedule, PaymentMethod } from '../../types';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { formatCurrency, toBengaliNumber } from '../../utils/bengaliUtils';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 interface EditLoanModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export const EditLoanModal: React.FC<EditLoanModalProps> = ({
   loan,
   onUpdated
 }) => {
+  useModalScrollLock(isOpen);
   const { language } = useLanguage();
   const isBn = language === 'bn';
   const { updateLoan, useBengaliDigits, transactions } = useSomiti();

@@ -27,6 +27,7 @@ import {
   formatCurrency, 
   toBengaliNumber 
 } from '../../utils/bengaliUtils';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 interface EditMemberModalProps {
   isOpen: boolean;
@@ -39,6 +40,7 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
   onClose,
   member,
 }) => {
+  useModalScrollLock(isOpen && Boolean(member));
   const { language } = useLanguage();
   const isBn = language === 'bn';
 

@@ -3,6 +3,7 @@ import { X, ShieldAlert, CheckCircle2, DollarSign, Calculator, AlertCircle, Info
 import { useSomiti } from '../../context/SomitiContext';
 import { PaymentMethod } from '../../types';
 import { formatCurrency, formatBengaliNumber, getTodayDateStr } from '../../utils/bengaliUtils';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 interface ShareClosureModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export const ShareClosureModal: React.FC<ShareClosureModalProps> = ({
   preselectedMemberId,
   lockMember,
 }) => {
+  useModalScrollLock(isOpen);
   const {
     members,
     settings,

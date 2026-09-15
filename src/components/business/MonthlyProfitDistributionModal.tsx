@@ -3,6 +3,7 @@ import { X, PieChart, Users, ArrowRight, CheckCircle2, AlertCircle, Sparkles, He
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { formatCurrency, toBengaliNumber } from '../../utils/bengaliUtils';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 interface MonthlyProfitDistributionModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ export const MonthlyProfitDistributionModal: React.FC<MonthlyProfitDistributionM
   onClose,
   onSuccess,
 }) => {
+  useModalScrollLock(isOpen);
   const {
     members,
     businessProfitRecords,

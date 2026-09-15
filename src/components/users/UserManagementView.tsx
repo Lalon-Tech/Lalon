@@ -45,6 +45,7 @@ import {
 } from '../../utils/userUtils';
 import { createAuthAccountWithoutSignout } from '../../lib/firebase';
 import { ApproveUserModal } from './ApproveUserModal';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 export const UserManagementView: React.FC = () => {
   const { users, addUser, updateUser, deleteUser, toggleUserStatus, currentUser, members, setSelectedMemberId, setActiveTab, approveUserRegistration, rejectUserRegistration } = useSomiti();
@@ -65,6 +66,9 @@ export const UserManagementView: React.FC = () => {
   // User approval modal state
   const [userToApprove, setUserToApprove] = useState<AppUser | null>(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
+
+  // Lock background scroll when any user management modal is open
+  useModalScrollLock(showAddModal || Boolean(userToDelete) || Boolean(editingUser) || showApproveModal);
 
   // Add User Form State (Rule 1 & 2)
   const [creationMode, setCreationMode] = useState<'member' | 'direct'>('member');

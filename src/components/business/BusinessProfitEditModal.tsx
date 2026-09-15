@@ -5,6 +5,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { formatCurrency, toBengaliNumber } from '../../utils/bengaliUtils';
 import { BusinessProfitRecord, BusinessFunding } from '../../types';
 import { calculateProportionalProfit, MemberDepositSnapshotItem } from '../../utils/profitCalculation';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 interface BusinessProfitEditModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export const BusinessProfitEditModal: React.FC<BusinessProfitEditModalProps> = (
   record,
   onSuccess,
 }) => {
+  useModalScrollLock(isOpen && Boolean(record));
   const {
     members,
     businessFundings,

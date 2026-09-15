@@ -17,6 +17,7 @@ import { AuditLog } from '../../types';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { formatBengaliDate, toBengaliNumber } from '../../utils/bengaliUtils';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 interface LoanAuditModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ interface LoanAuditModalProps {
 }
 
 export const LoanAuditModal: React.FC<LoanAuditModalProps> = ({ isOpen, onClose }) => {
+  useModalScrollLock(isOpen);
   const { language } = useLanguage();
   const isBn = language === 'bn';
   const { auditLogs, useBengaliDigits } = useSomiti();

@@ -24,6 +24,7 @@ import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { PaymentMethod } from '../../types';
 import { formatCurrency, formatBengaliNumber, toBengaliNumber } from '../../utils/bengaliUtils';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 interface NewDepositModalProps {
   isOpen: boolean;
@@ -57,6 +58,7 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
   lockMember,
   isEmbedded = false
 }) => {
+  useModalScrollLock(isOpen);
   const { language } = useLanguage();
   const isBn = language === 'bn';
 

@@ -23,6 +23,7 @@ import {
   toBengaliNumber 
 } from '../../utils/bengaliUtils';
 import { validateMemberRemoval } from '../../utils/memberRemovalValidation';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 interface DeleteMemberModalProps {
   isOpen: boolean;
@@ -37,6 +38,7 @@ export const DeleteMemberModal: React.FC<DeleteMemberModalProps> = ({
   member,
   onDeleted
 }) => {
+  useModalScrollLock(isOpen);
   const { language } = useLanguage();
   const isBn = language === 'bn';
   const { 

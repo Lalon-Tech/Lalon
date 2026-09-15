@@ -4,6 +4,7 @@ import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { PaymentMethod } from '../../types';
 import { formatCurrency, formatBengaliNumber, getTodayDateStr, toBengaliNumber } from '../../utils/bengaliUtils';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 interface BuyShareModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export const BuyShareModal: React.FC<BuyShareModalProps> = ({
   preselectedMemberId,
   lockMember,
 }) => {
+  useModalScrollLock(isOpen);
   const { language } = useLanguage();
   const isBn = language === 'bn';
 
