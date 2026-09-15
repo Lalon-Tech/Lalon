@@ -51,6 +51,8 @@ export const BusinessFundingView: React.FC = () => {
     deleteBusinessFunding,
     deleteBusinessProfitRecord,
     disburseBusinessFunding,
+    approveBusinessProfitRecord,
+    rejectBusinessProfitRecord,
     deleteMonthlyProfitDistribution,
     clearAllProfitDistributions,
     useBengaliDigits,
@@ -61,6 +63,10 @@ export const BusinessFundingView: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'applications' | 'profits' | 'distributions' | 'calculator' | 'reports'>('applications');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [profitStatusFilter, setProfitStatusFilter] = useState<'all' | 'pending' | 'completed' | 'rejected'>('all');
+  const [isApprovingProfitId, setIsApprovingProfitId] = useState<string | null>(null);
+  const [isRejectingProfitId, setIsRejectingProfitId] = useState<string | null>(null);
+  const [profitFeedbackMsg, setProfitFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Modals
   const [showApplyModal, setShowApplyModal] = useState<boolean>(false);
@@ -140,6 +146,64 @@ export const BusinessFundingView: React.FC = () => {
     (sum, d) => sum + (d.totalSomitiProfitPool || 0),
     0
   );
+
+  const pendingProfitsCount = useMemo(() => {
+    return accessibleProfits.filter(p => p.status === 'pending').length;
+  }, [accessibleProfits]);
+
+  const filteredProfits = useMemo(() => {
+    return accessibleProfits.filter(p => {
+      if (profitStatusFilter === 'all') return true;
+      if (profitStatusFilter === 'pending') return p.status === 'pending';
+      if (profitStatusFilter === 'completed') return p.status === 'completed' || !p.status;
+      if (profitStatusFilter === 'rejected') return p.status === 'rejected';
+      return true;
+    });
+  }, [accessibleProfits, profitStatusFilter]);
+
+  const handleApproveProfit = async (recordId: string) => {
+    setIsApprovingProfitId(recordId);
+    setProfitFeedbackMsg(null);
+    try {
+      const res = await approveBusinessProfitRecord(recordId, true);
+      if (res.success) {
+        setProfitFeedbackMsg({
+          type: 'success',
+          text: isBn ? 'ব্যবসায়িক লভ্যাংশ সফলভাবে অনুমোদিত এবং সকল সদস্যের মধ্যে বণ্টিত হয়েছে!' : 'Business profit approved and distributed successfully!'
+        });
+      } else {
+        setProfitFeedbackMsg({ type: 'error', text: res.message });
+      }
+    } catch (err: any) {
+      setProfitFeedbackMsg({ type: 'error', text: err.message || 'Approval failed' });
+    } finally {
+      setIsApprovingProfitId(null);
+    }
+  };
+
+  const handleRejectProfit = async (recordId: string) => {
+    const reason = window.prompt(
+      isBn ? 'বাতিলের কারণ লিখুন (ঐচ্ছিক):' : 'Enter rejection reason (optional):'
+    );
+    if (reason === null) return;
+    setIsRejectingProfitId(recordId);
+    setProfitFeedbackMsg(null);
+    try {
+      const res = await rejectBusinessProfitRecord(recordId, reason);
+      if (res.success) {
+        setProfitFeedbackMsg({
+          type: 'success',
+          text: isBn ? 'লাভ রেকর্ডটি বাতিল করা হয়েছে।' : 'Profit record rejected.'
+        });
+      } else {
+        setProfitFeedbackMsg({ type: 'error', text: res.message });
+      }
+    } catch (err: any) {
+      setProfitFeedbackMsg({ type: 'error', text: err.message || 'Rejection failed' });
+    } finally {
+      setIsRejectingProfitId(null);
+    }
+  };
 
   const handleDisburseConfirm = async () => {
     if (!disburseModalFunding) return;
@@ -221,27 +285,25 @@ export const BusinessFundingView: React.FC = () => {
             <span>{isBn ? 'নতুন ফান্ডিং আবেদন' : 'New Funding Application'}</span>
           </button>
 
-          {isUserAdmin && (
-            <>
-              <button
-                onClick={() => {
-                  setSelectedFundingForProfit(undefined);
-                  setShowProfitModal(true);
-                }}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-98 cursor-pointer"
-              >
-                <TrendingUp className="w-4 h-4" />
-                <span>{isBn ? 'ব্যবসায়িক লাভ এন্ট্রি' : 'Record Business Profit'}</span>
-              </button>
+          <button
+            onClick={() => {
+              setSelectedFundingForProfit(undefined);
+              setShowProfitModal(true);
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-98 cursor-pointer"
+          >
+            <TrendingUp className="w-4 h-4" />
+            <span>{isBn ? 'ব্যবসায়িক লাভ এন্ট্রি' : 'Record Business Profit'}</span>
+          </button>
 
-              <button
-                onClick={() => setShowDistributeModal(true)}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-98 cursor-pointer"
-              >
-                <PieChart className="w-4 h-4" />
-                <span>{isBn ? 'মাসিক লাভ বণ্টন' : 'Monthly Profit Distribution'}</span>
-              </button>
-            </>
+          {isUserAdmin && (
+            <button
+              onClick={() => setShowDistributeModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-98 cursor-pointer"
+            >
+              <PieChart className="w-4 h-4" />
+              <span>{isBn ? 'মাসিক লাভ বণ্টন' : 'Monthly Profit Distribution'}</span>
+            </button>
           )}
         </div>
       </div>
@@ -355,6 +417,11 @@ export const BusinessFundingView: React.FC = () => {
                 ? `মাসিক ব্যবসায়িক লাভ লেজার (${toBengaliNumber(accessibleProfits.length)})`
                 : `Business Profit Ledger (${accessibleProfits.length})`}
             </span>
+            {pendingProfitsCount > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold animate-pulse shadow-2xs">
+                {isBn ? `${toBengaliNumber(pendingProfitsCount)} পেন্ডিং` : `${pendingProfitsCount} Pending`}
+              </span>
+            )}
           </button>
 
           {isUserAdmin && (
@@ -460,7 +527,7 @@ export const BusinessFundingView: React.FC = () => {
                       <th className="py-3 px-4 font-bold text-center">{isBn ? 'সমিতির লভ্যাংশ' : 'Somiti Share'}</th>
                       <th className="py-3 px-4 font-bold text-right">{isBn ? 'অর্জিত মোট লাভ' : 'Total Profit'}</th>
                       <th className="py-3 px-4 font-bold text-center">{isBn ? 'স্ট্যাটাস' : 'Status'}</th>
-                      {isUserAdmin && <th className="py-3 px-4 font-bold text-center">{isBn ? 'অ্যাকশন' : 'Action'}</th>}
+                      <th className="py-3 px-4 font-bold text-center">{isBn ? 'পদক্ষেপ' : 'Action'}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium">
@@ -505,46 +572,48 @@ export const BusinessFundingView: React.FC = () => {
                         <td className="py-3 px-4 text-center">
                           {getStatusBadge(f.status)}
                         </td>
-                        {isUserAdmin && (
-                          <td className="py-3 px-4 text-center">
-                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                              {/* Details & Review/Decision Modal Button */}
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                            {/* Details & Review/Decision Modal Button */}
+                            <button
+                              onClick={() => setFundingForDetailsModal(f)}
+                              className={`rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                                f.status === 'pending' && isUserAdmin
+                                  ? 'px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold shadow-xs'
+                                  : 'p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600'
+                              }`}
+                              title={isBn ? 'আবেদনের পূর্ণাঙ্গ বিবরণ ও সিদ্ধান্ত' : 'View Application Details & Actions'}
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              {f.status === 'pending' && isUserAdmin && <span>{isBn ? 'যাচাই ও সিদ্ধান্ত' : 'Review & Decide'}</span>}
+                            </button>
+
+                            {isUserAdmin && f.status === 'approved' && (
                               <button
-                                onClick={() => setFundingForDetailsModal(f)}
-                                className={`rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
-                                  f.status === 'pending'
-                                    ? 'px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold shadow-xs'
-                                    : 'p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600'
-                                }`}
-                                title={isBn ? 'আবেদনের পূর্ণাঙ্গ বিবরণ ও সিদ্ধান্ত' : 'View Application Details & Actions'}
+                                onClick={() => setDisburseModalFunding(f)}
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1"
                               >
-                                <Eye className="w-3.5 h-3.5" />
-                                {f.status === 'pending' && <span>{isBn ? 'যাচাই ও সিদ্ধান্ত' : 'Review & Decide'}</span>}
+                                <DollarSign className="w-3 h-3" />
+                                <span>{isBn ? 'বিতরণ করুন' : 'Disburse'}</span>
                               </button>
+                            )}
 
-                              {f.status === 'approved' && (
-                                <button
-                                  onClick={() => setDisburseModalFunding(f)}
-                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1"
-                                >
-                                  <DollarSign className="w-3 h-3" />
-                                  <span>{isBn ? 'বিতরণ করুন' : 'Disburse'}</span>
-                                </button>
-                              )}
+                            {f.status === 'active' && (
+                              <button
+                                onClick={() => {
+                                  setSelectedFundingForProfit(f.id);
+                                  setShowProfitModal(true);
+                                }}
+                                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                                title={isBn ? 'এই ব্যবসার লাভ এন্ট্রি করুন' : 'Record Profit for this business'}
+                              >
+                                <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>{isBn ? '+ লাভ এন্ট্রি' : '+ Record Profit'}</span>
+                              </button>
+                            )}
 
-                              {f.status === 'active' && (
-                                <button
-                                  onClick={() => {
-                                    setSelectedFundingForProfit(f.id);
-                                    setShowProfitModal(true);
-                                  }}
-                                  className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold transition-all cursor-pointer"
-                                >
-                                  {isBn ? '+ লাভ এন্ট্রি' : '+ Record Profit'}
-                                </button>
-                              )}
-
-                              {/* Edit Button */}
+                            {/* Edit Button (Admin Only) */}
+                            {isUserAdmin && (
                               <button
                                 onClick={() => setFundingToEdit(f)}
                                 className="p-1.5 bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 rounded-lg transition-colors cursor-pointer"
@@ -552,8 +621,10 @@ export const BusinessFundingView: React.FC = () => {
                               >
                                 <Edit className="w-3.5 h-3.5" />
                               </button>
+                            )}
 
-                              {/* Delete Button */}
+                            {/* Delete Button (Admin Only) */}
+                            {isUserAdmin && (
                               <button
                                 onClick={() => setFundingToDelete(f)}
                                 className="p-1.5 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
@@ -561,9 +632,9 @@ export const BusinessFundingView: React.FC = () => {
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
-                            </div>
-                          </td>
-                        )}
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -576,34 +647,134 @@ export const BusinessFundingView: React.FC = () => {
         {/* Tab 2: Profit Ledger */}
         {activeSubTab === 'profits' && (
           <div className="p-5 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
                 <h4 className="font-bold text-sm text-slate-800">
                   {isBn ? 'ব্যবসায়িক লভ্যাংশ রেজিস্টার' : 'Business Profit Ledger'}
                 </h4>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {isBn
-                    ? 'প্রতিটি বিনিয়োগ হতে প্রাপ্ত মোট ব্যবসা লাভ ও সমিতির লভ্যাংশ নথিভুক্তকরণ'
-                    : 'Records of profit generated from each business funding and Somiti profit share'}
+                    ? 'প্রতিটি বিনিয়োগ হতে প্রাপ্ত মোট ব্যবসা লাভ ও সমিতির লভ্যাংশ নথিভুক্তকরণ ও অনুমোদন'
+                    : 'Records of profit generated from each business funding, admin approval and Somiti profit share'}
                 </p>
               </div>
 
-              {isUserAdmin && (
-                <button
-                  onClick={() => {
-                    setSelectedFundingForProfit(undefined);
-                    setShowProfitModal(true);
-                  }}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
-                >
-                  {isBn ? '+ নতুন লাভ এন্ট্রি' : '+ Record Profit'}
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  setSelectedFundingForProfit(undefined);
+                  setShowProfitModal(true);
+                }}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+              >
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span>{isBn ? '+ নতুন লাভ এন্ট্রি' : '+ Record Profit'}</span>
+              </button>
             </div>
 
-            {accessibleProfits.length === 0 ? (
+            {profitFeedbackMsg && (
+              <div className={`p-3.5 rounded-xl text-xs flex items-center justify-between gap-3 ${
+                profitFeedbackMsg.type === 'success'
+                  ? 'bg-emerald-50 border border-emerald-300 text-emerald-900'
+                  : 'bg-rose-50 border border-rose-300 text-rose-900'
+              }`}>
+                <div className="flex items-center gap-2">
+                  {profitFeedbackMsg.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  )}
+                  <span className="font-semibold">{profitFeedbackMsg.text}</span>
+                </div>
+                <button
+                  onClick={() => setProfitFeedbackMsg(null)}
+                  className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                >
+                  <XIcon className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {isUserAdmin && pendingProfitsCount > 0 && (
+              <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-2xl flex items-center justify-between gap-4 shadow-2xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
+                    <Clock className="w-5 h-5 animate-spin" />
+                  </div>
+                  <div>
+                    <h5 className="font-bold text-xs text-amber-950 flex items-center gap-2">
+                      <span>{isBn ? 'সদস্যদের ব্যবসায়িক লাভ অনুমোদনের অপেক্ষায়' : 'Member Profit Records Pending Approval'}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold">
+                        {isBn ? `${toBengaliNumber(pendingProfitsCount)} টি নতুন` : `${pendingProfitsCount} New`}
+                      </span>
+                    </h5>
+                    <p className="text-[11px] text-amber-800 mt-0.5">
+                      {isBn
+                        ? 'সদস্যদের দাখিলকৃত লাভ রেকর্ডগুলো যাচাই করে "অনুমোদন" বাটনে ক্লিক করুন। অনুমোদনের পর তা সকল সদস্যের অ্যাকাউন্টে স্বয়ংক্রিয়ভাবে বণ্টিত হবে।'
+                        : 'Review the profits submitted by members and click "Approve" to distribute their proportional share to all members.'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setProfitStatusFilter('pending')}
+                  className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer shadow-2xs"
+                >
+                  {isBn ? 'পেন্ডিং তালিকা দেখুন' : 'View Pending'}
+                </button>
+              </div>
+            )}
+
+            {/* Filter pills */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              <button
+                onClick={() => setProfitStatusFilter('all')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  profitStatusFilter === 'all'
+                    ? 'bg-slate-800 text-white shadow-2xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {isBn ? `সকল রেকর্ড (${toBengaliNumber(accessibleProfits.length)})` : `All (${accessibleProfits.length})`}
+              </button>
+              <button
+                onClick={() => setProfitStatusFilter('pending')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  profitStatusFilter === 'pending'
+                    ? 'bg-amber-600 text-white shadow-2xs'
+                    : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>
+                  {isBn ? `অনুমোদন অপেক্ষমাণ (${toBengaliNumber(pendingProfitsCount)})` : `Pending Approval (${pendingProfitsCount})`}
+                </span>
+              </button>
+              <button
+                onClick={() => setProfitStatusFilter('completed')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  profitStatusFilter === 'completed'
+                    ? 'bg-emerald-600 text-white shadow-2xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {isBn ? 'অনুমোদিত ও বণ্টিত' : 'Approved'}
+              </button>
+              <button
+                onClick={() => setProfitStatusFilter('rejected')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  profitStatusFilter === 'rejected'
+                    ? 'bg-rose-600 text-white shadow-2xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {isBn ? 'বাতিলকৃত' : 'Rejected'}
+              </button>
+            </div>
+
+            {filteredProfits.length === 0 ? (
               <div className="p-12 text-center text-slate-400 text-xs">
-                {isBn ? 'এখনো কোনো ব্যবসায়িক লাভ নথিভুক্ত হয়নি।' : 'No business profit records found.'}
+                {profitStatusFilter === 'pending'
+                  ? (isBn ? 'বর্তমানে কোনো পেন্ডিং লাভ রেকর্ড নেই।' : 'No pending profit records found.')
+                  : (isBn ? 'এখনো কোনো ব্যবসায়িক লাভ নথিভুক্ত হয়নি।' : 'No business profit records found.')}
               </div>
             ) : (
               <div className="overflow-x-auto border border-slate-200 rounded-xl">
@@ -613,13 +784,14 @@ export const BusinessFundingView: React.FC = () => {
                       <th className="py-2.5 px-4 font-bold">{isBn ? 'মাস' : 'Month'}</th>
                       <th className="py-2.5 px-4 font-bold">{isBn ? 'সদস্য ও আবেদন' : 'Member & Application'}</th>
                       <th className="py-2.5 px-4 font-bold text-right">{isBn ? 'মোট ব্যবসা লাভ' : 'Total Profit'}</th>
-                      <th className="py-2.5 px-4 font-bold text-right text-emerald-700">{isBn ? 'সমিতির লভ্যাংশ (সদস্যদের প্রোফাইলে বণ্টিত)' : 'Somiti Profit (Credited to Members)'}</th>
+                      <th className="py-2.5 px-4 font-bold text-right text-emerald-700">{isBn ? 'সমিতির লভ্যাংশ' : 'Somiti Profit'}</th>
                       <th className="py-2.5 px-4 font-bold">{isBn ? 'তারিখ ও এন্ট্রি কারী' : 'Date & Recorded By'}</th>
-                      {isUserAdmin && <th className="py-2.5 px-4 font-bold text-center">{isBn ? 'পদক্ষেপ' : 'Action'}</th>}
+                      <th className="py-2.5 px-4 font-bold text-center">{isBn ? 'স্ট্যাটাস' : 'Status'}</th>
+                      <th className="py-2.5 px-4 font-bold text-center">{isBn ? 'পদক্ষেপ' : 'Action'}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium">
-                    {accessibleProfits.map((p) => (
+                    {filteredProfits.map((p) => (
                       <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
                         <td className="py-3 px-4 font-bold text-slate-800 font-mono">
                           {p.month}
@@ -641,26 +813,78 @@ export const BusinessFundingView: React.FC = () => {
                           <div>{formatBengaliDate(p.date, true, isBn)}</div>
                           <div className="text-[10px] text-slate-400">{p.recordedBy}</div>
                         </td>
-                        {isUserAdmin && (
-                          <td className="py-3 px-4 text-center">
-                            <div className="flex items-center justify-center gap-1.5">
-                              <button
-                                onClick={() => setProfitToEdit(p)}
-                                className="p-1.5 bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 rounded-lg transition-colors cursor-pointer"
-                                title={isBn ? 'সম্পাদন করুন (Edit)' : 'Edit Profit Record'}
-                              >
-                                <Edit className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => setProfitToDelete(p)}
-                                className="p-1.5 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
-                                title={isBn ? 'মুছে ফেলুন (Delete)' : 'Delete Profit Record'}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        )}
+                        <td className="py-3 px-4 text-center">
+                          {p.status === 'pending' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 text-[11px] font-bold border border-amber-300 animate-pulse">
+                              <Clock className="w-3 h-3 text-amber-600" />
+                              {isBn ? 'অপেক্ষমাণ অনুমোদন' : 'Pending Approval'}
+                            </span>
+                          ) : p.status === 'rejected' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-50 text-rose-800 text-[11px] font-bold border border-rose-200">
+                              <XIcon className="w-3 h-3 text-rose-600" />
+                              {isBn ? 'বাতিলকৃত' : 'Rejected'}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              {isBn ? 'অনুমোদিত ও বণ্টিত' : 'Approved & Distributed'}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                            {/* Admin Approval Actions for Pending Profit */}
+                            {isUserAdmin && p.status === 'pending' && (
+                              <>
+                                <button
+                                  onClick={() => handleApproveProfit(p.id)}
+                                  disabled={isApprovingProfitId === p.id}
+                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shadow-2xs disabled:opacity-50"
+                                  title={isBn ? 'অনুমোদন ও বণ্টন কার্যকর করুন' : 'Approve & Distribute'}
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                  <span>{isApprovingProfitId === p.id ? (isBn ? 'অনুমোদন হচ্ছে...' : 'Approving...') : (isBn ? 'অনুমোদন' : 'Approve')}</span>
+                                </button>
+                                <button
+                                  onClick={() => handleRejectProfit(p.id)}
+                                  disabled={isRejectingProfitId === p.id}
+                                  className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                                  title={isBn ? 'লাভ রেকর্ডটি বাতিল করুন' : 'Reject Record'}
+                                >
+                                  <XIcon className="w-3.5 h-3.5" />
+                                  <span>{isBn ? 'বাতিল' : 'Reject'}</span>
+                                </button>
+                              </>
+                            )}
+
+                            {/* Non-admin view for pending */}
+                            {!isUserAdmin && p.status === 'pending' && (
+                              <span className="text-[11px] text-amber-700 font-semibold italic">
+                                {isBn ? 'অ্যাডমিন পর্যালোচনায়' : 'Awaiting Admin'}
+                              </span>
+                            )}
+
+                            {/* Edit & Delete for Admins */}
+                            {isUserAdmin && p.status !== 'pending' && (
+                              <>
+                                <button
+                                  onClick={() => setProfitToEdit(p)}
+                                  className="p-1.5 bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 rounded-lg transition-colors cursor-pointer"
+                                  title={isBn ? 'সম্পাদন করুন (Edit)' : 'Edit Profit Record'}
+                                >
+                                  <Edit className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => setProfitToDelete(p)}
+                                  className="p-1.5 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
+                                  title={isBn ? 'মুছে ফেলুন (Delete)' : 'Delete Profit Record'}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

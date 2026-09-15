@@ -60,18 +60,28 @@ export const BusinessProfitRecordModal: React.FC<BusinessProfitRecordModalProps>
   const { language } = useLanguage();
   const isBn = language === 'bn';
 
+  // Member role check
+  const isMemberUser = !isUserAdmin && Boolean(currentUser?.memberId);
+  const currentMemberId = currentUser?.memberId || '';
+
   // Active or approved fundings
-  const activeFundings = businessFundings.filter(f => f.status === 'active' || f.status === 'approved');
+  const allActiveFundings = businessFundings.filter(f => f.status === 'active' || f.status === 'approved');
+  const activeFundings = isMemberUser
+    ? allActiveFundings.filter(f => f.memberId === currentMemberId)
+    : allActiveFundings;
 
   // Provider mode: member or business_funding
-  const [providerMode, setProviderMode] = useState<'member' | 'funding'>(
-    presetFundingId ? 'funding' : 'member'
-  );
+  const [providerMode, setProviderMode] = useState<'member' | 'funding'>(() => {
+    if (presetFundingId) return 'funding';
+    if (isMemberUser && activeFundings.length > 0) return 'funding';
+    return 'member';
+  });
   
   // Selected Member Provider
   const [selectedMemberId, setSelectedMemberId] = useState<string>(
-    presetMemberId || (!isUserAdmin && currentUser?.memberId ? currentUser.memberId : (members[0]?.id || ''))
+    presetMemberId || (isMemberUser ? currentMemberId : (members[0]?.id || ''))
   );
+  const providerMember = members.find(m => m.id === (isMemberUser ? currentMemberId : selectedMemberId));
 
   // Selected Funding Provider
   const [selectedFundingId, setSelectedFundingId] = useState<string>(
@@ -284,6 +294,22 @@ export const BusinessProfitRecordModal: React.FC<BusinessProfitRecordModalProps>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {isMemberUser && (
+            <div className="p-3.5 bg-amber-50 border border-amber-300/80 rounded-xl flex items-start gap-3 text-xs text-amber-950 shadow-2xs">
+              <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <span className="font-bold text-amber-900 block text-xs">
+                  {isBn ? '🛡️ অ্যাডমিন অনুমোদন আবশ্যক (Admin Approval Required)' : '🛡️ Admin Approval Required'}
+                </span>
+                <p className="text-[11px] text-amber-800 leading-relaxed">
+                  {isBn
+                    ? 'সদস্য হিসেবে আপনার দাখিলকৃত লাভ রেকর্ডটি প্রধান অ্যাডমিনের নিকট পর্যালোচনার জন্য অপেক্ষমাণ থাকবে। অ্যাডমিন অনুমোদন (Approve) করলে এটি সমিতির মূল হিসাব ও সদস্যদের সঞ্চয়ে আনুপাতিক হারে বণ্টন কার্যকর হবে।'
+                    : 'Profit recorded by a member requires Administrator approval before being credited to the funds and distributed to members.'}
+                </p>
+              </div>
+            </div>
+          )}
+
           {errorMsg && (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-xs text-rose-700 font-medium">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
@@ -324,21 +350,33 @@ export const BusinessProfitRecordModal: React.FC<BusinessProfitRecordModalProps>
 
             {providerMode === 'member' ? (
               <div>
-                <select
-                  value={selectedMemberId}
-                  onChange={(e) => setSelectedMemberId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
-                >
-                  {members.map((m) => {
-                    const balance = getMemberSavingsBalance(m);
-                    return (
-                      <option key={m.id} value={m.id}>
-                        {m.name} ({m.memberNo}) — {isBn ? 'বর্তমান মোট জমা: ' : 'Current Deposit: '}
-                        ৳{formatCurrency(balance, isBn && useBengaliDigits)}
-                      </option>
-                    );
-                  })}
-                </select>
+                {isMemberUser ? (
+                  <div className="px-3.5 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50/50 flex items-center justify-between text-sm">
+                    <div>
+                      <span className="font-bold text-slate-800">{providerMember?.name}</span>
+                      <span className="text-xs text-slate-500 ml-2 font-mono">({providerMember?.memberNo})</span>
+                    </div>
+                    <span className="text-xs font-semibold text-emerald-700 bg-white px-2.5 py-1 rounded-md border border-emerald-200">
+                      {isBn ? 'আপনার প্রোফাইল' : 'Your Profile'}
+                    </span>
+                  </div>
+                ) : (
+                  <select
+                    value={selectedMemberId}
+                    onChange={(e) => setSelectedMemberId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  >
+                    {members.map((m) => {
+                      const balance = getMemberSavingsBalance(m);
+                      return (
+                        <option key={m.id} value={m.id}>
+                          {m.name} ({m.memberNo}) — {isBn ? 'বর্তমান মোট জমা: ' : 'Current Deposit: '}
+                          ৳{formatCurrency(balance, isBn && useBengaliDigits)}
+                        </option>
+                      );
+                    })}
+                  </select>
+                )}
                 <span className="text-[11px] text-slate-500 mt-1 block">
                   {isBn
                     ? '✓ এই সদস্য সমিতি থেকে বা ব্যবসার মাধ্যমে লাভ অর্জন করে জমা দিচ্ছেন'

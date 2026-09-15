@@ -132,6 +132,11 @@ export const Sidebar: React.FC<{
       icon: HandCoins,
     },
     {
+      id: 'business_funding',
+      label: isBn ? 'ব্যবসা ফান্ডিং ও লাভ' : 'Business Funding & Profit',
+      icon: Briefcase,
+    },
+    {
       id: 'receipts',
       label: isBn ? 'রসিদ ও প্রিন্ট' : 'Receipts & Print',
       icon: Receipt,

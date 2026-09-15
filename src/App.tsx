@@ -106,7 +106,7 @@ const AppContent: React.FC = () => {
     'users', 'user_management', 'settings', 'banking', 'accounts',
     'excel', 'excel_import', 'reports', 'reports_daily', 'reports_monthly',
     'reports_member', 'reports_income_expense', 'reports_yearly',
-    'business_funding', 'all_members', 'new_member', 'active_members',
+    'all_members', 'new_member', 'active_members',
     'members', 'members_all', 'loans_kisti', 'transactions_kisti'
   ];
 
