@@ -95,10 +95,10 @@ export const DeleteLoanModal: React.FC<DeleteLoanModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden animate-in fade-in-50 zoom-in-95 my-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden animate-in fade-in-50 zoom-in-95 my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))]">
         {/* Header */}
-        <div className={`px-6 py-4 flex items-center justify-between text-white ${
+        <div className={`px-6 py-4 flex items-center justify-between text-white shrink-0 ${
           mode === 'permanent_delete' ? 'bg-rose-700' : 'bg-amber-600'
         }`}>
           <div className="flex items-center gap-3">
@@ -131,7 +131,7 @@ export const DeleteLoanModal: React.FC<DeleteLoanModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-5 overflow-y-auto flex-1 min-h-0">
           {/* Admin Permission Guard Alert */}
           {!isAuthorized ? (
             <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 flex items-start gap-3">

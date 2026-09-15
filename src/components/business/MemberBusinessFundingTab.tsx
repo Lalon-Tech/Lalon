@@ -313,19 +313,6 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                const active = myFundings.find(f => f.status === 'active');
-                setSelectedFundingForProfit(active ? active.id : undefined);
-                setShowProfitModal(true);
-              }}
-              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-              title={isBn ? 'ব্যবসায়িক লভ্যাংশ এন্ট্রি করুন' : 'Record Business Profit'}
-            >
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span>{isBn ? '+ লাভ এন্ট্রি (Record Profit)' : '+ Record Profit'}</span>
-            </button>
             <span className="text-xs font-bold text-slate-600 bg-white px-3 py-1 rounded-full border border-slate-200">
               {isBn ? `মোট: ${toBengaliNumber(myFundings.length)} টি` : `Total: ${myFundings.length}`}
             </span>
@@ -657,9 +644,9 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
 
       {/* Disbursement Modal for Admin */}
       {disburseFunding && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="p-5 bg-gradient-to-r from-slate-900 to-blue-900 text-white flex items-center justify-between">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))]">
+            <div className="p-5 bg-gradient-to-r from-slate-900 to-blue-900 text-white flex items-center justify-between shrink-0">
               <h3 className="font-bold text-sm">
                 {isBn ? 'বিনিয়োগ অর্থ বিতরণ নিশ্চিতকরণ' : 'Confirm Funding Disbursement'}
               </h3>
@@ -671,7 +658,7 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
               </button>
             </div>
 
-            <div className="p-5 space-y-4 text-xs">
+            <div className="p-5 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
               <div className="p-3 bg-blue-50 rounded-xl border border-blue-200">
                 <div className="font-bold text-slate-800 text-sm">{disburseFunding.businessName}</div>
                 <div className="text-slate-600 mt-1">
@@ -770,9 +757,9 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
 
       {/* Delete Business Funding Confirmation Modal */}
       {fundingToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="p-5 bg-rose-600 text-white flex items-center justify-between">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))]">
+            <div className="p-5 bg-rose-600 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <Trash2 className="w-5 h-5" />
                 <h3 className="font-bold text-sm">
@@ -787,7 +774,7 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
               </button>
             </div>
 
-            <div className="p-6 space-y-4 text-xs">
+            <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
               <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 space-y-1">
                 <p className="font-bold text-sm">{fundingToDelete.businessName}</p>
                 <p className="text-[11px] text-rose-600">
@@ -840,9 +827,9 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
 
       {/* Delete Business Profit Confirmation Modal */}
       {profitToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="p-5 bg-rose-600 text-white flex items-center justify-between">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))]">
+            <div className="p-5 bg-rose-600 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <Trash2 className="w-5 h-5" />
                 <h3 className="font-bold text-sm">
@@ -857,7 +844,7 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
               </button>
             </div>
 
-            <div className="p-6 space-y-4 text-xs">
+            <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
               <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 space-y-1">
                 <p className="font-bold text-sm">
                   {isBn ? `মাস: ${profitToDelete.month}` : `Month: ${profitToDelete.month}`}
@@ -912,9 +899,9 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
       )}
       {/* Delete Distribution Modal */}
       {distributionToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="p-5 bg-rose-50 border-b border-rose-100 flex items-center gap-3">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))]">
+            <div className="p-5 bg-rose-50 border-b border-rose-100 flex items-center gap-3 shrink-0">
               <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
                 <Trash2 className="w-5 h-5" />
               </div>
@@ -928,7 +915,7 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
               </div>
             </div>
 
-            <div className="p-5 space-y-3">
+            <div className="p-5 space-y-3 overflow-y-auto flex-1 min-h-0">
               <p className="text-xs text-slate-600 leading-relaxed">
                 {isBn
                   ? 'আপনি কি নিশ্চিত যে আপনি এই মাসিক লভ্যাংশ বণ্টনের রেকর্ডটি মুছে ফেলতে চান? এতে সদস্যদের সঞ্চয়ে জমা হওয়া এই বণ্টনের লভ্যাংশ স্বয়ংক্রিয়ভাবে রিভার্ট (সমন্বয়) করা হবে।'
@@ -969,9 +956,9 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
 
       {/* Reset / Clear Member Profit Modal */}
       {showResetProfitModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="p-5 bg-rose-50 border-b border-rose-100 flex items-center gap-3">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))]">
+            <div className="p-5 bg-rose-50 border-b border-rose-100 flex items-center gap-3 shrink-0">
               <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
                 <Trash2 className="w-5 h-5" />
               </div>
@@ -985,7 +972,7 @@ export const MemberBusinessFundingTab: React.FC<MemberBusinessFundingTabProps> =
               </div>
             </div>
 
-            <div className="p-5 space-y-3">
+            <div className="p-5 space-y-3 overflow-y-auto flex-1 min-h-0">
               <p className="text-xs text-slate-600 leading-relaxed">
                 {isBn
                   ? 'আপনি কি নিশ্চিত যে আপনি এই সদস্যের প্রোফাইল থেকে সকল লভ্যাংশ রেকর্ড ও জমা মুছে ০ করতে চান? এতে পূর্বে যুক্ত হওয়া লভ্যাংশ লেনদেন মুছে ফেলা হবে এবং সঞ্চয় ব্যালেন্স সমন্বয় করা হবে।'

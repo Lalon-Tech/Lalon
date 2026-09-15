@@ -285,17 +285,6 @@ export const BusinessFundingView: React.FC = () => {
             <span>{isBn ? 'নতুন ফান্ডিং আবেদন' : 'New Funding Application'}</span>
           </button>
 
-          <button
-            onClick={() => {
-              setSelectedFundingForProfit(undefined);
-              setShowProfitModal(true);
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-98 cursor-pointer"
-          >
-            <TrendingUp className="w-4 h-4" />
-            <span>{isBn ? 'ব্যবসায়িক লাভ এন্ট্রি' : 'Record Business Profit'}</span>
-          </button>
-
           {isUserAdmin && (
             <button
               onClick={() => setShowDistributeModal(true)}
@@ -1093,9 +1082,9 @@ export const BusinessFundingView: React.FC = () => {
 
       {/* Disbursement Modal */}
       {disburseModalFunding && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="p-5 bg-gradient-to-r from-slate-900 to-blue-900 text-white flex items-center justify-between">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))]">
+            <div className="p-5 bg-gradient-to-r from-slate-900 to-blue-900 text-white flex items-center justify-between shrink-0">
               <h3 className="font-bold text-sm">
                 {isBn ? 'বিনিয়োগ অর্থ বিতরণ নিশ্চিতকরণ' : 'Confirm Funding Disbursement'}
               </h3>
@@ -1107,7 +1096,7 @@ export const BusinessFundingView: React.FC = () => {
               </button>
             </div>
 
-            <div className="p-5 space-y-4 text-xs">
+            <div className="p-5 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
               <div className="p-3 bg-blue-50 rounded-xl border border-blue-200">
                 <div className="font-bold text-slate-800 text-sm">{disburseModalFunding.businessName}</div>
                 <div className="text-slate-600 mt-1">
@@ -1212,9 +1201,9 @@ export const BusinessFundingView: React.FC = () => {
 
       {/* Delete Business Funding Confirmation Modal */}
       {fundingToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="p-5 bg-rose-600 text-white flex items-center justify-between">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))]">
+            <div className="p-5 bg-rose-600 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <Trash2 className="w-5 h-5" />
                 <h3 className="font-bold text-sm">
@@ -1229,7 +1218,7 @@ export const BusinessFundingView: React.FC = () => {
               </button>
             </div>
 
-            <div className="p-6 space-y-4 text-xs">
+            <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
               <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 space-y-1">
                 <p className="font-bold text-sm">{fundingToDelete.businessName}</p>
                 <p className="text-[11px] text-rose-600">
@@ -1282,9 +1271,9 @@ export const BusinessFundingView: React.FC = () => {
 
       {/* Delete Business Profit Confirmation Modal */}
       {profitToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="p-5 bg-rose-600 text-white flex items-center justify-between">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))]">
+            <div className="p-5 bg-rose-600 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <Trash2 className="w-5 h-5" />
                 <h3 className="font-bold text-sm">
@@ -1299,7 +1288,7 @@ export const BusinessFundingView: React.FC = () => {
               </button>
             </div>
 
-            <div className="p-6 space-y-4 text-xs">
+            <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
               <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 space-y-1">
                 <p className="font-bold text-sm">
                   {isBn ? `মাস: ${profitToDelete.month}` : `Month: ${profitToDelete.month}`}
@@ -1354,9 +1343,9 @@ export const BusinessFundingView: React.FC = () => {
       )}
       {/* Delete Distribution Modal */}
       {distributionToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="p-5 bg-rose-50 border-b border-rose-100 flex items-center gap-3">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))]">
+            <div className="p-5 bg-rose-50 border-b border-rose-100 flex items-center gap-3 shrink-0">
               <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
                 <Trash2 className="w-5 h-5" />
               </div>
@@ -1370,7 +1359,7 @@ export const BusinessFundingView: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-5 space-y-3">
+            <div className="p-5 space-y-3 overflow-y-auto flex-1 min-h-0">
               <p className="text-xs text-slate-600 leading-relaxed">
                 {isBn
                   ? 'আপনি কি নিশ্চিত যে আপনি এই মাসিক বণ্টন রেকর্ডটি মুছে ফেলতে চান? এতে সদস্যদের সঞ্চয়ে জমা হওয়া সকল লভ্যাংশ স্বয়ংক্রিয়ভাবে রিভার্ট (সমন্বয়) হয়ে যাবে।'
@@ -1411,9 +1400,9 @@ export const BusinessFundingView: React.FC = () => {
 
       {/* Clear All Distributions Modal */}
       {showClearAllDistributionsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="p-5 bg-rose-50 border-b border-rose-100 flex items-center gap-3">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))]">
+            <div className="p-5 bg-rose-50 border-b border-rose-100 flex items-center gap-3 shrink-0">
               <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
                 <Trash2 className="w-5 h-5" />
               </div>
@@ -1427,7 +1416,7 @@ export const BusinessFundingView: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-5 space-y-3">
+            <div className="p-5 space-y-3 overflow-y-auto flex-1 min-h-0">
               <p className="text-xs text-slate-600 leading-relaxed">
                 {isBn
                   ? 'আপনি কি নিশ্চিত যে আপনি সমিতির সকল মাসিক লভ্যাংশ বণ্টনের রেকর্ড ও লেনদেন মুছে ফেলতে চান? এটি নিশ্চিত করলে সদস্যদের সঞ্চয় থেকে লভ্যাংশ রিভার্ট হয়ে যাবে।'

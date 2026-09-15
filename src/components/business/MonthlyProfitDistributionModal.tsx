@@ -123,8 +123,8 @@ export const MonthlyProfitDistributionModal: React.FC<MonthlyProfitDistributionM
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
-      <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-6 max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+      <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[min(92vh,calc(100dvh-2rem))] flex flex-col">
         {/* Header */}
         <div className="px-6 py-4 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -151,7 +151,7 @@ export const MonthlyProfitDistributionModal: React.FC<MonthlyProfitDistributionM
         </div>
 
         {/* Content Body */}
-        <div className="p-6 space-y-6 overflow-y-auto flex-1">
+        <div className="p-6 space-y-6 overflow-y-auto flex-1 min-h-0">
           {errorMsg && (
             <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-xs text-rose-700 font-medium">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />

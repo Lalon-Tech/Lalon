@@ -631,9 +631,9 @@ export const SettingsView: React.FC = () => {
 
       {/* Clear All Data Modal */}
       {showClearModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-rose-200 space-y-4 animate-in fade-in zoom-in-95">
-            <div className="flex items-start justify-between gap-3 border-b pb-3">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-rose-200 space-y-4 animate-in fade-in zoom-in-95 my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))] overflow-y-auto">
+            <div className="flex items-start justify-between gap-3 border-b pb-3 shrink-0">
               <div className="flex items-center gap-2.5 text-rose-600">
                 <div className="p-2 bg-rose-100 rounded-xl">
                   <AlertTriangle className="w-6 h-6 text-rose-600" />
@@ -730,9 +730,9 @@ export const SettingsView: React.FC = () => {
 
       {/* Reset Demo Data Modal */}
       {showResetModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-blue-200 space-y-4 animate-in fade-in zoom-in-95">
-            <div className="flex items-start justify-between gap-3 border-b pb-3">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-blue-200 space-y-4 animate-in fade-in zoom-in-95 my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))] overflow-y-auto">
+            <div className="flex items-start justify-between gap-3 border-b pb-3 shrink-0">
               <div className="flex items-center gap-2.5 text-blue-600">
                 <div className="p-2 bg-blue-100 rounded-xl">
                   <RotateCcw className="w-6 h-6 text-blue-600" />

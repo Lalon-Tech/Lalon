@@ -331,8 +331,8 @@ const AppContent: React.FC = () => {
 
       {/* Inactivity Auto-Logout Warning (at 9 minutes) */}
       {inactivityWarning && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-amber-200 text-center space-y-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-amber-200 text-center space-y-4 my-auto animate-in fade-in zoom-in-95">
             <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto ring-8 ring-amber-50">
               <Clock className="w-6 h-6 animate-pulse" />
             </div>

@@ -1262,8 +1262,8 @@ export const ProfitReportsAndSandbox: React.FC = () => {
       {/* PRINT & PDF EXPORT MODAL */}
       {/* ========================================================= */}
       {showPrintModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-4xl overflow-hidden animate-in fade-in-50 zoom-in-95 my-auto flex flex-col max-h-[92vh]">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-4xl overflow-hidden animate-in fade-in-50 zoom-in-95 my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))]">
             {/* Top Control Bar (Hidden on Print) */}
             <div className="no-print bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">

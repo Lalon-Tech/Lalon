@@ -1409,9 +1409,9 @@ export const LoansView: React.FC = () => {
 
           {/* APPROVAL CONFIRMATION MODAL */}
           {approvingLoan && (
-            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in-50 zoom-in-95">
-                <div className="bg-emerald-700 text-white px-5 py-4 flex items-center justify-between">
+            <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+              <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in-50 zoom-in-95 my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))]">
+                <div className="bg-emerald-700 text-white px-5 py-4 flex items-center justify-between shrink-0">
                   <div className="flex items-center gap-2.5">
                     <ShieldCheck className="w-5 h-5" />
                     <div>
@@ -1422,7 +1422,7 @@ export const LoansView: React.FC = () => {
                   <button onClick={() => setApprovingLoan(null)} className="text-emerald-200 hover:text-white">✕</button>
                 </div>
 
-                <div className="p-5 space-y-4 text-xs">
+                <div className="p-5 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
                   <div className="bg-emerald-50 p-3.5 rounded-xl border border-emerald-200 text-emerald-900 space-y-1">
                     <div className="flex justify-between">
                       <span className="font-semibold">{isBn ? 'বিতরণযোগ্য মূল ঋণ:' : 'Principal to Disburse:'}</span>
@@ -1503,9 +1503,9 @@ export const LoansView: React.FC = () => {
 
           {/* REJECTION DIALOG (MANDATORY REASON) */}
           {rejectingLoan && (
-            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in-50 zoom-in-95">
-                <div className="bg-rose-700 text-white px-5 py-4 flex items-center justify-between">
+            <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+              <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in-50 zoom-in-95 my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))]">
+                <div className="bg-rose-700 text-white px-5 py-4 flex items-center justify-between shrink-0">
                   <div className="flex items-center gap-2.5">
                     <XCircle className="w-5 h-5" />
                     <div>
@@ -1516,7 +1516,7 @@ export const LoansView: React.FC = () => {
                   <button onClick={() => setRejectingLoan(null)} className="text-rose-200 hover:text-white">✕</button>
                 </div>
 
-                <div className="p-5 space-y-4 text-xs">
+                <div className="p-5 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
                   <div>
                     <label className="block font-bold text-slate-800 mb-1">
                       {isBn ? 'বাতিলের সুনির্দিষ্ট কারণ / মন্তব্য লিখুন *' : 'Rejection Reason / Remarks *'}

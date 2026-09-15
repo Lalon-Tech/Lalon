@@ -68,13 +68,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-in fade-in duration-150">
       <div 
-        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden relative"
+        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))] overflow-hidden relative"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 text-white p-5 relative">
+        <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 text-white p-5 relative shrink-0">
           <button
             onClick={onClose}
             className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-white/20 text-white/80 hover:text-white transition-colors cursor-pointer"
@@ -137,7 +137,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         </div>
 
         {/* Content Body */}
-        <div className="p-6">
+        <div className="p-6 overflow-y-auto flex-1 min-h-0">
           {user ? (
             /* Logged in state */
             <div className="space-y-4 text-center py-2">

@@ -417,9 +417,9 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
   };
 
   const modalContent = (
-    <div className={`bg-white rounded-2xl ${isEmbedded ? 'border border-slate-200 shadow-2xs w-full max-w-2xl mx-auto' : 'shadow-2xl border border-slate-200 w-full max-w-xl'} overflow-hidden animate-in fade-in-50 zoom-in-95 my-4`}>
+    <div className={`bg-white rounded-2xl ${isEmbedded ? 'border border-slate-200 shadow-2xs w-full max-w-2xl mx-auto' : 'shadow-2xl border border-slate-200 w-full max-w-xl my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))]'} overflow-hidden animate-in fade-in-50 zoom-in-95`}>
         {/* Header */}
-        <div className="bg-emerald-700 text-white px-5 py-3.5 flex items-center justify-between">
+        <div className="bg-emerald-700 text-white px-5 py-3.5 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-emerald-600 rounded-lg shadow-inner">
               <ArrowDownRight className="w-5 h-5 text-white" />
@@ -447,7 +447,7 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 max-h-[85vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className={`p-5 space-y-4 ${isEmbedded ? '' : 'overflow-y-auto flex-1 min-h-0'}`}>
           {/* Member Selection or Dedicated Member Account */}
           {isMemberLocked && currentMember ? (
             <div>
@@ -1185,7 +1185,7 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
       {modalContent}
     </div>
   );

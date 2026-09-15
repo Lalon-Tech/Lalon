@@ -81,8 +81,8 @@ export const LoanAuditModal: React.FC<LoanAuditModalProps> = ({ isOpen, onClose 
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in-50 zoom-in-95">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))] animate-in fade-in-50 zoom-in-95">
         {/* Header */}
         <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -141,7 +141,7 @@ export const LoanAuditModal: React.FC<LoanAuditModalProps> = ({ isOpen, onClose 
         </div>
 
         {/* Log Entries List */}
-        <div className="p-6 overflow-y-auto space-y-3.5 flex-1">
+        <div className="p-6 overflow-y-auto space-y-3.5 flex-1 min-h-0">
           {filteredLogs.length === 0 ? (
             <div className="text-center py-16">
               <History className="w-12 h-12 text-slate-300 mx-auto mb-3" />

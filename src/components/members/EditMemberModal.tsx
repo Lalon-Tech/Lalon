@@ -240,8 +240,8 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden animate-in fade-in-50 zoom-in-95 my-4 flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden animate-in fade-in-50 zoom-in-95 my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))]">
         {/* Header */}
         <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -342,7 +342,7 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
         )}
 
         {/* Form Body */}
-        <form onSubmit={handleSave} className="p-6 space-y-5 overflow-y-auto flex-1">
+        <form onSubmit={handleSave} className="p-6 space-y-5 overflow-y-auto flex-1 min-h-0">
           {/* TAB 1: SHARES & BALANCES */}
           {activeTab === 'shares' && (
             <div className="space-y-5">

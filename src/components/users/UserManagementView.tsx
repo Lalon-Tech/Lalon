@@ -1083,10 +1083,10 @@ export const UserManagementView: React.FC = () => {
       {/* Rule 1 & 2: User Account Creation Modal */}
       {/* ========================================================================= */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden my-6">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))] animate-in fade-in-50 zoom-in-95">
             {/* Modal Header */}
-            <div className="bg-indigo-900 text-white px-6 py-4.5 flex items-center justify-between">
+            <div className="bg-indigo-900 text-white px-6 py-4.5 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 bg-indigo-800 rounded-xl">
                   <UserPlus className="w-5 h-5 text-indigo-200" />
@@ -1111,7 +1111,7 @@ export const UserManagementView: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleAddUser} className="p-6 space-y-4.5 max-h-[80vh] overflow-y-auto">
+            <form onSubmit={handleAddUser} className="p-6 space-y-4.5 overflow-y-auto flex-1 min-h-0">
               {/* Form Error Banner */}
               {formError && (
                 <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-2.5 text-xs text-rose-700 animate-in fade-in">
@@ -1404,9 +1404,9 @@ export const UserManagementView: React.FC = () => {
       {/* Edit Role & Information Modal */}
       {/* ========================================================================= */}
       {editingUser && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden my-6">
-            <div className="bg-indigo-900 text-white px-6 py-4 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))] animate-in fade-in-50 zoom-in-95">
+            <div className="bg-indigo-900 text-white px-6 py-4 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
                 <Edit3 className="w-5 h-5 text-indigo-200" />
                 <div>
@@ -1426,7 +1426,7 @@ export const UserManagementView: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleEditUser} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+            <form onSubmit={handleEditUser} className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
               {editError && (
                 <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
@@ -1587,8 +1587,8 @@ export const UserManagementView: React.FC = () => {
 
       {/* Delete Confirmation Modal */}
       {userToDelete && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-sm overflow-hidden p-6 text-center space-y-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-sm overflow-hidden p-6 text-center space-y-4 my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))] overflow-y-auto animate-in fade-in-50 zoom-in-95">
             <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 mx-auto flex items-center justify-center ring-4 ring-rose-50">
               <Trash2 className="w-6 h-6" />
             </div>

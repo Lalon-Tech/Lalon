@@ -147,12 +147,12 @@ export const ShareClosureModal: React.FC<ShareClosureModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden my-6 animate-in fade-in-50 zoom-in-95">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))] animate-in fade-in-50 zoom-in-95">
         
         {/* Success Dialog View */}
         {successModal?.show ? (
-          <div className="p-8 text-center space-y-5">
+          <div className="p-8 text-center space-y-5 overflow-y-auto flex-1 min-h-0">
             <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
               <CheckCircle2 className="w-10 h-10" />
             </div>
@@ -217,7 +217,7 @@ export const ShareClosureModal: React.FC<ShareClosureModalProps> = ({
         ) : (
           <>
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-amber-700 via-rose-700 to-rose-800 text-white px-6 py-4 flex items-center justify-between">
+            <div className="bg-gradient-to-r from-amber-700 via-rose-700 to-rose-800 text-white px-6 py-4 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-white/10 backdrop-blur-xs rounded-xl">
                   <ShieldAlert className="w-5 h-5 text-amber-200" />
@@ -244,7 +244,7 @@ export const ShareClosureModal: React.FC<ShareClosureModalProps> = ({
             </div>
 
             {/* Modal Body */}
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
               {errorMsg && (
                 <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-rose-700 text-xs font-medium">
                   <AlertCircle className="w-4 h-4 shrink-0" />

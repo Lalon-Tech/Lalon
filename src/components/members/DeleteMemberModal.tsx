@@ -123,14 +123,14 @@ export const DeleteMemberModal: React.FC<DeleteMemberModalProps> = ({
     return (
       <div 
         id="cannot-remove-member-modal-overlay"
-        className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+        className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn"
       >
         <div 
           id="cannot-remove-member-modal-content"
-          className="bg-white rounded-2xl shadow-2xl border border-rose-200/90 w-full max-w-lg overflow-hidden animate-in fade-in-50 zoom-in-95 my-6"
+          className="bg-white rounded-2xl shadow-2xl border border-rose-200/90 w-full max-w-lg overflow-hidden animate-in fade-in-50 zoom-in-95 my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))]"
         >
           {/* Header */}
-          <div className="p-4 bg-rose-50 border-b border-rose-100 flex items-center justify-between">
+          <div className="p-4 bg-rose-50 border-b border-rose-100 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-rose-100 rounded-xl border border-rose-200 text-rose-600 shrink-0">
                 <ShieldAlert className="w-6 h-6" />
@@ -157,7 +157,7 @@ export const DeleteMemberModal: React.FC<DeleteMemberModalProps> = ({
           </div>
 
           {/* Body */}
-          <div className="p-5 space-y-4">
+          <div className="p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
             
             {/* Member Identity Card */}
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-3">
@@ -250,7 +250,7 @@ export const DeleteMemberModal: React.FC<DeleteMemberModalProps> = ({
           </div>
 
           {/* Footer - Only OK / Close button */}
-          <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end">
+          <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end shrink-0">
             <button
               id="cannot-remove-ok-close-btn"
               type="button"
@@ -272,15 +272,15 @@ export const DeleteMemberModal: React.FC<DeleteMemberModalProps> = ({
   return (
     <div 
       id="confirm-remove-member-modal-overlay"
-      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn"
     >
       <div 
         id="confirm-remove-member-modal-content"
-        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in-50 zoom-in-95 my-6"
+        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in-50 zoom-in-95 my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))]"
       >
         
         {/* Header */}
-        <div className="p-4 bg-rose-50/80 border-b border-rose-200/80 flex items-center justify-between">
+        <div className="p-4 bg-rose-50/80 border-b border-rose-200/80 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5 text-rose-700">
             <div className="p-2 bg-rose-100 rounded-xl border border-rose-200 text-rose-600">
               <Trash2 className="w-5 h-5" />
@@ -305,7 +305,7 @@ export const DeleteMemberModal: React.FC<DeleteMemberModalProps> = ({
         </div>
 
         {/* Body Content */}
-        <div className="p-5 space-y-4">
+        <div className="p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
           
           {/* Member Identity Card */}
           <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-3">
@@ -361,7 +361,7 @@ export const DeleteMemberModal: React.FC<DeleteMemberModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2.5">
+        <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2.5 shrink-0">
           <button
             id="cancel-remove-member-btn"
             type="button"

@@ -201,11 +201,11 @@ ${tx.billingPeriod ? `বিলিং কিস্তি  : ${tx.billingPeriod}\
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-2xl overflow-hidden animate-in fade-in-50 zoom-in-95 my-4 sm:my-8">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-2xl overflow-hidden animate-in fade-in-50 zoom-in-95 my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))]">
         
         {/* Top Control Action Bar (Hidden on Print) */}
-        <div className="no-print bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white px-4 sm:px-6 py-3 border-b border-slate-800">
+        <div className="no-print bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white px-4 sm:px-6 py-3 border-b border-slate-800 shrink-0">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
@@ -330,7 +330,7 @@ ${tx.billingPeriod ? `বিলিং কিস্তি  : ${tx.billingPeriod}\
 
         {/* Printable Official Receipt Paper Container */}
         <div 
-          className="p-6 sm:p-8 bg-white text-slate-800 space-y-5 relative overflow-hidden" 
+          className="p-6 sm:p-8 bg-white text-slate-800 space-y-5 relative overflow-y-auto flex-1 min-h-0" 
           id="printable-receipt"
         >
           {/* Subtle Security Watermark */}

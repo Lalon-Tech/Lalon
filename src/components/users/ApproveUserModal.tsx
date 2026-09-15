@@ -161,9 +161,9 @@ export const ApproveUserModal: React.FC<ApproveUserModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/75 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-in fade-in duration-200">
       <div 
-        className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden text-slate-800"
+        className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl my-auto max-h-[min(92vh,calc(100dvh-2rem))] flex flex-col overflow-hidden text-slate-800"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -198,7 +198,7 @@ export const ApproveUserModal: React.FC<ApproveUserModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1 text-xs sm:text-sm">
+        <div className="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1 min-h-0 text-xs sm:text-sm">
           {/* Notifications */}
           {error && (
             <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-start gap-2.5 animate-in fade-in">

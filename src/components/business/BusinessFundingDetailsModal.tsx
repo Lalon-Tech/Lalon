@@ -158,11 +158,11 @@ export const BusinessFundingDetailsModal: React.FC<BusinessFundingDetailsModalPr
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
-      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-6">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))]">
         
         {/* Top Header */}
-        <div className="px-6 py-4.5 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white flex items-center justify-between">
+        <div className="px-6 py-4.5 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/15">
               <Briefcase className="w-5 h-5 text-blue-300" />
@@ -220,7 +220,7 @@ export const BusinessFundingDetailsModal: React.FC<BusinessFundingDetailsModalPr
         )}
 
         {/* Modal Body */}
-        <div className="p-6 space-y-5 text-slate-800 max-h-[75vh] overflow-y-auto">
+        <div className="p-6 space-y-5 text-slate-800 overflow-y-auto flex-1 min-h-0">
           
           {/* Member Card & Financial Overview */}
           <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

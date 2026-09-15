@@ -343,9 +343,9 @@ export const SavingsView: React.FC = () => {
 
       {/* New Scheme Modal */}
       {showNewSchemeModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden">
-            <div className="bg-blue-900 text-white px-6 py-4 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))] animate-in fade-in-50 zoom-in-95">
+            <div className="bg-blue-900 text-white px-6 py-4 flex items-center justify-between shrink-0">
               <h3 className="text-base font-bold">
                 {isBn ? 'নতুন সঞ্চয় / ডিপিএস স্কিম চালু করুন' : 'Open New Savings / DPS Scheme'}
               </h3>
@@ -354,7 +354,7 @@ export const SavingsView: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleCreateScheme} className="p-6 space-y-4">
+            <form onSubmit={handleCreateScheme} className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   {isBn ? 'সদস্য নির্বাচন করুন' : 'Select Member'} <span className="text-rose-500">*</span>
