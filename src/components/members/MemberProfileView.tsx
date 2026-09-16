@@ -50,7 +50,7 @@ import { EditTransactionModal } from '../transactions/EditTransactionModal';
 import { NewDepositModal } from '../transactions/NewDepositModal';
 import { NewWithdrawModal } from '../transactions/NewWithdrawModal';
 import { NewLoanModal } from '../transactions/NewLoanModal';
-import { Transaction } from '../../types';
+import { Transaction, PaymentMethod } from '../../types';
 import { MemberBusinessFundingTab } from '../business/MemberBusinessFundingTab';
 import { 
   formatCurrency, 
@@ -93,6 +93,8 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
     profitDistributions,
     currentUser,
     requestMemberUpdate,
+    bankAccounts,
+    buyMemberShares,
     setActiveTab: setGlobalActiveTab
   } = useSomiti();
 
@@ -115,6 +117,43 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showLoanModal, setShowLoanModal] = useState(false);
+
+  // Manual Initial Deposit recording modal state
+  const [showInitialDepositModal, setShowInitialDepositModal] = useState(false);
+  const [selectedInitialDepositShare, setSelectedInitialDepositShare] = useState<number | null>(null);
+  const [initialDepositAmount, setInitialDepositAmount] = useState<number>(settings.sharePricePerUnit || 1000);
+  const [initialDepositPaymentMethod, setInitialDepositPaymentMethod] = useState<PaymentMethod>('cash');
+  const [initialDepositBankId, setInitialDepositBankId] = useState<string>(bankAccounts[0]?.id || '');
+  const [initialDepositDate, setInitialDepositDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [initialDepositNotes, setInitialDepositNotes] = useState<string>('');
+  const [isSubmittingInitialDeposit, setIsSubmittingInitialDeposit] = useState(false);
+
+  const handleRecordInitialDeposit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!member || selectedInitialDepositShare === null) return;
+    setIsSubmittingInitialDeposit(true);
+    try {
+      const res = await buyMemberShares({
+        memberId: member.id,
+        sharesToBuy: 0,
+        unitPrice: initialDepositAmount,
+        shareAmounts: { [selectedInitialDepositShare]: initialDepositAmount },
+        selectedShares: [selectedInitialDepositShare],
+        paymentMethod: initialDepositPaymentMethod,
+        bankAccountId: initialDepositPaymentMethod === 'bank' ? initialDepositBankId : undefined,
+        date: initialDepositDate,
+        notes: initialDepositNotes.trim() || `শেয়ার #${selectedInitialDepositShare}-এর প্রারম্ভিক মূলধন জমা গ্রহণ`,
+      });
+      if (res.success) {
+        setShowInitialDepositModal(false);
+        setSelectedInitialDepositShare(null);
+      } else {
+        alert(res.error || 'জমা রেকর্ড করতে ব্যর্থ হয়েছে');
+      }
+    } finally {
+      setIsSubmittingInitialDeposit(false);
+    }
+  };
 
   // Member Agreement & Undertaking Signatures Customization
   const [agrConfigTab, setAgrConfigTab] = useState<'president' | 'secretary'>('president');
@@ -267,6 +306,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
   const pureBaseDeposit = useMemo(() => {
     if (!member) return 0;
     const completedTxs = memberTransactions.filter(t => t.status === 'completed');
+    // Pure savings deposits only (share purchases are equity/capital, not savings deposits)
     const depAmount = completedTxs.filter(t => t.type === 'deposit').reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     const withdrAmount = completedTxs.filter(t => t.type === 'withdraw').reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     const dpsFdr = (Number(member.dpsSavingsBalance) || 0) + (Number(member.fdrSavingsBalance) || 0);
@@ -277,6 +317,62 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
     const rawSavings = Number(member.totalSavings ?? member.generalSavingsBalance ?? 0);
     return Math.max(0, Number((rawSavings - totalMemberProfitEarned).toFixed(2)));
   }, [memberTransactions, member, totalMemberProfitEarned]);
+
+  // Share-wise breakdown computation for member's active shares
+  const shareWiseBreakdown = useMemo(() => {
+    if (!member) return [];
+    const count = member.shareCount || 0;
+    if (count <= 0) return [];
+
+    const completedTxs = memberTransactions.filter(t => t.status === 'completed');
+    const sharePurchaseTxs = completedTxs.filter(t => t.type === 'share_purchase');
+    const depositTxs = completedTxs.filter(t => t.type === 'deposit');
+
+    const defaultUnitPrice = settings.sharePricePerUnit || 100;
+
+    return Array.from({ length: count }, (_, i) => {
+      const shareNo = i + 1;
+
+      // 1. Find initial deposit for this share from share_purchase transactions
+      let initialDeposit = 0;
+      let purchaseTx: Transaction | undefined;
+
+      for (const tx of sharePurchaseTxs) {
+        if (tx.shareAmounts && tx.shareAmounts[shareNo] !== undefined) {
+          initialDeposit = Number(tx.shareAmounts[shareNo]) || 0;
+          purchaseTx = tx;
+          break;
+        } else if (tx.selectedShares && tx.selectedShares.includes(shareNo)) {
+          initialDeposit = Number(tx.unitPrice) || (Number(tx.amount) / (tx.selectedShares.length || 1));
+          purchaseTx = tx;
+          break;
+        }
+      }
+
+      // Initial deposit must ONLY come from explicit, verified transactions recorded by an authorized user.
+      // If not yet paid/recorded, initialDeposit remains 0 (marked as Due/Pending).
+
+      // 2. Accumulated monthly savings deposits assigned to this share
+      let monthlyDepositsTotal = 0;
+      depositTxs.forEach(tx => {
+        if (tx.shareAmounts && tx.shareAmounts[shareNo] !== undefined) {
+          monthlyDepositsTotal += Number(tx.shareAmounts[shareNo]) || 0;
+        } else if (tx.selectedShares && tx.selectedShares.includes(shareNo)) {
+          const rate = tx.shareRate || (tx.amount / (tx.selectedShares.length || 1));
+          monthlyDepositsTotal += rate;
+        }
+      });
+
+      return {
+        shareNo,
+        initialDeposit,
+        monthlyDepositsTotal,
+        totalAccumulated: initialDeposit + monthlyDepositsTotal,
+        purchaseDate: purchaseTx?.date,
+        voucherNo: purchaseTx?.voucherNo,
+      };
+    });
+  }, [member, memberTransactions, settings.sharePricePerUnit]);
 
   const [passbookFilter, setPassbookFilter] = useState<'all' | 'deposit' | 'withdraw' | 'profit_share' | 'loan'>('all');
   const [passbookSearch, setPassbookSearch] = useState<string>('');
@@ -880,6 +976,12 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                     </span>
                   </div>
                   <div className="py-2.5 flex items-center justify-between gap-4">
+                    <span className="text-slate-500 font-medium">Share Capital & Deposits / শেয়ার মূলধন ও জমা</span>
+                    <span className="font-bold text-amber-600 text-right font-mono">
+                      ৳{formatCurrency(member.shareValue, isBn && useBengaliDigits)}
+                    </span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-4">
                     <span className="text-slate-500 font-medium">Admission Fee / সদস্য ভর্তি ফি</span>
                     <span className="font-semibold text-slate-800 text-right">
                       ৳{formatCurrency(member.admissionFee, isBn && useBengaliDigits)}
@@ -1189,6 +1291,16 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                               <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-semibold ${typeInfo.badge}`}>
                                 {typeInfo.label}
                               </span>
+                              {tx.shareAmounts && Object.keys(tx.shareAmounts).length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {Object.entries(tx.shareAmounts).map(([shareNo, sAmt]) => (
+                                    <span key={shareNo} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-900 text-[10px] font-bold">
+                                      <span>{isBn ? `শেয়ার #${toBengaliNumber(shareNo)}:` : `Share #${shareNo}:`}</span>
+                                      <span>{formatCurrency(Number(sAmt), isBn && useBengaliDigits)}</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                               {tx.notes && <span className="block text-[10px] text-slate-400 truncate max-w-xs">{tx.notes}</span>}
                             </td>
                             <td className="py-2.5 px-3 uppercase font-medium text-slate-500 whitespace-nowrap">
@@ -1611,6 +1723,125 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                   </div>
                 </div>
               </div>
+
+              {/* Active Shares & Share-wise Initial & Accumulated Deposits */}
+              {shareWiseBreakdown.length > 0 && (
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 space-y-4">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-blue-50 text-blue-700 rounded-xl">
+                        <Layers className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900">
+                          {isBn ? 'সক্রিয় শেয়ার ও শেয়ারভিত্তিক পৃথক প্রাথমিক ও মোট জমা বিবরণী' : 'Active Shares & Share-wise Deposits Ledger'}
+                        </h4>
+                        <p className="text-xs text-slate-500">
+                          {isBn ? 'প্রতিটি শেয়ারের পৃথক প্রাথমিক মূলধন জমা ও অর্জিত সঞ্চয়ের বিবরণ' : 'Separate initial capital deposits and accumulated balance per share'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-blue-50/80 px-3 py-1.5 rounded-xl border border-blue-200 text-xs font-bold text-blue-800">
+                      {isBn ? 'মোট শেয়ার মূলধন:' : 'Total Share Capital:'}{' '}
+                      <span className="font-mono text-blue-900">
+                        {formatCurrency(shareWiseBreakdown.reduce((sum, s) => sum + s.initialDeposit, 0), isBn && useBengaliDigits)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-700 border-b border-slate-200 font-bold">
+                          <th className="py-2.5 px-3">{isBn ? 'শেয়ার নং' : 'Share No.'}</th>
+                          <th className="py-2.5 px-3 text-right">{isBn ? 'প্রাথমিক মূলধন জমা (৳)' : 'Initial Deposit (৳)'}</th>
+                          <th className="py-2.5 px-3 text-right">{isBn ? 'মাসিক কিস্তি সঞ্চয় (৳)' : 'Monthly Savings (৳)'}</th>
+                          <th className="py-2.5 px-3 text-right">{isBn ? 'মোট জমা (৳)' : 'Total Balance (৳)'}</th>
+                          <th className="py-2.5 px-3 text-center">{isBn ? 'ক্রয় তারিখ / ভাউচার' : 'Date / Voucher'}</th>
+                          <th className="py-2.5 px-3 text-center">{isBn ? 'অবস্থা' : 'Status'}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {shareWiseBreakdown.map(s => (
+                          <tr key={s.shareNo} className="hover:bg-slate-50 transition-colors">
+                            <td className="py-2.5 px-3 font-bold text-slate-900">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100/70 text-blue-900 font-mono text-xs font-bold">
+                                {isBn ? `শেয়ার #${toBengaliNumber(s.shareNo)}` : `Share #${s.shareNo}`}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-black text-blue-700 font-mono">
+                              {formatCurrency(s.initialDeposit, isBn && useBengaliDigits)}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-semibold text-slate-600 font-mono">
+                              {formatCurrency(s.monthlyDepositsTotal, isBn && useBengaliDigits)}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-black text-emerald-700 font-mono">
+                              {formatCurrency(s.totalAccumulated, isBn && useBengaliDigits)}
+                            </td>
+                            <td className="py-2.5 px-3 text-center text-slate-500">
+                              {s.voucherNo ? (
+                                <div>
+                                  <span className="font-mono text-[11px] bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                    #{s.voucherNo}
+                                  </span>
+                                  {s.purchaseDate && (
+                                    <span className="block text-[10px] text-slate-400">
+                                      {formatBengaliDate(s.purchaseDate, isBn)}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="flex flex-col items-center gap-1">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                    {isBn ? 'প্রাথমিক জমা বকেয়া' : 'Deposit Due'}
+                                  </span>
+                                  {!isMember && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedInitialDepositShare(s.shareNo);
+                                        setInitialDepositAmount(settings.sharePricePerUnit || 1000);
+                                        setInitialDepositDate(new Date().toISOString().split('T')[0]);
+                                        setInitialDepositNotes(`শেয়ার #${s.shareNo}-এর প্রারম্ভিক মূলধন জমা`);
+                                        setShowInitialDepositModal(true);
+                                      }}
+                                      className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[10px] font-bold border border-blue-200 transition-colors cursor-pointer"
+                                    >
+                                      {isBn ? '+ জমা গ্রহণ' : '+ Record'}
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                <span>{isBn ? 'সক্রিয়' : 'Active'}</span>
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-slate-100/70 font-black text-slate-900 border-t border-slate-200">
+                          <td className="py-2.5 px-3">{isBn ? 'সর্বমোট' : 'Grand Total'}</td>
+                          <td className="py-2.5 px-3 text-right text-blue-700 font-mono">
+                            {formatCurrency(shareWiseBreakdown.reduce((sum, s) => sum + s.initialDeposit, 0), isBn && useBengaliDigits)}
+                          </td>
+                          <td className="py-2.5 px-3 text-right text-slate-700 font-mono">
+                            {formatCurrency(shareWiseBreakdown.reduce((sum, s) => sum + s.monthlyDepositsTotal, 0), isBn && useBengaliDigits)}
+                          </td>
+                          <td className="py-2.5 px-3 text-right text-emerald-700 font-mono">
+                            {formatCurrency(shareWiseBreakdown.reduce((sum, s) => sum + s.totalAccumulated, 0), isBn && useBengaliDigits)}
+                          </td>
+                          <td colSpan={2}></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {/* Closed Shares Archive List for this member */}
               <div>
@@ -2402,6 +2633,126 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
         member={member}
         onSaveSignature={handleSaveSignature}
       />
+
+      {/* Manual Initial Deposit Recording Modal */}
+      {showInitialDepositModal && selectedInitialDepositShare !== null && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="bg-gradient-to-r from-blue-700 to-indigo-800 text-white p-5 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-lg">
+                  {isBn ? `শেয়ার #${toBengaliNumber(selectedInitialDepositShare)} - প্রারম্ভিক মূলধন জমা` : `Share #${selectedInitialDepositShare} - Record Initial Deposit`}
+                </h3>
+                <p className="text-blue-100 text-xs mt-0.5">
+                  {member.name} ({member.memberNo})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowInitialDepositModal(false)}
+                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleRecordInitialDeposit} className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {isBn ? 'প্রারম্ভিক জমা পরিমাণ (টাকা)' : 'Initial Deposit Amount (BDT)'} <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={initialDepositAmount}
+                  onChange={(e) => setInitialDepositAmount(Math.max(0, Number(e.target.value)))}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    {isBn ? 'পেমেন্ট মাধ্যম' : 'Payment Method'}
+                  </label>
+                  <select
+                    value={initialDepositPaymentMethod}
+                    onChange={(e) => setInitialDepositPaymentMethod(e.target.value as PaymentMethod)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    <option value="cash">{isBn ? 'নগদ (Cash)' : 'Cash'}</option>
+                    <option value="bank">{isBn ? 'ব্যাংক (Bank)' : 'Bank'}</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    {isBn ? 'জমার তারিখ' : 'Deposit Date'}
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={initialDepositDate}
+                    onChange={(e) => setInitialDepositDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                  </input>
+                </div>
+              </div>
+
+              {initialDepositPaymentMethod === 'bank' && bankAccounts.length > 0 && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    {isBn ? 'ব্যাংক অ্যাকাউন্ট নির্বাচন করুন' : 'Select Bank Account'}
+                  </label>
+                  <select
+                    value={initialDepositBankId}
+                    onChange={(e) => setInitialDepositBankId(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    {bankAccounts.map(b => (
+                      <option key={b.id} value={b.id}>
+                        {b.bankName} - {b.accountNumber}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {isBn ? 'মন্তব্য / বিবরণ' : 'Notes / Description'}
+                </label>
+                <input
+                  type="text"
+                  value={initialDepositNotes}
+                  onChange={(e) => setInitialDepositNotes(e.target.value)}
+                  placeholder={isBn ? 'প্রারম্ভিক মূলধন জমা গ্রহণ' : 'Initial capital deposit'}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowInitialDepositModal(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                >
+                  {isBn ? 'বাতিল' : 'Cancel'}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingInitialDeposit || initialDepositAmount <= 0}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-colors shadow-sm cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmittingInitialDeposit ? (isBn ? 'সংরক্ষণ হচ্ছে...' : 'Saving...') : (isBn ? 'জমা নিশ্চিত করুন' : 'Confirm Deposit')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -321,9 +321,9 @@ export const DashboardView: React.FC = () => {
                 {formatCurrency(totalSavingsInSomiti, isBengaliNum)}
               </div>
               <div className="mt-2.5 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-                <span className="truncate">{isBn ? 'সকল সদস্যের মোট সঞ্চয়' : 'All Members Net Savings'}</span>
+                <span className="truncate">{isBn ? 'সকল সদস্যের সঞ্চয় ও শেয়ার আমানত' : 'All Members Savings & Shares'}</span>
                 <span className="font-semibold text-emerald-600 shrink-0 ml-1">
-                  {isBn ? 'আমানত' : 'Deposit'}
+                  {isBn ? 'সঞ্চয় + শেয়ার' : 'Savings + Shares'}
                 </span>
               </div>
             </div>

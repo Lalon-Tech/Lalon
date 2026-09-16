@@ -72,7 +72,8 @@ const sanitizeMember = (m: any): Member => {
   const shareCount = Number(m.shareCount) || 0;
   const activeLoan = Number(m.activeLoanBalance) || 0;
   const admissionFee = Number(m.admissionFee) || 0;
-  // Total savings strictly represents accumulated member deposits (general + dps + fdr), share value is fixed equity
+  // Total savings strictly represents accumulated member savings deposits (general + dps + fdr).
+  // Share capital (shareValue) is distinct capital and tracked separately.
   const totalSavings = general + dps + fdr;
 
   return {
@@ -394,6 +395,8 @@ interface SomitiContextType {
     memberId: string;
     sharesToBuy: number;
     unitPrice: number;
+    shareAmounts?: { [shareNo: number]: number };
+    selectedShares?: number[];
     paymentMethod: PaymentMethod;
     bankAccountId?: string;
     notes?: string;
@@ -1597,29 +1600,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Save to Firestore
     safeSetDoc(doc(db, 'members', newMember.id), newMember).catch(console.error);
 
-    // Record admission fee transaction only if amount > 0
-    if (newMember.admissionFee > 0) {
-      const txId = `tx-${Date.now()}`;
-      const tx: Transaction = {
-        id: txId,
-        serialNo: getNextLedgerSerial(),
-        voucherNo: `V-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-        memberId: newMember.id,
-        memberName: newMember.name,
-        memberNo: newMember.memberNo,
-        type: 'admission_fee',
-        amount: newMember.admissionFee,
-        date: getTodayDateStr(),
-        time: getCurrentTimeStr(),
-        paymentMethod: 'cash',
-        collectedBy: currentUser.name,
-        verifiedBy: currentUser.name,
-        notes: 'নতুন সদস্য ভর্তি ফি',
-        status: 'completed',
-      };
-      setTransactions(prev => [tx, ...prev]);
-      safeSetDoc(doc(db, 'transactions', tx.id), tx).catch(console.error);
-    }
+    // Rule: Never automatically create admission fee or deposit transactions.
+    // Financial transactions must be recorded only when explicitly entered/approved by an authorized user.
 
     return newMember;
   };
@@ -1948,6 +1930,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     memberId: string;
     sharesToBuy: number;
     unitPrice: number;
+    shareAmounts?: { [shareNo: number]: number };
+    selectedShares?: number[];
     paymentMethod: PaymentMethod;
     bankAccountId?: string;
     notes?: string;
@@ -1958,12 +1942,32 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return { success: false, error: 'সদস্য খুঁজে পাওয়া যায়নি।' };
     }
     const sharesToBuy = Number(params.sharesToBuy) || 0;
-    if (sharesToBuy <= 0) {
+    const isExistingShareDeposit = sharesToBuy === 0 && (Boolean(params.selectedShares && params.selectedShares.length > 0));
+    if (sharesToBuy <= 0 && !isExistingShareDeposit) {
       return { success: false, error: 'কমপক্ষে ১টি শেয়ার সংখ্যা উল্লেখ করুন।' };
     }
     const unitPrice = Number(params.unitPrice) || settings.sharePricePerUnit || 1000;
-    const totalAmount = sharesToBuy * unitPrice;
-    const newShareCount = (member.shareCount || 0) + sharesToBuy;
+    
+    // Determine the exact share numbers being purchased or deposited
+    const currentShares = member.shareCount || 0;
+    const computedNewShares = Array.from({ length: sharesToBuy }, (_, i) => currentShares + i + 1);
+    const selectedShares = params.selectedShares && params.selectedShares.length > 0
+      ? params.selectedShares
+      : computedNewShares;
+
+    // Collect individual initial deposits for each share
+    const cleanShareAmounts: { [shareNo: number]: number } = {};
+    let totalAmount = 0;
+
+    selectedShares.forEach(sNo => {
+      const amt = params.shareAmounts && params.shareAmounts[sNo] !== undefined
+        ? Number(params.shareAmounts[sNo]) || 0
+        : unitPrice;
+      cleanShareAmounts[sNo] = amt;
+      totalAmount += amt;
+    });
+
+    const newShareCount = isExistingShareDeposit ? currentShares : currentShares + sharesToBuy;
     const newShareValue = (member.shareValue || 0) + totalAmount;
     const newTotalSavings = (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0);
 
@@ -1973,6 +1977,14 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const isMemberRole = currentUser?.role === 'member';
     const txStatus: 'pending' | 'completed' = isMemberRole ? 'pending' : 'completed';
+
+    // Auto-notes summary of each share's initial deposit
+    const breakdownStr = selectedShares.map(s => `শেয়ার #${s}: ৳${cleanShareAmounts[s]}`).join(', ');
+    const autoNotes = params.notes?.trim()
+      ? params.notes.trim()
+      : isExistingShareDeposit
+        ? `শেয়ার #${selectedShares.join(', ')} এর প্রারম্ভিক মূলধন জমা [${breakdownStr}]${isMemberRole ? ' [অনুমোদন অপেক্ষমাণ]' : ''}`
+        : `${sharesToBuy} টি নতুন শেয়ার ক্রয় [${breakdownStr}]${isMemberRole ? ' [অনুমোদন অপেক্ষমাণ]' : ''}`;
 
     const newTx: Transaction = {
       id: txId,
@@ -1989,8 +2001,13 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       bankAccountId: params.paymentMethod === 'bank' ? params.bankAccountId : undefined,
       collectedBy: currentUser?.name || 'Member',
       verifiedBy: isMemberRole ? undefined : (currentUser?.name || 'Admin'),
-      notes: params.notes || `${sharesToBuy} টি নতুন শেয়ার ক্রয় বাবদ আবেদন${isMemberRole ? ' [অনুমোদন অপেক্ষমাণ]' : ''}`,
+      notes: autoNotes,
       status: txStatus,
+      shareCount: sharesToBuy,
+      unitPrice,
+      selectedShares,
+      totalMemberShares: newShareCount,
+      shareAmounts: cleanShareAmounts,
     };
 
     if (isMemberRole) {
@@ -2045,8 +2062,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         shareValue: newShareValue,
         admissionFee: member.admissionFee,
         monthlyIncome: member.monthlyIncome,
-        updatedAt: new Date().toISOString()
-      });
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
       if (params.paymentMethod === 'bank' && params.bankAccountId) {
         const targetBank = bankAccounts.find(b => b.id === params.bankAccountId);
         if (targetBank) {
@@ -2145,6 +2162,13 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         totalSavings: gen + dps + fdr,
       };
       safeSetDoc(doc(db, 'members', m.id), updated).catch(console.error);
+      safeSetDoc(doc(db, 'memberFinancials', m.id), {
+        generalSavingsBalance: gen,
+        dpsSavingsBalance: dps,
+        fdrSavingsBalance: fdr,
+        totalSavings: gen + dps + fdr,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true }).catch(console.error);
       return updated;
     }));
 
@@ -2227,6 +2251,11 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         totalSavings: gen + m.dpsSavingsBalance + m.fdrSavingsBalance,
       };
       safeSetDoc(doc(db, 'members', m.id), updated).catch(console.error);
+      safeSetDoc(doc(db, 'memberFinancials', m.id), {
+        generalSavingsBalance: gen,
+        totalSavings: gen + m.dpsSavingsBalance + m.fdrSavingsBalance,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true }).catch(console.error);
       return updated;
     }));
 
@@ -2362,13 +2391,13 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (tx.type === 'loan_installment') activeLoan += tx.amount;
 
         if (tx.type === 'share_purchase') {
-          const shares = tx.shareCount ?? Math.max(1, Math.round(tx.amount / unitPrice));
+          const shares = tx.shareCount ?? (tx.selectedShares ? tx.selectedShares.length : Math.max(1, Math.round(tx.amount / unitPrice)));
           sCount = Math.max(0, sCount - shares);
           sVal = Math.max(0, sVal - tx.amount);
         }
 
         if (tx.type === 'share_surrender') {
-          const shares = tx.shareCount ?? Math.max(1, Math.round(tx.amount / unitPrice));
+          const shares = tx.shareCount ?? (tx.selectedShares ? tx.selectedShares.length : Math.max(1, Math.round(tx.amount / unitPrice)));
           sCount = sCount + shares;
           sVal = sVal + tx.amount;
         }
@@ -2910,60 +2939,105 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (member) {
       if (tx.type === 'deposit') {
         const newGen = (member.generalSavingsBalance || 0) + tx.amount;
+        const newTot = newGen + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0);
         const updated = {
           ...member,
           generalSavingsBalance: newGen,
-          totalSavings: newGen + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0),
+          totalSavings: newTot,
         };
         setMembers(prev => prev.map(m => m.id === member.id ? updated : m));
         safeSetDoc(doc(db, 'members', member.id), updated).catch(console.error);
+        safeSetDoc(doc(db, 'memberFinancials', member.id), {
+          generalSavingsBalance: newGen,
+          totalSavings: newTot,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true }).catch(console.error);
       } else if (tx.type === 'dps_deposit') {
         const newDps = (member.dpsSavingsBalance || 0) + tx.amount;
+        const newTot = (member.generalSavingsBalance || 0) + newDps + (member.fdrSavingsBalance || 0);
         const updated = {
           ...member,
           dpsSavingsBalance: newDps,
-          totalSavings: (member.generalSavingsBalance || 0) + newDps + (member.fdrSavingsBalance || 0),
+          totalSavings: newTot,
         };
         setMembers(prev => prev.map(m => m.id === member.id ? updated : m));
         safeSetDoc(doc(db, 'members', member.id), updated).catch(console.error);
+        safeSetDoc(doc(db, 'memberFinancials', member.id), {
+          dpsSavingsBalance: newDps,
+          totalSavings: newTot,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true }).catch(console.error);
       } else if (tx.type === 'fdr_deposit') {
         const newFdr = (member.fdrSavingsBalance || 0) + tx.amount;
+        const newTot = (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + newFdr;
         const updated = {
           ...member,
           fdrSavingsBalance: newFdr,
-          totalSavings: (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + newFdr,
+          totalSavings: newTot,
         };
         setMembers(prev => prev.map(m => m.id === member.id ? updated : m));
         safeSetDoc(doc(db, 'members', member.id), updated).catch(console.error);
+        safeSetDoc(doc(db, 'memberFinancials', member.id), {
+          fdrSavingsBalance: newFdr,
+          totalSavings: newTot,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true }).catch(console.error);
       } else if (tx.type === 'withdraw') {
         const newGen = Math.max(0, (member.generalSavingsBalance || 0) - tx.amount);
+        const newTot = newGen + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0);
         const updated = {
           ...member,
           generalSavingsBalance: newGen,
-          totalSavings: newGen + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0),
+          totalSavings: newTot,
         };
         setMembers(prev => prev.map(m => m.id === member.id ? updated : m));
         safeSetDoc(doc(db, 'members', member.id), updated).catch(console.error);
+        safeSetDoc(doc(db, 'memberFinancials', member.id), {
+          generalSavingsBalance: newGen,
+          totalSavings: newTot,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true }).catch(console.error);
       } else if (tx.type === 'share_purchase') {
-        const unitPrice = settings.sharePricePerUnit || 1000;
-        const sharesBought = Math.max(1, Math.round(tx.amount / unitPrice));
+        const unitPrice = tx.unitPrice || settings.sharePricePerUnit || 1000;
+        const isInitialDepositForExistingShare = tx.shareCount === 0;
+        const sharesBought = isInitialDepositForExistingShare ? 0 : (tx.shareCount || (tx.selectedShares ? tx.selectedShares.length : Math.max(1, Math.round(tx.amount / unitPrice))));
+        const newShareVal = (member.shareValue || 0) + tx.amount;
+        const newShareCount = (member.shareCount || 0) + sharesBought;
+        const newTot = (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0);
         const updated = {
           ...member,
-          shareCount: (member.shareCount || 0) + sharesBought,
-          shareValue: (member.shareValue || 0) + tx.amount,
+          shareCount: newShareCount,
+          shareValue: newShareVal,
+          totalSavings: newTot,
         };
         setMembers(prev => prev.map(m => m.id === member.id ? updated : m));
         safeSetDoc(doc(db, 'members', member.id), updated).catch(console.error);
+        safeSetDoc(doc(db, 'memberFinancials', member.id), {
+          shareCount: newShareCount,
+          shareValue: newShareVal,
+          totalSavings: newTot,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true }).catch(console.error);
       } else if (tx.type === 'share_surrender') {
-        const unitPrice = settings.sharePricePerUnit || 1000;
-        const sharesClosed = Math.max(1, Math.round(tx.amount / unitPrice));
+        const unitPrice = tx.unitPrice || settings.sharePricePerUnit || 1000;
+        const sharesClosed = tx.shareCount || (tx.selectedShares ? tx.selectedShares.length : Math.max(1, Math.round(tx.amount / unitPrice)));
+        const newShareVal = Math.max(0, (member.shareValue || 0) - tx.amount);
+        const newShareCount = Math.max(0, (member.shareCount || 0) - sharesClosed);
+        const newTot = (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0);
         const updated = {
           ...member,
-          shareCount: Math.max(0, (member.shareCount || 0) - sharesClosed),
-          shareValue: Math.max(0, (member.shareValue || 0) - tx.amount),
+          shareCount: newShareCount,
+          shareValue: newShareVal,
+          totalSavings: newTot,
         };
         setMembers(prev => prev.map(m => m.id === member.id ? updated : m));
         safeSetDoc(doc(db, 'members', member.id), updated).catch(console.error);
+        safeSetDoc(doc(db, 'memberFinancials', member.id), {
+          shareCount: newShareCount,
+          shareValue: newShareVal,
+          totalSavings: newTot,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true }).catch(console.error);
       }
     }
 
@@ -3603,7 +3677,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       durationMonths: params.durationMonths,
       startDate,
       maturityDate,
-      totalDeposited: params.principalAmount,
+      totalDeposited: 0,
       profitAccrued: 0,
       status: 'running',
     };
@@ -3611,46 +3685,6 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setSavingsSchemes(prev => [newScheme, ...prev]);
     safeSetDoc(doc(db, 'savings', newScheme.id), newScheme).catch(console.error);
 
-    // Initial deposit transaction
-    const tx: Transaction = {
-      id: `tx-${Date.now()}`,
-      serialNo: getNextLedgerSerial(),
-      voucherNo: `V-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-      memberId: params.memberId,
-      memberName: member?.name,
-      memberNo: member?.memberNo,
-      type: params.type === 'dps' ? 'dps_deposit' : 'fdr_deposit',
-      amount: params.principalAmount,
-      date: startDate,
-      time: getCurrentTimeStr(),
-      paymentMethod: params.paymentMethod,
-      bankAccountId: params.bankAccountId,
-      savingsSchemeId: newScheme.id,
-      collectedBy: currentUser.name,
-      verifiedBy: currentUser.name,
-      notes: `নতুন ${params.type === 'dps' ? 'ডিপিএস' : 'স্থায়ী আমানত'} খোলা বাবদ জমা (${accNo})`,
-      status: 'completed',
-    };
-
-    setTransactions(prev => [tx, ...prev]);
-    safeSetDoc(doc(db, 'transactions', tx.id), tx).catch(console.error);
-
-    // Update member's balance
-    setMembers(prev => prev.map(m => {
-      if (m.id !== params.memberId) return m;
-      const dps = params.type === 'dps' ? m.dpsSavingsBalance + params.principalAmount : m.dpsSavingsBalance;
-      const fdr = params.type === 'fdr' ? m.fdrSavingsBalance + params.principalAmount : m.fdrSavingsBalance;
-      const updated = {
-        ...m,
-        dpsSavingsBalance: dps,
-        fdrSavingsBalance: fdr,
-        totalSavings: m.generalSavingsBalance + dps + fdr,
-      };
-      safeSetDoc(doc(db, 'members', m.id), updated).catch(console.error);
-      return updated;
-    }));
-
-    setActiveReceipt(tx);
     return newScheme;
   };
 
@@ -3842,7 +3876,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   transactions.forEach(t => {
     if (t.date === todayStr && t.status === 'completed') {
-      if (['deposit', 'dps_deposit', 'fdr_deposit', 'loan_installment', 'admission_fee', 'income'].includes(t.type)) {
+      if (['deposit', 'dps_deposit', 'fdr_deposit', 'loan_installment', 'admission_fee', 'income', 'share_purchase'].includes(t.type)) {
         todayCollection += Number(t.amount) || 0;
       }
       if (t.type === 'loan_disbursed' || t.type === 'withdraw' || t.type === 'share_surrender') {
@@ -5292,7 +5326,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const newGen = dep > 0 || withdr > 0 || prof > 0
           ? Math.max(0, dep + prof - withdr)
           : Math.max(0, Number(((m.generalSavingsBalance || 0) - deduct).toFixed(2)));
-        const newTot = newGen + (Number(m.dpsSavingsBalance) || 0) + (Number(m.fdrSavingsBalance) || 0);
+        const newTot = newGen + (Number(m.dpsSavingsBalance) || 0) + (Number(m.fdrSavingsBalance) || 0) + (Number(m.shareValue) || 0);
 
         const updated: Member = { ...m, generalSavingsBalance: newGen, totalSavings: newTot };
         safeSetDoc(doc(db, 'members', m.id), updated, { merge: true }).catch(console.error);
@@ -5581,7 +5615,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (!added) return m;
 
           const newGeneral = (m.generalSavingsBalance || 0) + added;
-          const newTotal = (m.totalSavings || 0) + added;
+          const newTotal = newGeneral + (m.dpsSavingsBalance || 0) + (m.fdrSavingsBalance || 0) + (m.shareValue || 0);
           const updated = {
             ...m,
             generalSavingsBalance: newGeneral,
@@ -5675,7 +5709,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const withdr = remainingMemberTxs.filter(t => t.type === 'withdraw').reduce((s, t) => s + (Number(t.amount) || 0), 0);
         const prof = remainingMemberTxs.filter(t => t.type === 'profit_share').reduce((s, t) => s + (Number(t.amount) || 0), 0);
         const newGen = Math.max(0, dep + prof - withdr);
-        const newTot = newGen + (Number(m.dpsSavingsBalance) || 0) + (Number(m.fdrSavingsBalance) || 0);
+        const newTot = newGen + (Number(m.dpsSavingsBalance) || 0) + (Number(m.fdrSavingsBalance) || 0) + (Number(m.shareValue) || 0);
 
         const updated: Member = {
           ...m,
@@ -5779,7 +5813,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const dep = remainingMemberTxs.filter(t => t.type === 'deposit').reduce((s, t) => s + (Number(t.amount) || 0), 0);
         const withdr = remainingMemberTxs.filter(t => t.type === 'withdraw').reduce((s, t) => s + (Number(t.amount) || 0), 0);
         const newGen = Math.max(0, dep - withdr);
-        const newTot = newGen + (Number(m.dpsSavingsBalance) || 0) + (Number(m.fdrSavingsBalance) || 0);
+        const newTot = newGen + (Number(m.dpsSavingsBalance) || 0) + (Number(m.fdrSavingsBalance) || 0) + (Number(m.shareValue) || 0);
 
         const updated: Member = {
           ...m,
@@ -5863,7 +5897,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const withdr = remainingMemberTxs.filter(t => t.type === 'withdraw').reduce((s, t) => s + (Number(t.amount) || 0), 0);
         const prof = remainingMemberTxs.filter(t => t.type === 'profit_share').reduce((s, t) => s + (Number(t.amount) || 0), 0);
         const newGen = Math.max(0, dep + prof - withdr);
-        const newTot = newGen + (Number(m.dpsSavingsBalance) || 0) + (Number(m.fdrSavingsBalance) || 0);
+        const newTot = newGen + (Number(m.dpsSavingsBalance) || 0) + (Number(m.fdrSavingsBalance) || 0) + (Number(m.shareValue) || 0);
 
         const updated = { ...m, generalSavingsBalance: newGen, totalSavings: newTot };
         safeSetDoc(doc(db, 'members', m.id), updated, { merge: true }).catch(console.error);

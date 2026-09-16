@@ -234,9 +234,9 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       collectedBy: collectedBy.trim(),
       shareCount: isSharePurchase || isShareSurrender ? purchasedShareCount : undefined,
       unitPrice: isSharePurchase || isShareSurrender ? purchasedUnitPrice : undefined,
-      selectedShares: isDepositType && selectedShares.length > 0 ? selectedShares : undefined,
+      selectedShares: (isDepositType || isSharePurchase) && selectedShares.length > 0 ? selectedShares : undefined,
       shareRate: isDepositType && selectedShares.length > 0 ? shareRate : undefined,
-      shareAmounts: isDepositType && selectedShares.length > 0 ? shareAmounts : undefined,
+      shareAmounts: (isDepositType || isSharePurchase) && Object.keys(shareAmounts).length > 0 ? shareAmounts : undefined,
       unpaidShares: isDepositType && selectedShares.length > 0 ? unpaid : undefined,
     });
 
@@ -336,6 +336,40 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                   />
                 </div>
               </div>
+
+              {/* Per-share deposit breakdown if this share purchase has selectedShares or shareAmounts */}
+              {selectedShares.length > 0 && (
+                <div className="space-y-2 pt-2 border-t border-amber-200/60">
+                  <span className="text-[11px] font-bold text-amber-900 block">
+                    {isBn ? 'শেয়ারভিত্তিক পৃথক প্রাথমিক জমা:' : 'Share-wise initial deposits:'}
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {selectedShares.map(sNo => (
+                      <div key={sNo} className="flex items-center justify-between p-2 bg-white rounded-lg border border-amber-200 text-xs shadow-2xs">
+                        <span className="font-bold text-amber-900">
+                          {isBn ? `শেয়ার #${toBengaliNumber(sNo)}` : `Share #${sNo}`}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-400 font-bold">৳</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={shareAmounts[sNo] !== undefined ? shareAmounts[sNo] : purchasedUnitPrice}
+                            onChange={(e) => {
+                              const newAmt = Math.max(0, Number(e.target.value) || 0);
+                              const updated = { ...shareAmounts, [sNo]: newAmt };
+                              setShareAmounts(updated);
+                              const total = selectedShares.reduce((s, num) => s + (updated[num] !== undefined ? updated[num] : purchasedUnitPrice), 0);
+                              setAmount(total);
+                            }}
+                            className="w-24 px-2 py-1 bg-amber-50/50 border border-amber-300 rounded text-xs font-bold text-right"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

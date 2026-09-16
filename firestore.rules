@@ -7,6 +7,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // 0. Connection validation
+    match /test/{docId} {
+      allow read: if true;
+    }
+
     // 1. Settings collection (Somiti organization configuration)
     match /settings/{docId} {
       allow read: if true;

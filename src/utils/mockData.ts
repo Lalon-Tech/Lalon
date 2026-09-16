@@ -204,7 +204,7 @@ export const sampleDemoMembers: Member[] = [
     generalSavingsBalance: 24500,
     dpsSavingsBalance: 36000,
     fdrSavingsBalance: 100000,
-    totalSavings: 160500,
+    totalSavings: 165500,
     activeLoanBalance: 0,
     nominees: [
       {
@@ -248,7 +248,7 @@ export const sampleDemoMembers: Member[] = [
     generalSavingsBalance: 18000,
     dpsSavingsBalance: 48000,
     fdrSavingsBalance: 0,
-    totalSavings: 66000,
+    totalSavings: 76000,
     activeLoanBalance: 32000,
     nominees: [
       {
@@ -291,7 +291,7 @@ export const sampleDemoMembers: Member[] = [
     generalSavingsBalance: 32000,
     dpsSavingsBalance: 24000,
     fdrSavingsBalance: 200000,
-    totalSavings: 256000,
+    totalSavings: 261000,
     activeLoanBalance: 0,
     nominees: [
       {
@@ -332,7 +332,7 @@ export const sampleDemoMembers: Member[] = [
     generalSavingsBalance: 12500,
     dpsSavingsBalance: 18000,
     fdrSavingsBalance: 0,
-    totalSavings: 30500,
+    totalSavings: 33500,
     activeLoanBalance: 18000,
     nominees: [
       {
@@ -372,7 +372,7 @@ export const sampleDemoMembers: Member[] = [
     generalSavingsBalance: 42000,
     dpsSavingsBalance: 60000,
     fdrSavingsBalance: 150000,
-    totalSavings: 252000,
+    totalSavings: 260000,
     activeLoanBalance: 0,
     nominees: [
       {
@@ -412,7 +412,7 @@ export const sampleDemoMembers: Member[] = [
     generalSavingsBalance: 15000,
     dpsSavingsBalance: 20000,
     fdrSavingsBalance: 0,
-    totalSavings: 35000,
+    totalSavings: 40000,
     activeLoanBalance: 0,
     nominees: [
       {
@@ -453,7 +453,7 @@ export const sampleDemoMembers: Member[] = [
     generalSavingsBalance: 55000,
     dpsSavingsBalance: 72000,
     fdrSavingsBalance: 300000,
-    totalSavings: 427000,
+    totalSavings: 442000,
     activeLoanBalance: 21400,
     nominees: [
       {
@@ -494,7 +494,7 @@ export const sampleDemoMembers: Member[] = [
     generalSavingsBalance: 9800,
     dpsSavingsBalance: 12000,
     fdrSavingsBalance: 0,
-    totalSavings: 21800,
+    totalSavings: 25800,
     activeLoanBalance: 9000,
     nominees: [
       {
@@ -534,7 +534,7 @@ export const sampleDemoMembers: Member[] = [
     generalSavingsBalance: 14200,
     dpsSavingsBalance: 15000,
     fdrSavingsBalance: 50000,
-    totalSavings: 79200,
+    totalSavings: 84200,
     activeLoanBalance: 0,
     nominees: [
       {
@@ -574,7 +574,7 @@ export const sampleDemoMembers: Member[] = [
     generalSavingsBalance: 8000,
     dpsSavingsBalance: 0,
     fdrSavingsBalance: 0,
-    totalSavings: 8000,
+    totalSavings: 9000,
     activeLoanBalance: 0,
     nominees: [],
     assignedCollectorId: 'usr-2',
@@ -603,7 +603,7 @@ export const sampleDemoMembers: Member[] = [
     generalSavingsBalance: 5000,
     dpsSavingsBalance: 0,
     fdrSavingsBalance: 0,
-    totalSavings: 5000,
+    totalSavings: 6000,
     activeLoanBalance: 0,
     nominees: [],
     assignedCollectorId: 'usr-2',
@@ -632,7 +632,7 @@ export const sampleDemoMembers: Member[] = [
     generalSavingsBalance: 2000,
     dpsSavingsBalance: 0,
     fdrSavingsBalance: 0,
-    totalSavings: 2000,
+    totalSavings: 3000,
     activeLoanBalance: 0,
     nominees: [],
     assignedCollectorId: 'usr-2',

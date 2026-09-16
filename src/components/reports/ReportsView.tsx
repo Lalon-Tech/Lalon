@@ -76,8 +76,8 @@ export const ReportsView: React.FC = () => {
   const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
   const [creditSuccessInfo, setCreditSuccessInfo] = useState<{ count: number; total: number } | null>(null);
 
-  // Safe fallbacks
-  const safeTransactions = transactions || [];
+  // Safe fallbacks (only completed transactions count towards financial reports)
+  const safeTransactions = (transactions || []).filter(t => t.status === 'completed');
   const safeIncomeExpenses = incomeExpenses || [];
   const safeMembers = members || [];
   const safeLoans = loans || [];
@@ -86,7 +86,7 @@ export const ReportsView: React.FC = () => {
   // Daily Calculations
   const dailyTransactions = safeTransactions.filter(t => t.date === selectedDate);
   const dailyDeposit = dailyTransactions
-    .filter(t => ['deposit', 'dps_deposit', 'fdr_deposit', 'admission_fee'].includes(t.type))
+    .filter(t => ['deposit', 'dps_deposit', 'fdr_deposit', 'admission_fee', 'share_purchase'].includes(t.type))
     .reduce((s, t) => s + t.amount, 0);
   const dailyLoanDisbursed = dailyTransactions
     .filter(t => t.type === 'loan_disbursed')
@@ -376,9 +376,9 @@ export const ReportsView: React.FC = () => {
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs">
                 <h4 className="font-bold text-slate-800 border-b pb-1">{isBn ? 'মাসিক আদায় ও আমানত' : 'Monthly Collections & Deposits'}</h4>
                 <div className="flex justify-between">
-                  <span>{isBn ? 'মাসিক মোট সঞ্চয় জমা:' : 'Monthly Total Savings:'}</span>
+                  <span>{isBn ? 'মাসিক মোট সঞ্চয় ও শেয়ার জমা:' : 'Monthly Total Savings & Share Deposits:'}</span>
                   <span className="font-bold text-emerald-700">
-                    {formatCurrency(monthlyTransactions.filter(t => ['deposit', 'dps_deposit', 'fdr_deposit'].includes(t.type)).reduce((s, t) => s + t.amount, 0), isBn && useBengaliDigits)}
+                    {formatCurrency(monthlyTransactions.filter(t => ['deposit', 'dps_deposit', 'fdr_deposit', 'share_purchase'].includes(t.type)).reduce((s, t) => s + t.amount, 0), isBn && useBengaliDigits)}
                   </span>
                 </div>
                 <div className="flex justify-between">

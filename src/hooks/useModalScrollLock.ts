@@ -42,57 +42,34 @@ class ScrollLockManager {
       { passive: true }
     );
 
-    // Non-passive touchmove listener to prevent background drag on mobile
+    // Touchmove listener to prevent background drag on mobile while allowing modal content to scroll freely
     window.addEventListener(
       'touchmove',
       (e: TouchEvent) => {
         if (!this.isCurrentlyLocked) return;
-        if (e.touches.length !== 1) return;
 
         const target = e.target as HTMLElement | null;
         if (!target) return;
 
-        const currentY = e.touches[0].clientY;
-        const deltaY = this.touchStartY - currentY; // > 0: scrolling down, < 0: scrolling up
+        // If touch is inside any modal dialog or popup container, allow normal scrolling
+        const modalContainer = target.closest(
+          '.fixed.inset-0, [data-modal="true"], [role="dialog"], [aria-modal="true"], .modal-overlay'
+        );
 
-        let el: HTMLElement | null = target;
-        let canScroll = false;
-
-        while (el && el !== document.body && el !== document.documentElement) {
-          // If this element has scrollable overflow
-          const style = window.getComputedStyle(el);
-          const isScrollable =
-            (style.overflowY === 'auto' || style.overflowY === 'scroll') &&
-            el.scrollHeight > el.clientHeight;
-
-          if (isScrollable) {
-            const isAtTop = el.scrollTop <= 0;
-            const isAtBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
-
-            if ((deltaY < 0 && !isAtTop) || (deltaY > 0 && !isAtBottom)) {
-              canScroll = true;
-              break;
-            }
-          }
-
-          // Stop at modal backdrop overlay
-          if (
-            el.classList.contains('fixed') &&
-            (el.classList.contains('inset-0') || el.classList.contains('z-50'))
-          ) {
-            break;
-          }
-          el = el.parentElement;
+        if (modalContainer) {
+          // Inside modal: permit touch scrolling
+          return;
         }
 
-        if (!canScroll && e.cancelable) {
+        // If touch is on the background page, block it completely
+        if (e.cancelable) {
           e.preventDefault();
         }
       },
       { passive: false }
     );
 
-    // Non-passive wheel listener on desktop to prevent scroll leakage to background
+    // Wheel listener on desktop to prevent scroll leakage to background
     window.addEventListener(
       'wheel',
       (e: WheelEvent) => {
@@ -101,36 +78,18 @@ class ScrollLockManager {
         const target = e.target as HTMLElement | null;
         if (!target) return;
 
-        let el: HTMLElement | null = target;
-        let canScroll = false;
+        // If wheel is inside any modal dialog or popup container, allow normal scrolling
+        const modalContainer = target.closest(
+          '.fixed.inset-0, [data-modal="true"], [role="dialog"], [aria-modal="true"], .modal-overlay'
+        );
 
-        while (el && el !== document.body && el !== document.documentElement) {
-          const style = window.getComputedStyle(el);
-          const isScrollable =
-            (style.overflowY === 'auto' || style.overflowY === 'scroll') &&
-            el.scrollHeight > el.clientHeight;
-
-          if (isScrollable) {
-            const isAtTop = el.scrollTop <= 0;
-            const isAtBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
-            const isScrollingDown = e.deltaY > 0;
-
-            if ((isScrollingDown && !isAtBottom) || (!isScrollingDown && !isAtTop)) {
-              canScroll = true;
-              break;
-            }
-          }
-
-          if (
-            el.classList.contains('fixed') &&
-            (el.classList.contains('inset-0') || el.classList.contains('z-50'))
-          ) {
-            break;
-          }
-          el = el.parentElement;
+        if (modalContainer) {
+          // Inside modal: permit wheel scrolling
+          return;
         }
 
-        if (!canScroll && e.cancelable) {
+        // Outside modal: prevent background wheel scrolling
+        if (e.cancelable) {
           e.preventDefault();
         }
       },

@@ -177,8 +177,8 @@ export function deriveMemberProfitSummaries(
   // Initialize with all members, deriving strictly the pure Base Deposit (excluding profit)
   members.forEach(m => {
     const memberTxs = (transactions || []).filter((t: any) => t.memberId === m.id && t.status === 'completed');
-    const depTxs = memberTxs.filter((t: any) => t.type === 'deposit').reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
-    const withdrTxs = memberTxs.filter((t: any) => t.type === 'withdraw').reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
+    const depTxs = memberTxs.filter((t: any) => t.type === 'deposit' || t.type === 'share_purchase').reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
+    const withdrTxs = memberTxs.filter((t: any) => t.type === 'withdraw' || t.type === 'share_surrender').reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
     const profTxs = memberTxs.filter((t: any) => t.type === 'profit_share').reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
     const dpsFdr = (Number(m.dpsSavingsBalance) || 0) + (Number(m.fdrSavingsBalance) || 0);
 
@@ -457,10 +457,14 @@ export function deriveProfitByProvider(records: any[]): ProviderProfitSummary[] 
 /**
  * Extracts the member's current total savings/deposit balance with robust fallbacks
  */
-export function getMemberSavingsBalance(m: { totalSavings?: number; generalSavingsBalance?: number; savingsBalance?: number } | null | undefined): number {
+export function getMemberSavingsBalance(m: { totalSavings?: number; generalSavingsBalance?: number; savingsBalance?: number; dpsSavingsBalance?: number; fdrSavingsBalance?: number; shareValue?: number } | null | undefined): number {
   if (!m) return 0;
   if (typeof m.totalSavings === 'number' && !isNaN(m.totalSavings) && m.totalSavings > 0) return m.totalSavings;
-  if (typeof m.generalSavingsBalance === 'number' && !isNaN(m.generalSavingsBalance) && m.generalSavingsBalance > 0) return m.generalSavingsBalance;
-  if (typeof m.savingsBalance === 'number' && !isNaN(m.savingsBalance) && m.savingsBalance > 0) return m.savingsBalance;
+  const gen = Number(m.generalSavingsBalance) || Number(m.savingsBalance) || 0;
+  const dps = Number(m.dpsSavingsBalance) || 0;
+  const fdr = Number(m.fdrSavingsBalance) || 0;
+  const share = Number(m.shareValue) || 0;
+  const sum = gen + dps + fdr + share;
+  if (sum > 0) return sum;
   return 0;
 }

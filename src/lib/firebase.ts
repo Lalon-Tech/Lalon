@@ -7,13 +7,14 @@ import {
   browserSessionPersistence 
 } from 'firebase/auth';
 import { 
-  initializeFirestore, 
   getFirestore, 
   setDoc, 
   DocumentReference, 
   WriteBatch, 
   SetOptions,
-  setLogLevel
+  setLogLevel,
+  doc,
+  getDocFromServer
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -26,23 +27,23 @@ setPersistence(auth, browserSessionPersistence).catch((err) => {
   console.warn("Could not set browserSessionPersistence:", err);
 });
 
-// Suppress transient offline/retry logging that causes false positive connection alerts
-setLogLevel('error');
+// Suppress internal connection/retry log noise to prevent false alarm alerts in dev environment
+setLogLevel('silent');
 
-// Initialize Cloud Firestore with experimentalForceLongPolling for robust connectivity inside iframes and sandboxed environments
-export const db = (() => {
-  const databaseId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
-    ? firebaseConfig.firestoreDatabaseId
-    : undefined;
+// Initialize Cloud Firestore according to Firebase Integration Skill
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
+// Test Firestore backend connection on boot
+async function testConnection() {
   try {
-    return initializeFirestore(app, {
-      experimentalForceLongPolling: true,
-    }, databaseId);
-  } catch {
-    return databaseId ? getFirestore(app, databaseId) : getFirestore(app);
+    await getDocFromServer(doc(db, 'test', 'connection'));
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.warn("Firestore offline warning - operating in offline cache mode.");
+    }
   }
-})();
+}
+testConnection();
 
 /**
  * Deeply removes all `undefined` values from an object or array to prevent

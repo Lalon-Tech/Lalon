@@ -11,7 +11,6 @@ html.modal-open,
 body.modal-open {
   overflow: hidden !important;
   overscroll-behavior: none !important;
-  touch-action: none;
 }
 
 /* Ensure modal overlays and their scrollable children can scroll freely without leaking to background */
