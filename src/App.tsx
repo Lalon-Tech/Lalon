@@ -156,12 +156,12 @@ const AppContent: React.FC = () => {
       case 'members_new':
       case 'new_member':
         return (
-          <div className="space-y-4 pb-12">
+          <div className="space-y-4 pb-16 min-h-full">
             <div className="flex items-center justify-between pb-1">
               <button
                 type="button"
                 onClick={() => setActiveTab('all_members')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
               >
                 ← {language === 'bn' ? 'সকল সদস্য তালিকায় ফিরে যান' : 'Back to Member List'}
               </button>

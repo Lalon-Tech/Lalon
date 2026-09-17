@@ -588,39 +588,51 @@ export const AgreementsView: React.FC = () => {
           <div className="text-center border-b-2 border-slate-900 pb-4">
             <h1 className="text-2xl font-bold uppercase">{settings.somitiName}</h1>
             <p className="text-xs text-slate-600">{settings.registrationNo} • {settings.address}</p>
-            <h3 className="text-base font-bold underline mt-2">সদস্য ভর্তি ফরম ও অঙ্গীকারনামা</h3>
+            <h3 className="text-base font-bold underline mt-2">
+              {isBn ? 'সদস্য ভর্তি ফরম ও অঙ্গীকারনামা' : 'Member Admission Form & Deed of Agreement'}
+            </h3>
           </div>
 
           <div className="grid grid-cols-2 gap-4 text-xs bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <div><strong>সদস্য নং:</strong> {member?.memberNo}</div>
-            <div><strong>যোগদানের তারিখ:</strong> {formatBengaliDate(member?.joiningDate || '2025-01-01', false)}</div>
-            <div><strong>সদস্যের নাম:</strong> {member?.name}</div>
-            <div><strong>মোবাইল:</strong> {member?.phone}</div>
-            <div><strong>জাতীয় পরিচয়পত্র:</strong> {member?.nid}</div>
-            <div><strong>পেশা:</strong> {member?.occupation}</div>
-            <div><strong>শেয়ার সংখ্যা:</strong> {toBengaliNumber(member?.shareCount || 0)} টি ({formatCurrency(member?.shareValue || 0, useBengaliDigits)})</div>
-            <div><strong>ভর্তি ফি:</strong> {formatCurrency(member?.admissionFee || 500, useBengaliDigits)}</div>
+            <div><strong>{isBn ? 'সদস্য নং:' : 'Member No:'}</strong> {member?.memberNo}</div>
+            <div><strong>{isBn ? 'যোগদানের তারিখ:' : 'Joining Date:'}</strong> {formatBengaliDate(member?.joiningDate || '2025-01-01', false)}</div>
+            <div><strong>{isBn ? 'সদস্যের নাম:' : 'Member Name:'}</strong> {member?.name}</div>
+            <div><strong>{isBn ? 'মোবাইল:' : 'Mobile:'}</strong> {member?.phone}</div>
+            <div><strong>{isBn ? 'জাতীয় পরিচয়পত্র:' : 'NID:'}</strong> {member?.nid}</div>
+            <div><strong>{isBn ? 'পেশা:' : 'Occupation:'}</strong> {member?.occupation}</div>
+            <div><strong>{isBn ? 'শেয়ার সংখ্যা:' : 'Share Count:'}</strong> {toBengaliNumber(member?.shareCount || 0)} {isBn ? 'টি' : 'Shares'} ({formatCurrency(member?.shareValue || 0, useBengaliDigits)})</div>
+            <div><strong>{isBn ? 'ভর্তি ফি:' : 'Admission Fee:'}</strong> {formatCurrency(member?.admissionFee || 500, useBengaliDigits)}</div>
           </div>
 
           <p className="text-xs text-justify leading-relaxed">
-            আমি স্বেচ্ছায় {settings.somitiName}-এর সদস্যপদ গ্রহণ করিলাম এবং সমিতির সার্বিক নীতিমালা ও সিদ্ধান্ত নিঃশর্তভাবে মানিয়া চলিব। আমার অবর্তমানে আমার মনোনীত নমিনি <strong>{member?.nominees[0]?.name || 'মনোনীত নমিনি'}</strong> আমার সঞ্চয় ও শেয়ারের উত্তরাধিকারী হইবেন।
+            {isBn ? (
+              <>
+                আমি স্বেচ্ছায় {settings.somitiName}-এর সদস্যপদ গ্রহণ করিলাম এবং সমিতির সার্বিক নীতিমালা ও সিদ্ধান্ত নিঃশর্তভাবে মানিয়া চলিব। আমার অবর্তমানে আমার মনোনীত নমিনি <strong>{member?.nominees[0]?.name || 'মনোনীত নমিনি'}</strong> আমার সঞ্চয় ও শেয়ারের উত্তরাধিকারী হইবেন।
+              </>
+            ) : (
+              <>
+                I hereby voluntarily accept the membership of {settings.somitiName} and agree unconditionally to abide by all the bylaws and decisions of the cooperative. In my absence, my designated nominee <strong>{member?.nominees[0]?.name || 'Designated Nominee'}</strong> shall be the lawful heir to my savings and shares.
+              </>
+            )}
           </p>
 
           <div className="pt-16 grid grid-cols-2 gap-12 text-center text-xs">
             <div>
               <div className="border-t border-slate-500 pt-1 font-bold text-slate-900">{member?.name}</div>
-              <span className="text-slate-500">সদস্যের স্বাক্ষর</span>
+              <span className="text-slate-500">{isBn ? 'সদস্যের স্বাক্ষর' : 'Member Signature'}</span>
             </div>
             <div>
               <div className="border-t border-slate-500 pt-1 font-bold text-slate-900">
-                {approverDisplayName || settings.secretaryName || 'সাধারণ সম্পাদক'}
+                {approverDisplayName || settings.secretaryName || (isBn ? 'সাধারণ সম্পাদক' : 'General Secretary')}
               </div>
               {approverDesignation && (
                 <div className="text-[11px] text-slate-700 font-semibold mt-0.5">
                   {approverDesignation}
                 </div>
               )}
-              <span className="text-slate-500 font-medium">অনুমোদনকারী কর্মকর্তার স্বাক্ষর</span>
+              <span className="text-slate-500 font-medium">
+                {isBn ? 'অনুমোদনকারী কর্মকর্তার স্বাক্ষর' : 'Approving Officer Signature'}
+              </span>
             </div>
           </div>
         </div>
