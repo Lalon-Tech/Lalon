@@ -63,6 +63,11 @@ import {
   compareTransactionsDesc,
   formatLedgerSerial
 } from '../../utils/bengaliUtils';
+import { 
+  calculateMemberBaseDeposit, 
+  calculateMemberRemainingShares, 
+  recalculateMemberShareFinancials 
+} from '../../utils/shareCalculation';
 
 export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void }> = ({ memberId, onBack }) => {
   const { language } = useLanguage();
@@ -191,7 +196,11 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
         ? memberId
         : (members[0]?.id || '');
 
-  const member = members.find(m => m.id === effectiveMemberId) || (members.length > 0 ? members[0] : undefined);
+  const rawMember = members.find(m => m.id === effectiveMemberId) || (members.length > 0 ? members[0] : undefined);
+  const member = useMemo(() => {
+    if (!rawMember) return undefined;
+    return recalculateMemberShareFinancials(rawMember, transactions, shareClosures);
+  }, [rawMember, transactions, shareClosures]);
 
   // Keep active member synced in context for all operations
   React.useEffect(() => {
@@ -302,22 +311,6 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
     ? totalMemberProfitFromPool
     : totalProfitFromTxs;
 
-  // Pure principal deposit (Total deposit collected minus withdrawals + term deposits, excluding any distributed profit)
-  const pureBaseDeposit = useMemo(() => {
-    if (!member) return 0;
-    const completedTxs = memberTransactions.filter(t => t.status === 'completed');
-    // Pure savings deposits only (share purchases are equity/capital, not savings deposits)
-    const depAmount = completedTxs.filter(t => t.type === 'deposit').reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    const withdrAmount = completedTxs.filter(t => t.type === 'withdraw').reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    const dpsFdr = (Number(member.dpsSavingsBalance) || 0) + (Number(member.fdrSavingsBalance) || 0);
-
-    if (depAmount > 0 || withdrAmount > 0) {
-      return Math.max(0, Number((depAmount - withdrAmount + dpsFdr).toFixed(2)));
-    }
-    const rawSavings = Number(member.totalSavings ?? member.generalSavingsBalance ?? 0);
-    return Math.max(0, Number((rawSavings - totalMemberProfitEarned).toFixed(2)));
-  }, [memberTransactions, member, totalMemberProfitEarned]);
-
   // Share-wise breakdown computation for member's active shares
   const shareWiseBreakdown = useMemo(() => {
     if (!member) return [];
@@ -327,8 +320,6 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
     const completedTxs = memberTransactions.filter(t => t.status === 'completed');
     const sharePurchaseTxs = completedTxs.filter(t => t.type === 'share_purchase');
     const depositTxs = completedTxs.filter(t => t.type === 'deposit');
-
-    const defaultUnitPrice = settings.sharePricePerUnit || 100;
 
     return Array.from({ length: count }, (_, i) => {
       const shareNo = i + 1;
@@ -372,7 +363,13 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
         voucherNo: purchaseTx?.voucherNo,
       };
     });
-  }, [member, memberTransactions, settings.sharePricePerUnit]);
+  }, [member, memberTransactions]);
+
+  // Pure principal deposit (Total deposit collected minus withdrawals, excluding any distributed profit)
+  const pureBaseDeposit = useMemo(() => {
+    if (!member) return 0;
+    return calculateMemberBaseDeposit(member, memberTransactions, shareClosures);
+  }, [member, memberTransactions, shareClosures]);
 
   const [passbookFilter, setPassbookFilter] = useState<'all' | 'deposit' | 'withdraw' | 'profit_share' | 'loan'>('all');
   const [passbookSearch, setPassbookSearch] = useState<string>('');
@@ -978,7 +975,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                   <div className="py-2.5 flex items-center justify-between gap-4">
                     <span className="text-slate-500 font-medium">{isBn ? 'শেয়ার মূলধন' : 'Share Capital'}</span>
                     <span className="font-bold text-amber-600 text-right font-mono">
-                      ৳{formatCurrency(member.shareValue, isBn && useBengaliDigits)}
+                      ৳{formatCurrency((Number(member.shareCount) || 0) === 0 ? 0 : member.shareValue, isBn && useBengaliDigits)}
                     </span>
                   </div>
                   <div className="py-2.5 flex items-center justify-between gap-4">
@@ -2393,7 +2390,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                       আমি নিম্নস্বাক্ষরকারী, <strong>{member.name}</strong>, পিতা: {member.fatherName || 'মৃত'}, মাতা: {member.motherName}, বর্তমান ঠিকানা: {member.presentAddress}—স্বেচ্ছায় ও সুস্থ মস্তিষ্কে {settings.somitiName}-এর সদস্যপদ লাভের আবেদন করিতেছি এবং সমিতির সকল উপ-আইন ও পরিচালনা পর্ষদের সিদ্ধান্ত মানিয়া চলার অঙ্গীকার করিতেছি।
                     </p>
                     <p>
-                      আমার সদস্য নম্বর <strong>{member.memberNo}</strong>। আমি সমিতিতে {toBengaliNumber(member.shareCount)} টি শেয়ার বাবদ {formatCurrency(member.shareValue, useBengaliDigits)} টাকা এবং ভর্তি ফি বাবদ {formatCurrency(member.admissionFee, useBengaliDigits)} টাকা জমা প্রদান করিয়াছি।
+                      আমার সদস্য নম্বর <strong>{member.memberNo}</strong>। আমি সমিতিতে {toBengaliNumber(member.shareCount || 0)} টি শেয়ার বাবদ {formatCurrency((member.shareCount || 0) === 0 ? 0 : member.shareValue, useBengaliDigits)} টাকা এবং ভর্তি ফি বাবদ {formatCurrency(member.admissionFee, useBengaliDigits)} টাকা জমা প্রদান করিয়াছি।
                     </p>
                     <p>
                       আমার অবর্তমানে আমার সকল সঞ্চয়, শেয়ার এবং আমানতের আইনগত হকদার থাকিবেন আমার মনোনীত নমিনি: <strong>{member.nominees[0]?.name || 'মনোনীত নমিনি'}</strong> (সম্পর্ক: {member.nominees[0]?.relation || 'পরিবার'}, অংশ: {toBengaliNumber(member.nominees[0]?.percentage || 100)}%)।
@@ -2405,7 +2402,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                       I, the undersigned, <strong>{member.nameEn || member.name}</strong>, Father: {member.fatherName || 'Deceased'}, Mother: {member.motherName}, Present Address: {member.presentAddress}, hereby willingly and soundly apply for membership in {settings.somitiName || 'Bondhu Somobay Somiti Ltd.'} and undertake to abide by all bylaws and board decisions.
                     </p>
                     <p>
-                      My member registration number is <strong>{member.memberNo}</strong>. I have deposited {formatCurrency(member.shareValue, false)} for {member.shareCount} shares and {formatCurrency(member.admissionFee, false)} as membership admission fee.
+                      My member registration number is <strong>{member.memberNo}</strong>. I have deposited {formatCurrency((member.shareCount || 0) === 0 ? 0 : member.shareValue, false)} for {member.shareCount || 0} shares and {formatCurrency(member.admissionFee, false)} as membership admission fee.
                     </p>
                     <p>
                       In my absence, my designated legal nominee <strong>{member.nominees[0]?.name || 'Nominee'}</strong> (Relationship: {member.nominees[0]?.relation || 'Family'}, Share: {member.nominees[0]?.percentage || 100}%) shall be the sole rightful heir to all my savings, shares, and deposits.

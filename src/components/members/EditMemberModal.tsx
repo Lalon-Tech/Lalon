@@ -144,7 +144,10 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
   const handleShareCountChange = (count: number) => {
     const validCount = Math.max(0, count);
     setShareCount(validCount);
-    // Do not calculate Share Capital based on number of shares purchased
+    if (validCount === 0) {
+      setShareValue(0);
+      setGeneralSavingsBalance(0);
+    }
   };
 
   const handleUnitPriceChange = (price: number) => {
@@ -222,13 +225,15 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
         status,
         notes: notes.trim(),
         shareCount: Number(shareCount),
-        shareValue: Number(shareValue),
+        shareValue: Number(shareCount) === 0 ? 0 : Number(shareValue),
         admissionFee: Number(admissionFee),
-        generalSavingsBalance: Number(generalSavingsBalance),
+        generalSavingsBalance: Number(shareCount) === 0 ? 0 : Number(generalSavingsBalance),
         dpsSavingsBalance: Number(dpsSavingsBalance),
         fdrSavingsBalance: Number(fdrSavingsBalance),
         activeLoanBalance: Number(activeLoanBalance),
-        totalSavings: calculatedTotalSavings,
+        totalSavings: Number(shareCount) === 0 
+          ? (Number(dpsSavingsBalance) + Number(fdrSavingsBalance))
+          : calculatedTotalSavings,
         nominees: updatedNominees,
       });
 

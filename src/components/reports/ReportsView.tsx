@@ -106,8 +106,8 @@ export const ReportsView: React.FC = () => {
   const totalMonthlyExpense = monthlyExpenseList.reduce((s, i) => s + i.amount, 0);
 
   // Yearly Totals
-  const totalSavingsFund = safeMembers.reduce((s, m) => s + (m.totalSavings || 0), 0);
-  const totalShareFund = safeMembers.reduce((s, m) => s + (m.shareValue || 0), 0);
+  const totalSavingsFund = safeMembers.reduce((s, m) => s + (m.shareCount === 0 ? ((m.generalSavingsBalance || 0) + (m.dpsSavingsBalance || 0) + (m.fdrSavingsBalance || 0)) : (m.totalSavings || 0)), 0);
+  const totalShareFund = safeMembers.reduce((s, m) => s + ((m.shareCount || 0) === 0 ? 0 : (m.shareValue || 0)), 0);
   const totalActiveLoans = safeLoans.reduce((s, l) => s + (l.status === 'active' ? l.remainingAmount : 0), 0);
   const totalBankBalances = safeBankAccounts.reduce((s, b) => s + (b.balance || 0), 0);
   const totalLiquidAssets = (cashInHand || 0) + totalBankBalances;
@@ -135,8 +135,9 @@ export const ReportsView: React.FC = () => {
         [isBn ? 'সদস্য নং' : 'Member No']: m.memberNo,
         [isBn ? 'নাম' : 'Name']: m.name,
         [isBn ? 'মোবাইল' : 'Phone']: m.phone,
-        [isBn ? 'শেয়ার মূল্য (৳)' : 'Share Value (৳)']: m.shareValue,
-        [isBn ? 'মোট সঞ্চয় (৳)' : 'Total Savings (৳)']: m.totalSavings,
+        [isBn ? 'শেয়ার সংখ্যা' : 'Share Count']: m.shareCount || 0,
+        [isBn ? 'শেয়ার মূল্য (৳)' : 'Share Value (৳)']: (m.shareCount || 0) === 0 ? 0 : m.shareValue,
+        [isBn ? 'মোট সঞ্চয় (৳)' : 'Total Savings (৳)']: (m.shareCount || 0) === 0 ? ((m.generalSavingsBalance || 0) + (m.dpsSavingsBalance || 0) + (m.fdrSavingsBalance || 0)) : m.totalSavings,
         [isBn ? 'চলতি ঋণ (৳)' : 'Active Loans (৳)']: m.activeLoanBalance,
         [isBn ? 'অবস্থা' : 'Status']: m.status === 'active' ? (isBn ? 'সক্রিয়' : 'Active') : (isBn ? 'নিষ্ক্রিয়' : 'Inactive'),
       }));
@@ -506,8 +507,9 @@ export const ReportsView: React.FC = () => {
         {activeReport === 'dividend' && (() => {
           // Calculate deposit snapshots for all members using current eligible balances
           const memberSnapshots: MemberDepositSnapshotItem[] = members.map((m) => {
+            const count = Number(m.shareCount ?? (m as any).totalShares ?? 0);
             const memberBalance = distributionCriteria === 'share_capital' 
-              ? (m.totalShares || 0) * (settings.shareValue || 100)
+              ? (count === 0 ? 0 : count * (settings.sharePricePerUnit || settings.shareValue || 100))
               : getMemberSavingsBalance(m);
             return {
               memberId: m.id,

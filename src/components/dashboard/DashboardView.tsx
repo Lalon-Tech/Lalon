@@ -69,10 +69,12 @@ export const DashboardView: React.FC = () => {
     const myActiveLoans = myLoans.filter(l => l.status === 'active');
     const mySavings = savingsSchemes.filter(s => s.memberId === currentUser.memberId);
 
-    const mySavingsTotal = Number(myMember?.totalSavings ?? myMember?.generalSavingsBalance ?? 0);
-    const myActiveLoanBalance = Number(myMember?.activeLoanBalance ?? 0);
     const mySharesCount = Number(myMember?.shareCount ?? (myMember as any)?.sharesCount ?? 0);
-    const myShareAmount = Number(myMember?.shareAmount ?? (mySharesCount * 1000));
+    const myShareAmount = mySharesCount === 0 ? 0 : Number(myMember?.shareValue ?? (mySharesCount * 1000));
+    const mySavingsTotal = mySharesCount === 0 
+      ? ((Number(myMember?.generalSavingsBalance) || 0) + (Number(myMember?.dpsSavingsBalance) || 0) + (Number(myMember?.fdrSavingsBalance) || 0))
+      : Number(myMember?.totalSavings ?? myMember?.generalSavingsBalance ?? 0);
+    const myActiveLoanBalance = Number(myMember?.activeLoanBalance ?? 0);
 
     return (
       <div className="space-y-6 pb-12">

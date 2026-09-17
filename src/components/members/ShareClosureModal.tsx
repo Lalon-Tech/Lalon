@@ -69,7 +69,7 @@ export const ShareClosureModal: React.FC<ShareClosureModalProps> = ({
   const principalRefund = Math.max(0, sharesToClose * unitPrice);
   const totalRefundAmount = principalRefund + (Number(profitAmount) || 0);
   const remainingShares = Math.max(0, totalActiveShares - sharesToClose);
-  const remainingValue = remainingShares * unitPrice;
+  const remainingValue = remainingShares === 0 ? 0 : remainingShares * unitPrice;
 
   const handleSharesChange = (val: number) => {
     const sanitized = Math.max(1, Math.min(totalActiveShares || 1, val));

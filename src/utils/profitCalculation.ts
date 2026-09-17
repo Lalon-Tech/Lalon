@@ -10,6 +10,8 @@
  * 5. Reusable calculation helpers for reports, history, and real-time previews.
  */
 
+import { calculateMemberRemainingShares, calculateMemberBaseDeposit } from './shareCalculation';
+
 export interface MemberDepositSnapshotItem {
   memberId: string;
   memberNo: string;
@@ -176,18 +178,15 @@ export function deriveMemberProfitSummaries(
 
   // Initialize with all members, deriving strictly the pure Base Deposit (excluding profit)
   members.forEach(m => {
-    const memberTxs = (transactions || []).filter((t: any) => t.memberId === m.id && t.status === 'completed');
-    const depTxs = memberTxs.filter((t: any) => t.type === 'deposit' || t.type === 'share_purchase').reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
-    const withdrTxs = memberTxs.filter((t: any) => t.type === 'withdraw' || t.type === 'share_surrender').reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
-    const profTxs = memberTxs.filter((t: any) => t.type === 'profit_share').reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
-    const dpsFdr = (Number(m.dpsSavingsBalance) || 0) + (Number(m.fdrSavingsBalance) || 0);
-
+    const remainingShares = calculateMemberRemainingShares(m, transactions, []);
     let pureDeposit = 0;
-    if (depTxs > 0 || withdrTxs > 0) {
-      pureDeposit = Math.max(0, Number((depTxs - withdrTxs + dpsFdr).toFixed(2)));
+
+    // Requirement: When a member surrenders/deletes all of their shares, all share-related values and Base Deposit must become 0
+    if (remainingShares > 0) {
+      pureDeposit = calculateMemberBaseDeposit(m, transactions, []);
     } else {
-      const rawSavings = Number(m.totalSavings ?? m.generalSavingsBalance ?? 0);
-      pureDeposit = Math.max(0, Number((rawSavings - profTxs).toFixed(2)));
+      // 0 active shares: Base Deposit must become 0
+      pureDeposit = 0;
     }
 
     memberMap.set(m.id, {
@@ -457,13 +456,17 @@ export function deriveProfitByProvider(records: any[]): ProviderProfitSummary[] 
 /**
  * Extracts the member's current total savings/deposit balance with robust fallbacks
  */
-export function getMemberSavingsBalance(m: { totalSavings?: number; generalSavingsBalance?: number; savingsBalance?: number; dpsSavingsBalance?: number; fdrSavingsBalance?: number; shareValue?: number } | null | undefined): number {
+export function getMemberSavingsBalance(m: { totalSavings?: number; generalSavingsBalance?: number; savingsBalance?: number; dpsSavingsBalance?: number; fdrSavingsBalance?: number; shareValue?: number; shareCount?: number } | null | undefined): number {
   if (!m) return 0;
-  if (typeof m.totalSavings === 'number' && !isNaN(m.totalSavings) && m.totalSavings > 0) return m.totalSavings;
+  const count = Number(m.shareCount) || 0;
   const gen = Number(m.generalSavingsBalance) || Number(m.savingsBalance) || 0;
   const dps = Number(m.dpsSavingsBalance) || 0;
   const fdr = Number(m.fdrSavingsBalance) || 0;
-  const share = Number(m.shareValue) || 0;
+  const share = count > 0 ? (Number(m.shareValue) || 0) : 0;
+  if (count === 0) {
+    return gen + dps + fdr;
+  }
+  if (typeof m.totalSavings === 'number' && !isNaN(m.totalSavings) && m.totalSavings > 0) return m.totalSavings;
   const sum = gen + dps + fdr + share;
   if (sum > 0) return sum;
   return 0;

@@ -15,11 +15,9 @@ import { useEffect, useId } from 'react';
 
 class ScrollLockManager {
   private explicitLocks = new Set<string>();
-  private autoDetectedLocks = new Set<Element>();
   private savedScrollY = 0;
   private isCurrentlyLocked = false;
   private isInitialized = false;
-  private touchStartY = 0;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -30,184 +28,6 @@ class ScrollLockManager {
   private init() {
     if (this.isInitialized) return;
     this.isInitialized = true;
-
-    // Track touch start Y for touchmove direction calculation
-    window.addEventListener(
-      'touchstart',
-      (e: TouchEvent) => {
-        if (e.touches.length > 0) {
-          this.touchStartY = e.touches[0].clientY;
-        }
-      },
-      { passive: true }
-    );
-
-    // Touchmove listener to prevent background drag on mobile while allowing modal content to scroll freely
-    window.addEventListener(
-      'touchmove',
-      (e: TouchEvent) => {
-        if (!this.isCurrentlyLocked) return;
-
-        const target = e.target as HTMLElement | null;
-        if (!target) return;
-
-        // If touch is inside any modal dialog or popup container, allow normal scrolling
-        const modalContainer = target.closest(
-          '.fixed.inset-0, [data-modal="true"], [role="dialog"], [aria-modal="true"], .modal-overlay'
-        );
-
-        if (modalContainer) {
-          // Inside modal: permit touch scrolling
-          return;
-        }
-
-        // If touch is on the background page, block it completely
-        if (e.cancelable) {
-          e.preventDefault();
-        }
-      },
-      { passive: false }
-    );
-
-    // Wheel listener on desktop to prevent scroll leakage to background
-    window.addEventListener(
-      'wheel',
-      (e: WheelEvent) => {
-        if (!this.isCurrentlyLocked) return;
-
-        const target = e.target as HTMLElement | null;
-        if (!target) return;
-
-        // If wheel is inside any modal dialog or popup container, allow normal scrolling
-        const modalContainer = target.closest(
-          '.fixed.inset-0, [data-modal="true"], [role="dialog"], [aria-modal="true"], .modal-overlay'
-        );
-
-        if (modalContainer) {
-          // Inside modal: permit wheel scrolling
-          return;
-        }
-
-        // Outside modal: prevent background wheel scrolling
-        if (e.cancelable) {
-          e.preventDefault();
-        }
-      },
-      { passive: false }
-    );
-
-    // Keyboard scroll interception when focus is outside inputs
-    window.addEventListener(
-      'keydown',
-      (e: KeyboardEvent) => {
-        if (!this.isCurrentlyLocked) return;
-
-        const scrollKeys = ['Space', 'PageUp', 'PageDown', 'End', 'Home', 'ArrowUp', 'ArrowDown'];
-        if (!scrollKeys.includes(e.code) && !scrollKeys.includes(e.key)) return;
-
-        const activeEl = document.activeElement;
-        if (
-          activeEl instanceof HTMLInputElement ||
-          activeEl instanceof HTMLTextAreaElement ||
-          activeEl instanceof HTMLSelectElement ||
-          (activeEl instanceof HTMLElement && activeEl.isContentEditable)
-        ) {
-          return;
-        }
-
-        let el: HTMLElement | null = activeEl as HTMLElement | null;
-        let canScroll = false;
-
-        while (el && el !== document.body && el !== document.documentElement) {
-          const style = window.getComputedStyle(el);
-          if (
-            (style.overflowY === 'auto' || style.overflowY === 'scroll') &&
-            el.scrollHeight > el.clientHeight
-          ) {
-            canScroll = true;
-            break;
-          }
-          el = el.parentElement;
-        }
-
-        if (!canScroll && e.cancelable) {
-          e.preventDefault();
-        }
-      },
-      { passive: false }
-    );
-
-    // Setup DOM MutationObserver on document.body to auto-detect any modal mounted anywhere in the application
-    this.setupDOMObserver();
-  }
-
-  private setupDOMObserver() {
-    const checkModals = () => {
-      // Find all fixed backdrop/modal overlays in the DOM
-      const modalElements = document.querySelectorAll(
-        '.fixed.inset-0, [data-modal="true"], [role="dialog"], [aria-modal="true"]'
-      );
-
-      const activeModals = new Set<Element>();
-      modalElements.forEach((el) => {
-        if (!(el instanceof HTMLElement)) return;
-
-        // Skip non-overlay elements like desktop sidebars
-        if (el.tagName === 'ASIDE' || el.tagName === 'NAV') return;
-
-        // Verify it's visible in the layout
-        if (el.offsetWidth === 0 && el.offsetHeight === 0) return;
-        const style = window.getComputedStyle(el);
-        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
-          return;
-        }
-
-        // Must have high z-index (z-40, z-50, z-[...]) typical of overlays/drawers
-        const cls = el.className;
-        const zIndex = style.zIndex;
-        const zNum = parseInt(zIndex, 10);
-        const isOverlayZ =
-          (!isNaN(zNum) && zNum >= 40) ||
-          (typeof cls === 'string' &&
-            (cls.includes('z-50') ||
-              cls.includes('z-[') ||
-              cls.includes('z-40') ||
-              cls.includes('backdrop-blur')));
-
-        if (isOverlayZ || el.getAttribute('role') === 'dialog' || el.hasAttribute('data-modal')) {
-          activeModals.add(el);
-        }
-      });
-
-      this.autoDetectedLocks = activeModals;
-      this.evaluateLockState();
-    };
-
-    let isScheduled = false;
-    const scheduleCheck = () => {
-      if (isScheduled) return;
-      isScheduled = true;
-      requestAnimationFrame(() => {
-        isScheduled = false;
-        checkModals();
-      });
-    };
-
-    // Observe document.body childList and class changes on subtree, NOT attributes on body itself
-    const rootEl = document.getElementById('root') || document.body;
-    const observer = new MutationObserver(() => {
-      scheduleCheck();
-    });
-
-    observer.observe(rootEl, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['class', 'style', 'hidden', 'aria-hidden'],
-    });
-
-    // Initial check
-    scheduleCheck();
   }
 
   public lock(id: string) {
@@ -221,7 +41,7 @@ class ScrollLockManager {
   }
 
   private evaluateLockState() {
-    const shouldLock = this.explicitLocks.size > 0 || this.autoDetectedLocks.size > 0;
+    const shouldLock = this.explicitLocks.size > 0;
 
     if (shouldLock && !this.isCurrentlyLocked) {
       this.applyLock();
@@ -234,22 +54,14 @@ class ScrollLockManager {
     this.isCurrentlyLocked = true;
     this.savedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
 
-    // Measure scrollbar width to prevent horizontal jump
+    // Measure scrollbar width to prevent layout shift on desktop
     const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
 
     document.documentElement.classList.add('modal-open');
     document.body.classList.add('modal-open');
 
     document.documentElement.style.overflow = 'hidden';
-    document.documentElement.style.overscrollBehavior = 'none';
-
     document.body.style.overflow = 'hidden';
-    document.body.style.overscrollBehavior = 'none';
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${this.savedScrollY}px`;
-    document.body.style.left = '0';
-    document.body.style.right = '0';
-    document.body.style.width = '100%';
 
     if (scrollbarWidth > 0) {
       document.body.style.paddingRight = `${scrollbarWidth}px`;
@@ -275,11 +87,13 @@ class ScrollLockManager {
     document.body.style.width = '';
     document.body.style.paddingRight = '';
 
-    // Instantly restore scroll position without smooth scrolling jump
-    const originalBehavior = document.documentElement.style.scrollBehavior;
-    document.documentElement.style.scrollBehavior = 'auto';
-    window.scrollTo(0, targetY);
-    document.documentElement.style.scrollBehavior = originalBehavior;
+    // Instantly restore scroll position
+    if (typeof window !== 'undefined' && targetY > 0) {
+      const originalBehavior = document.documentElement.style.scrollBehavior;
+      document.documentElement.style.scrollBehavior = 'auto';
+      window.scrollTo(0, targetY);
+      document.documentElement.style.scrollBehavior = originalBehavior;
+    }
   }
 
   public isLocked(): boolean {
@@ -288,8 +102,7 @@ class ScrollLockManager {
 
   public forceUnlock() {
     this.explicitLocks.clear();
-    this.autoDetectedLocks.clear();
-    this.evaluateLockState();
+    this.removeLock();
   }
 }
 

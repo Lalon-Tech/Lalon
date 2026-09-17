@@ -600,7 +600,7 @@ export const AgreementsView: React.FC = () => {
             <div><strong>{isBn ? 'মোবাইল:' : 'Mobile:'}</strong> {member?.phone}</div>
             <div><strong>{isBn ? 'জাতীয় পরিচয়পত্র:' : 'NID:'}</strong> {member?.nid}</div>
             <div><strong>{isBn ? 'পেশা:' : 'Occupation:'}</strong> {member?.occupation}</div>
-            <div><strong>{isBn ? 'শেয়ার সংখ্যা:' : 'Share Count:'}</strong> {toBengaliNumber(member?.shareCount || 0)} {isBn ? 'টি' : 'Shares'} ({formatCurrency(member?.shareValue || 0, useBengaliDigits)})</div>
+            <div><strong>{isBn ? 'শেয়ার সংখ্যা:' : 'Share Count:'}</strong> {toBengaliNumber(member?.shareCount || 0)} {isBn ? 'টি' : 'Shares'} ({formatCurrency((member?.shareCount || 0) === 0 ? 0 : (member?.shareValue || 0), useBengaliDigits)})</div>
             <div><strong>{isBn ? 'ভর্তি ফি:' : 'Admission Fee:'}</strong> {formatCurrency(member?.admissionFee || 500, useBengaliDigits)}</div>
           </div>
 
@@ -960,7 +960,7 @@ export const AgreementsView: React.FC = () => {
           </div>
 
           <div className="text-sm font-sans leading-loose max-w-2xl mx-auto text-slate-800">
-            এই মর্মে প্রত্যয়ন করা যাইতেছে যে, জনাব/জনাবা <strong>{member?.name}</strong>, সদস্য নং: <strong>{member?.memberNo}</strong>, জাতীয় পরিচয়পত্র নং: <strong>{member?.nid}</strong>, {settings.somitiName}-এর একজন সক্রিয় ও বৈধ অংশীদার। তিনি সমিতিতে <strong>{toBengaliNumber(member?.shareCount || 50)}</strong> টি শেয়ার বাবদ মূলধন <strong>{formatCurrency(member?.shareValue || 5000, useBengaliDigits)}</strong> টাকা এবং নিয়মিত সঞ্চয় আমানত জমা রাখিয়াছেন।
+            এই মর্মে প্রত্যয়ন করা যাইতেছে যে, জনাব/জনাবা <strong>{member?.name}</strong>, সদস্য নং: <strong>{member?.memberNo}</strong>, জাতীয় পরিচয়পত্র নং: <strong>{member?.nid}</strong>, {settings.somitiName}-এর একজন সক্রিয় ও বৈধ অংশীদার। তিনি সমিতিতে <strong>{toBengaliNumber(member?.shareCount || 0)}</strong> টি শেয়ার বাবদ মূলধন <strong>{formatCurrency((member?.shareCount || 0) === 0 ? 0 : (member?.shareValue || 0), useBengaliDigits)}</strong> টাকা এবং নিয়মিত সঞ্চয় আমানত জমা রাখিয়াছেন।
           </div>
 
           <div className="pt-16 grid grid-cols-2 gap-16 text-center text-xs font-sans">
