@@ -71,7 +71,8 @@ export const NewMemberModal: React.FC<NewMemberModalProps> = ({ isOpen, onClose,
       return;
     }
 
-    const shareVal = (shareCount || 0) * (settings.sharePricePerUnit || 1000);
+    // Share Capital is not calculated based on the number of shares purchased
+    const shareVal = 0;
 
     const newMember = addMember({
       name: name.trim(),

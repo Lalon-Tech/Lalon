@@ -199,12 +199,12 @@ export const BuyShareModal: React.FC<BuyShareModalProps> = ({
               <h3 className="text-base font-bold">
                 {isMemberLocked && currentMember
                   ? (isBn ? `${currentMember.name}-এর নতুন শেয়ার ক্রয়` : `Buy Shares for ${currentMember.name}`)
-                  : (isBn ? 'নতুন শেয়ার ক্রয় ও মূলধন জমা ভাউচার' : 'Buy New Shares & Capital Deposit')}
+                  : (isBn ? 'নতুন শেয়ার ক্রয় ভাউচার' : 'Buy New Shares Voucher')}
               </h3>
               <p className="text-xs text-blue-100">
                 {isMemberLocked && currentMember
-                  ? (isBn ? `সদস্য নং: #${currentMember.memberNo} • শেয়ারভিত্তিক প্রাথমিক জমা ও মূলধন বৃদ্ধি` : `Member #${currentMember.memberNo} • Individual Share Initial Deposits`)
-                  : (isBn ? 'সদস্যের নতুন শেয়ার ও শেয়ারভিত্তিক পৃথক প্রাথমিক জমা এন্ট্রি' : 'Purchase new shares with separate initial deposits')}
+                  ? (isBn ? `সদস্য নং: #${currentMember.memberNo} • শেয়ার ক্রয় ও মূল্য বিবরণ` : `Member #${currentMember.memberNo} • Share Purchase Details`)
+                  : (isBn ? 'সদস্যের নতুন শেয়ার ক্রয় এন্ট্রি' : 'Purchase new shares for member')}
               </p>
             </div>
           </div>
@@ -416,7 +416,7 @@ export const BuyShareModal: React.FC<BuyShareModalProps> = ({
           {/* Total & Summary Card */}
           <div className="bg-gradient-to-br from-slate-900 to-blue-950 text-white rounded-xl p-4 space-y-2.5 shadow-md">
             <div className="flex justify-between items-center text-slate-300 text-xs">
-              <span>{isBn ? 'মোট শেয়ার ক্রয় ও মূলধন জমা:' : 'Total Capital Deposit:'}</span>
+              <span>{isBn ? 'মোট শেয়ার ক্রয়ের মূল্য:' : 'Total Share Purchase Amount:'}</span>
               <span className="font-black text-emerald-400 text-base font-mono">
                 {formatCurrency(totalAmount, isBn && useBengaliDigits)}
               </span>

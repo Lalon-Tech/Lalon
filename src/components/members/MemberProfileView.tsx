@@ -976,7 +976,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                     </span>
                   </div>
                   <div className="py-2.5 flex items-center justify-between gap-4">
-                    <span className="text-slate-500 font-medium">Share Capital & Deposits / শেয়ার মূলধন ও জমা</span>
+                    <span className="text-slate-500 font-medium">{isBn ? 'শেয়ার মূলধন' : 'Share Capital'}</span>
                     <span className="font-bold text-amber-600 text-right font-mono">
                       ৳{formatCurrency(member.shareValue, isBn && useBengaliDigits)}
                     </span>
@@ -1389,7 +1389,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                 <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl relative overflow-hidden">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-semibold text-amber-900 block">
-                      {isBn ? 'সক্রিয় শেয়ার মূলধন / Active Share Capital' : 'Active Share Capital'}
+                      {isBn ? 'সক্রিয় শেয়ার / Active Shares' : 'Active Shares'}
                     </span>
                     <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900 font-mono">
                       {isBn ? 'মোট শেয়ার' : 'Total Shares'}
@@ -1737,15 +1737,15 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                           {isBn ? 'সক্রিয় শেয়ার ও শেয়ারভিত্তিক পৃথক প্রাথমিক ও মোট জমা বিবরণী' : 'Active Shares & Share-wise Deposits Ledger'}
                         </h4>
                         <p className="text-xs text-slate-500">
-                          {isBn ? 'প্রতিটি শেয়ারের পৃথক প্রাথমিক মূলধন জমা ও অর্জিত সঞ্চয়ের বিবরণ' : 'Separate initial capital deposits and accumulated balance per share'}
+                          {isBn ? 'প্রতিটি শেয়ারের পৃথক জমা ও অর্জিত সঞ্চয়ের বিবরণ' : 'Separate deposits and accumulated balance per share'}
                         </p>
                       </div>
                     </div>
 
                     <div className="bg-blue-50/80 px-3 py-1.5 rounded-xl border border-blue-200 text-xs font-bold text-blue-800">
-                      {isBn ? 'মোট শেয়ার মূলধন:' : 'Total Share Capital:'}{' '}
+                      {isBn ? 'মোট সক্রিয় শেয়ার:' : 'Total Active Shares:'}{' '}
                       <span className="font-mono text-blue-900">
-                        {formatCurrency(shareWiseBreakdown.reduce((sum, s) => sum + s.initialDeposit, 0), isBn && useBengaliDigits)}
+                        {displayCount(member.shareCount || 0)} {isBn ? 'টি' : 'Shares'}
                       </span>
                     </div>
                   </div>
@@ -1755,7 +1755,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                       <thead>
                         <tr className="bg-slate-50 text-slate-700 border-b border-slate-200 font-bold">
                           <th className="py-2.5 px-3">{isBn ? 'শেয়ার নং' : 'Share No.'}</th>
-                          <th className="py-2.5 px-3 text-right">{isBn ? 'প্রাথমিক মূলধন জমা (৳)' : 'Initial Deposit (৳)'}</th>
+                          <th className="py-2.5 px-3 text-right">{isBn ? 'শেয়ার ক্রয় মূল্য (৳)' : 'Purchase Price (৳)'}</th>
                           <th className="py-2.5 px-3 text-right">{isBn ? 'মাসিক কিস্তি সঞ্চয় (৳)' : 'Monthly Savings (৳)'}</th>
                           <th className="py-2.5 px-3 text-right">{isBn ? 'মোট জমা (৳)' : 'Total Balance (৳)'}</th>
                           <th className="py-2.5 px-3 text-center">{isBn ? 'ক্রয় তারিখ / ভাউচার' : 'Date / Voucher'}</th>

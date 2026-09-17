@@ -64,7 +64,7 @@ export const ShareClosureModal: React.FC<ShareClosureModalProps> = ({
 
   const currentMember = members.find(m => m.id === selectedMemberId);
   const totalActiveShares = Number(currentMember?.shareCount) || 0;
-  const currentShareVal = Number(currentMember?.shareValue) || (totalActiveShares * unitPrice);
+  const currentShareVal = Number(currentMember?.shareValue) || 0;
 
   const principalRefund = Math.max(0, sharesToClose * unitPrice);
   const totalRefundAmount = principalRefund + (Number(profitAmount) || 0);

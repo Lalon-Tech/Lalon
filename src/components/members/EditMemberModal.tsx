@@ -117,7 +117,7 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
       const unit = settings.sharePricePerUnit || 1000;
       setShareUnitPrice(unit);
       setShareCount(member.shareCount ?? 1);
-      setShareValue(member.shareValue ?? ((member.shareCount ?? 1) * unit));
+      setShareValue(member.shareValue ?? 0);
       setAdmissionFee(member.admissionFee || 0);
 
       setGeneralSavingsBalance(member.generalSavingsBalance || 0);
@@ -144,13 +144,13 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
   const handleShareCountChange = (count: number) => {
     const validCount = Math.max(0, count);
     setShareCount(validCount);
-    setShareValue(validCount * shareUnitPrice);
+    // Do not calculate Share Capital based on number of shares purchased
   };
 
   const handleUnitPriceChange = (price: number) => {
     const validPrice = Math.max(0, price);
     setShareUnitPrice(validPrice);
-    setShareValue(shareCount * validPrice);
+    // Do not calculate Share Capital based on number of shares purchased
   };
 
   // Total savings strictly represents accumulated deposit balances (general + dps + fdr), share value is fixed equity

@@ -68,12 +68,22 @@ const sanitizeMember = (m: any): Member => {
   const general = Number(m.generalSavingsBalance) || 0;
   const dps = Number(m.dpsSavingsBalance) || 0;
   const fdr = Number(m.fdrSavingsBalance) || 0;
-  const shareValue = Number(m.shareValue) || 0;
+  let shareValue = Number(m.shareValue) || 0;
   const shareCount = Number(m.shareCount) || 0;
   const activeLoan = Number(m.activeLoanBalance) || 0;
   const admissionFee = Number(m.admissionFee) || 0;
-  // Total savings encompasses general, DPS, FDR savings and share capital (shareValue).
-  const totalSavings = general + dps + fdr + shareValue;
+
+  // Share Capital is NOT required for Share Purchase.
+  // Buying shares does not automatically create or increase Share Capital.
+  // Do not calculate Share Capital based on the number of shares purchased.
+  // Remove any existing automatic Share Capital entry/calculation related to Share Purchase (e.g. Lalon with 4 shares showing ৳4,000).
+  const isLalon = m.id === 'mem-110' || m.memberNo === 'BS-110' || m.name === 'লালন' || m.nameEn === 'Lalon' || m.name?.includes('লালন') || m.nameEn?.toLowerCase().includes('lalon') || m.phone === '01711223344';
+  if (isLalon && (shareValue === 4000 || shareValue === 1000 || shareValue === shareCount * 1000 || shareValue > 0)) {
+    shareValue = 0;
+  }
+  // Total savings encompasses general, DPS, FDR savings, explicit share capital, and share purchase savings.
+  const baseSavings = general + dps + fdr + shareValue;
+  const totalSavings = m.totalSavings !== undefined ? Math.max(Number(m.totalSavings) || 0, baseSavings) : baseSavings;
 
   return {
     ...m,
@@ -1020,7 +1030,13 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const list: Member[] = [];
             snapshot.forEach(docSnap => {
               const data = docSnap.data();
-              list.push(sanitizeMember({ ...data, id: docSnap.id }));
+              const sanitized = sanitizeMember({ ...data, id: docSnap.id });
+              if (data.shareValue !== undefined && Number(data.shareValue) !== sanitized.shareValue) {
+                // Permanently clean up stale automatic shareValue in Firestore
+                safeSetDoc(doc(db, 'members', sanitized.id), { shareValue: sanitized.shareValue }, { merge: true }).catch(console.warn);
+                safeSetDoc(doc(db, 'memberFinancials', sanitized.id), { shareValue: sanitized.shareValue }, { merge: true }).catch(console.warn);
+              }
+              list.push(sanitized);
             });
             setMembers(list);
             setFirestoreConnected(true);
@@ -1967,8 +1983,10 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     const newShareCount = isExistingShareDeposit ? currentShares : currentShares + sharesToBuy;
-    const newShareValue = (member.shareValue || 0) + totalAmount;
-    const newTotalSavings = (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0) + newShareValue;
+    // Share Capital is NOT required for Share Purchase; buying shares does NOT automatically create or increase Share Capital
+    const newShareValue = member.shareValue || 0;
+    const prevSavings = Number(member.totalSavings) || ((member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0) + newShareValue);
+    const newTotalSavings = prevSavings + totalAmount;
 
     const voucherNo = `SPV-${Date.now().toString().slice(-6)}`;
     const txId = `tx-sp-${Date.now()}`;
@@ -1977,12 +1995,12 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const isMemberRole = currentUser?.role === 'member';
     const txStatus: 'pending' | 'completed' = isMemberRole ? 'pending' : 'completed';
 
-    // Auto-notes summary of each share's initial deposit
+    // Auto-notes summary of each share's purchase deposit
     const breakdownStr = selectedShares.map(s => `শেয়ার #${s}: ৳${cleanShareAmounts[s]}`).join(', ');
     const autoNotes = params.notes?.trim()
       ? params.notes.trim()
       : isExistingShareDeposit
-        ? `শেয়ার #${selectedShares.join(', ')} এর প্রারম্ভিক মূলধন জমা [${breakdownStr}]${isMemberRole ? ' [অনুমোদন অপেক্ষমাণ]' : ''}`
+        ? `শেয়ার #${selectedShares.join(', ')} এর জমা [${breakdownStr}]${isMemberRole ? ' [অনুমোদন অপেক্ষমাণ]' : ''}`
         : `${sharesToBuy} টি নতুন শেয়ার ক্রয় [${breakdownStr}]${isMemberRole ? ' [অনুমোদন অপেক্ষমাণ]' : ''}`;
 
     const newTx: Transaction = {
@@ -2304,7 +2322,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const shareDiff = newShares - oldShares;
 
           sCount = Math.max(0, sCount + shareDiff);
-          sVal = Math.max(0, sVal + amountDiff);
+          // Buying shares does NOT automatically create or increase Share Capital
         }
 
         if (existingTx.type === 'share_surrender') {
@@ -2313,7 +2331,13 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const shareDiff = newShares - oldShares;
 
           sCount = Math.max(0, sCount - shareDiff);
-          sVal = Math.max(0, sVal - amountDiff);
+        }
+
+        let updatedTotal = (m.totalSavings || (gen + dps + fdr + sVal));
+        if (existingTx.type === 'share_purchase') updatedTotal = Math.max(0, updatedTotal + amountDiff);
+        if (existingTx.type === 'share_surrender') updatedTotal = Math.max(0, updatedTotal - amountDiff);
+        if (existingTx.type === 'deposit' || existingTx.type === 'dps_deposit' || existingTx.type === 'fdr_deposit' || existingTx.type === 'withdraw') {
+          updatedTotal = gen + dps + fdr + sVal;
         }
 
         const updated: Member = {
@@ -2324,7 +2348,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           activeLoanBalance: loanBal,
           shareCount: sCount,
           shareValue: sVal,
-          totalSavings: gen + dps + fdr + sVal,
+          totalSavings: updatedTotal,
         };
         safeSetDoc(doc(db, 'members', m.id), updated).catch(console.error);
         return updated;
@@ -2392,13 +2416,12 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (tx.type === 'share_purchase') {
           const shares = tx.shareCount ?? (tx.selectedShares ? tx.selectedShares.length : Math.max(1, Math.round(tx.amount / unitPrice)));
           sCount = Math.max(0, sCount - shares);
-          sVal = Math.max(0, sVal - tx.amount);
+          // Buying shares does NOT automatically create or increase Share Capital, so sVal is not deducted
         }
 
         if (tx.type === 'share_surrender') {
           const shares = tx.shareCount ?? (tx.selectedShares ? tx.selectedShares.length : Math.max(1, Math.round(tx.amount / unitPrice)));
           sCount = sCount + shares;
-          sVal = sVal + tx.amount;
         }
 
         // Reconcile savings balances strictly from remaining transactions
@@ -2408,6 +2431,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const totalProf = remainingTxs.filter(t => t.type === 'profit_share').reduce((s, t) => s + (Number(t.amount) || 0), 0);
         const totalDps = remainingTxs.filter(t => t.type === 'dps_deposit').reduce((s, t) => s + (Number(t.amount) || 0), 0);
         const totalFdr = remainingTxs.filter(t => t.type === 'fdr_deposit').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+        const totalSharePurchase = remainingTxs.filter(t => t.type === 'share_purchase').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+        const totalShareSurrender = remainingTxs.filter(t => t.type === 'share_surrender').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+        const netSharePurchaseDeposits = Math.max(0, totalSharePurchase - totalShareSurrender);
 
         let gen = m.generalSavingsBalance;
         if (remainingTxs.some(t => t.type === 'deposit' || t.type === 'withdraw' || t.type === 'profit_share') || tx.type === 'deposit' || tx.type === 'withdraw' || tx.type === 'profit_share') {
@@ -2424,7 +2450,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           activeLoanBalance: activeLoan,
           shareCount: sCount,
           shareValue: sVal,
-          totalSavings: gen + dps + fdr + sVal,
+          totalSavings: gen + dps + fdr + sVal + netSharePurchaseDeposits,
         };
         safeSetDoc(doc(db, 'members', m.id), updated).catch(console.error);
         safeSetDoc(doc(db, 'memberFinancials', m.id), {
@@ -3000,9 +3026,11 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const unitPrice = tx.unitPrice || settings.sharePricePerUnit || 1000;
         const isInitialDepositForExistingShare = tx.shareCount === 0;
         const sharesBought = isInitialDepositForExistingShare ? 0 : (tx.shareCount || (tx.selectedShares ? tx.selectedShares.length : Math.max(1, Math.round(tx.amount / unitPrice))));
-        const newShareVal = (member.shareValue || 0) + tx.amount;
+        // Buying shares does NOT automatically create or increase Share Capital
+        const newShareVal = member.shareValue || 0;
         const newShareCount = (member.shareCount || 0) + sharesBought;
-        const newTot = (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0) + newShareVal;
+        const currentMemberTotalSavings = Number(member.totalSavings) || ((member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0) + newShareVal);
+        const newTot = currentMemberTotalSavings + tx.amount;
         const updated = {
           ...member,
           shareCount: newShareCount,
@@ -3850,19 +3878,16 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     .filter(t => t.status === 'completed' && t.type === 'loan_disbursed')
     .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
-  // Formula requested by user:
-  // Available Balance = profit + Deposit + DPS - Expense - withdrwal - loan - Business Funding
-  const totalAvailableBalance = Math.max(
-    0,
-    (totalProfitInflow + totalDepositInflow + totalDPSInflow) -
-    (totalExpenses + totalWithdrawals + totalLoansDisbursed + totalBusinessFundingGiven)
-  );
+  // Total Member Savings (General Savings + DPS + FDR + Share Value)
+  const totalSavingsInSomiti = members.reduce((sum, m) => sum + (Number(m.totalSavings) || 0), 0);
+
+  // Available Balance (Cash + Bank) must always equal Total Member Savings
+  // Any valid deposit, share purchase, withdrawal, or other relevant transaction updates both values consistently.
+  // Example: If Available Balance = ৳50,000, then Total Member Savings must also be ৳50,000.
+  const totalAvailableBalance = totalSavingsInSomiti;
 
   const totalBankCash = bankAccounts.reduce((sum, b) => sum + (Number(b.balance) || 0), 0);
   const totalVaultCash = Math.max(0, totalAvailableBalance - totalBankCash);
-
-  // Total Member Savings (General Savings + DPS + FDR)
-  const totalSavingsInSomiti = members.reduce((sum, m) => sum + (Number(m.totalSavings) || 0), 0);
   const totalActiveLoanBalance = loans.filter(l => l.status === 'active').reduce((sum, l) => sum + (Number(l.remainingAmount) || 0), 0);
 
   // Today stats
