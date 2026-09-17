@@ -232,7 +232,7 @@ export const DashboardView: React.FC = () => {
                 <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                   {myTransactions.slice(0, 5).map(tx => {
                     const typeInfo = getTransactionTypeName(tx.type, isBn);
-                    const isCredit = ['deposit', 'dps_deposit', 'fdr_deposit', 'profit_share'].includes(tx.type);
+                    const isCredit = typeInfo.isCredit;
                     return (
                       <tr key={tx.id} className="hover:bg-slate-50 transition-colors">
                         <td className="py-3 text-slate-500">{tx.date}</td>

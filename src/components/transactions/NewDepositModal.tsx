@@ -58,7 +58,7 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
   lockMember,
   isEmbedded = false
 }) => {
-  useModalScrollLock(isOpen);
+  useModalScrollLock(!isEmbedded && isOpen);
   const { language } = useLanguage();
   const isBn = language === 'bn';
 
@@ -1187,7 +1187,7 @@ export const NewDepositModal: React.FC<NewDepositModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-start sm:items-center justify-center animate-fadeIn py-6 sm:py-10">
       {modalContent}
     </div>
   );

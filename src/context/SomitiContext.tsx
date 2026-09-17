@@ -72,9 +72,8 @@ const sanitizeMember = (m: any): Member => {
   const shareCount = Number(m.shareCount) || 0;
   const activeLoan = Number(m.activeLoanBalance) || 0;
   const admissionFee = Number(m.admissionFee) || 0;
-  // Total savings strictly represents accumulated member savings deposits (general + dps + fdr).
-  // Share capital (shareValue) is distinct capital and tracked separately.
-  const totalSavings = general + dps + fdr;
+  // Total savings encompasses general, DPS, FDR savings and share capital (shareValue).
+  const totalSavings = general + dps + fdr + shareValue;
 
   return {
     ...m,
@@ -1592,7 +1591,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       generalSavingsBalance: 0,
       dpsSavingsBalance: 0,
       fdrSavingsBalance: 0,
-      totalSavings: 0,
+      totalSavings: Number(memberData.shareValue) || 0,
       activeLoanBalance: 0,
     };
 
@@ -1800,7 +1799,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const totalRefundAmount = principalAmount + profitAmount;
     const remainingShares = Math.max(0, currentShares - sharesToClose);
     const remainingShareValue = Math.max(0, (member.shareValue || 0) - principalAmount);
-    const remainingTotalSavings = (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0);
+    const remainingTotalSavings = (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0) + remainingShareValue;
 
     const voucherNo = `SCV-${Date.now().toString().slice(-6)}`;
     const txId = `tx-sc-${Date.now()}`;
@@ -1969,7 +1968,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const newShareCount = isExistingShareDeposit ? currentShares : currentShares + sharesToBuy;
     const newShareValue = (member.shareValue || 0) + totalAmount;
-    const newTotalSavings = (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0);
+    const newTotalSavings = (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0) + newShareValue;
 
     const voucherNo = `SPV-${Date.now().toString().slice(-6)}`;
     const txId = `tx-sp-${Date.now()}`;
@@ -2159,14 +2158,14 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         generalSavingsBalance: gen,
         dpsSavingsBalance: dps,
         fdrSavingsBalance: fdr,
-        totalSavings: gen + dps + fdr,
+        totalSavings: gen + dps + fdr + (m.shareValue || 0),
       };
       safeSetDoc(doc(db, 'members', m.id), updated).catch(console.error);
       safeSetDoc(doc(db, 'memberFinancials', m.id), {
         generalSavingsBalance: gen,
         dpsSavingsBalance: dps,
         fdrSavingsBalance: fdr,
-        totalSavings: gen + dps + fdr,
+        totalSavings: gen + dps + fdr + (m.shareValue || 0),
         updatedAt: new Date().toISOString(),
       }, { merge: true }).catch(console.error);
       return updated;
@@ -2248,12 +2247,12 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const updated = {
         ...m,
         generalSavingsBalance: gen,
-        totalSavings: gen + m.dpsSavingsBalance + m.fdrSavingsBalance,
+        totalSavings: gen + (m.dpsSavingsBalance || 0) + (m.fdrSavingsBalance || 0) + (m.shareValue || 0),
       };
       safeSetDoc(doc(db, 'members', m.id), updated).catch(console.error);
       safeSetDoc(doc(db, 'memberFinancials', m.id), {
         generalSavingsBalance: gen,
-        totalSavings: gen + m.dpsSavingsBalance + m.fdrSavingsBalance,
+        totalSavings: gen + (m.dpsSavingsBalance || 0) + (m.fdrSavingsBalance || 0) + (m.shareValue || 0),
         updatedAt: new Date().toISOString(),
       }, { merge: true }).catch(console.error);
       return updated;
@@ -2325,7 +2324,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           activeLoanBalance: loanBal,
           shareCount: sCount,
           shareValue: sVal,
-          totalSavings: gen + dps + fdr,
+          totalSavings: gen + dps + fdr + sVal,
         };
         safeSetDoc(doc(db, 'members', m.id), updated).catch(console.error);
         return updated;
@@ -2425,14 +2424,14 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           activeLoanBalance: activeLoan,
           shareCount: sCount,
           shareValue: sVal,
-          totalSavings: gen + dps + fdr,
+          totalSavings: gen + dps + fdr + sVal,
         };
         safeSetDoc(doc(db, 'members', m.id), updated).catch(console.error);
         safeSetDoc(doc(db, 'memberFinancials', m.id), {
           generalSavingsBalance: gen,
           dpsSavingsBalance: dps,
           fdrSavingsBalance: fdr,
-          totalSavings: gen + dps + fdr,
+          totalSavings: gen + dps + fdr + sVal,
           updatedAt: new Date().toISOString()
         }, { merge: true }).catch(console.error);
         return updated;
@@ -2939,7 +2938,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (member) {
       if (tx.type === 'deposit') {
         const newGen = (member.generalSavingsBalance || 0) + tx.amount;
-        const newTot = newGen + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0);
+        const newTot = newGen + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0) + (member.shareValue || 0);
         const updated = {
           ...member,
           generalSavingsBalance: newGen,
@@ -2954,7 +2953,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }, { merge: true }).catch(console.error);
       } else if (tx.type === 'dps_deposit') {
         const newDps = (member.dpsSavingsBalance || 0) + tx.amount;
-        const newTot = (member.generalSavingsBalance || 0) + newDps + (member.fdrSavingsBalance || 0);
+        const newTot = (member.generalSavingsBalance || 0) + newDps + (member.fdrSavingsBalance || 0) + (member.shareValue || 0);
         const updated = {
           ...member,
           dpsSavingsBalance: newDps,
@@ -2969,7 +2968,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }, { merge: true }).catch(console.error);
       } else if (tx.type === 'fdr_deposit') {
         const newFdr = (member.fdrSavingsBalance || 0) + tx.amount;
-        const newTot = (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + newFdr;
+        const newTot = (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + newFdr + (member.shareValue || 0);
         const updated = {
           ...member,
           fdrSavingsBalance: newFdr,
@@ -2984,7 +2983,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }, { merge: true }).catch(console.error);
       } else if (tx.type === 'withdraw') {
         const newGen = Math.max(0, (member.generalSavingsBalance || 0) - tx.amount);
-        const newTot = newGen + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0);
+        const newTot = newGen + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0) + (member.shareValue || 0);
         const updated = {
           ...member,
           generalSavingsBalance: newGen,
@@ -3003,7 +3002,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const sharesBought = isInitialDepositForExistingShare ? 0 : (tx.shareCount || (tx.selectedShares ? tx.selectedShares.length : Math.max(1, Math.round(tx.amount / unitPrice))));
         const newShareVal = (member.shareValue || 0) + tx.amount;
         const newShareCount = (member.shareCount || 0) + sharesBought;
-        const newTot = (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0);
+        const newTot = (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0) + newShareVal;
         const updated = {
           ...member,
           shareCount: newShareCount,
@@ -3023,7 +3022,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const sharesClosed = tx.shareCount || (tx.selectedShares ? tx.selectedShares.length : Math.max(1, Math.round(tx.amount / unitPrice)));
         const newShareVal = Math.max(0, (member.shareValue || 0) - tx.amount);
         const newShareCount = Math.max(0, (member.shareCount || 0) - sharesClosed);
-        const newTot = (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0);
+        const newTot = (member.generalSavingsBalance || 0) + (member.dpsSavingsBalance || 0) + (member.fdrSavingsBalance || 0) + newShareVal;
         const updated = {
           ...member,
           shareCount: newShareCount,
@@ -4477,7 +4476,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const updated = {
         ...m,
         generalSavingsBalance: newGen,
-        totalSavings: newGen + m.dpsSavingsBalance + m.fdrSavingsBalance,
+        totalSavings: newGen + (m.dpsSavingsBalance || 0) + (m.fdrSavingsBalance || 0) + (m.shareValue || 0),
       };
       safeSetDoc(doc(db, 'members', m.id), updated).catch(console.error);
       return updated;

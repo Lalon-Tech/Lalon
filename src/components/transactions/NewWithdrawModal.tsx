@@ -21,7 +21,7 @@ export const NewWithdrawModal: React.FC<NewWithdrawModalProps> = ({
   lockMember,
   isEmbedded = false 
 }) => {
-  useModalScrollLock(isOpen);
+  useModalScrollLock(!isEmbedded && isOpen);
   const { language } = useLanguage();
   const isBn = language === 'bn';
 
