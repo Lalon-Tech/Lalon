@@ -1,4 +1,4 @@
-export type MemberStatus = 'active' | 'inactive' | 'pending' | 'defaulter' | 'rejected';
+export type MemberStatus = 'active' | 'inactive' | 'pending' | 'defaulter' | 'rejected' | 'deleted';
 
 export type Gender = 'male' | 'female' | 'other';
 
@@ -161,6 +161,11 @@ export interface Member {
   assignedCollectorId?: string;
   notes?: string;
   rejectionReason?: string;
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
+  deletionReason?: string;
+  previousStatus?: MemberStatus;
 }
 
 export interface Transaction {

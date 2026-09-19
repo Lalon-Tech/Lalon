@@ -112,6 +112,11 @@ const sanitizeMember = (m: any): Member => {
     totalSavings,
     activeLoanBalance: activeLoan,
     nominees: Array.isArray(m.nominees) ? m.nominees : [],
+    isDeleted: Boolean(m.isDeleted),
+    deletedAt: m.deletedAt || undefined,
+    deletedBy: m.deletedBy || undefined,
+    deletionReason: m.deletionReason || undefined,
+    previousStatus: m.previousStatus || undefined,
   };
 };
 
@@ -395,7 +400,10 @@ interface SomitiContextType {
   // Actions - Members & Shares
   addMember: (memberData: Omit<Member, 'id' | 'memberNo' | 'totalSavings' | 'generalSavingsBalance' | 'dpsSavingsBalance' | 'fdrSavingsBalance' | 'activeLoanBalance'>) => Member;
   updateMember: (id: string, memberData: Partial<Member>) => void;
-  deleteMember: (id: string) => Promise<boolean>;
+  deleteMember: (id: string, reason?: string) => Promise<boolean>;
+  moveToRecycleBin: (id: string, reason?: string) => Promise<boolean>;
+  restoreMemberFromRecycleBin: (id: string) => Promise<boolean>;
+  permanentlyDeleteMember: (id: string) => Promise<boolean>;
   validateMemberRemovalStatus: (memberId: string) => MemberRemovalValidationResult;
   importMembersFromList: (newMembers: Member[]) => void;
   closeMemberShares: (params: {
@@ -599,6 +607,7 @@ interface SomitiContextType {
   totalBusinessCapital: number;
   totalSavingsInSomiti: number;
   totalActiveLoanBalance: number;
+  totalApprovedProfit: number;
   todayStats: {
     collection: number;
     disbursement: number;
@@ -1876,41 +1885,158 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
-  const deleteMember = async (id: string): Promise<boolean> => {
+  const moveToRecycleBin = async (id: string, reason?: string): Promise<boolean> => {
     try {
       const targetMember = members.find(m => m.id === id);
       if (!targetMember) return false;
 
-      // Strict validation before removal
-      const validation = validateMemberRemoval(targetMember, {
-        loans,
-        savingsSchemes,
-        businessFundings,
-        profitDistributions,
-        businessProfitRecords,
-        transactions,
-        settings
+      const now = new Date().toISOString();
+      const deletedBy = currentUser?.name || 'Admin';
+      const prevStatus = targetMember.status || 'active';
+
+      const updatedMember: Member = {
+        ...targetMember,
+        status: 'deleted',
+        isDeleted: true,
+        deletedAt: now,
+        deletedBy,
+        deletionReason: reason || undefined,
+        previousStatus: prevStatus,
+      };
+
+      // Soft delete: keep member and ALL financial records, shares, deposits, loans, transactions intact
+      setMembers(prev => prev.map(m => m.id === id ? updatedMember : m));
+
+      // Update Firestore doc
+      const memberRef = doc(db, 'members', id);
+      await safeSetDoc(memberRef, {
+        status: 'deleted',
+        isDeleted: true,
+        deletedAt: now,
+        deletedBy,
+        deletionReason: reason || null,
+        previousStatus: prevStatus
+      }, { merge: true });
+
+      addAuditLog({
+        action: 'DELETE',
+        entity: 'Member',
+        entityId: id,
+        details: `সদস্য #${targetMember.memberNo} (${targetMember.name})-কে রিসাইকেল বিনে স্থানান্তর করা হয়েছে${reason ? `। কারণ: ${reason}` : ''}। সকল আর্থিক ডাটা ও হিস্ট্রি অক্ষুণ্ণ রয়েছে।`,
+        performedBy: deletedBy,
       });
-
-      if (!validation.canRemove) {
-        console.warn(`Cannot delete member ${targetMember.name}: financial obligations or pending records exist`, validation.pendingRecords);
-        return false;
-      }
-
-      // Safe deletion of member profile from active member directory
-      setMembers(prev => prev.filter(m => m.id !== id));
-      await deleteDoc(doc(db, 'members', id));
-      await deleteDoc(doc(db, 'memberFinancials', id)).catch(() => {});
-
-      // Note: Completed historical transactions, cleared loans, and closed savings schemes
-      // are intentionally preserved in the system ledger to ensure that cash registers,
-      // historical financial reports, past profit distribution records, and audit logs remain 100% accurate.
 
       return true;
     } catch (err) {
-      console.error('Error deleting member from Firestore:', err);
+      console.error('Error moving member to Recycle Bin:', err);
       return false;
     }
+  };
+
+  const restoreMemberFromRecycleBin = async (id: string): Promise<boolean> => {
+    try {
+      const targetMember = members.find(m => m.id === id);
+      if (!targetMember) return false;
+
+      const restoredStatus: Member['status'] = (targetMember.previousStatus && targetMember.previousStatus !== 'deleted')
+        ? targetMember.previousStatus
+        : 'active';
+
+      const restoredMember: Member = {
+        ...targetMember,
+        status: restoredStatus,
+        isDeleted: false,
+        deletedAt: undefined,
+        deletedBy: undefined,
+        deletionReason: undefined,
+        previousStatus: undefined
+      };
+
+      setMembers(prev => prev.map(m => m.id === id ? restoredMember : m));
+
+      const memberRef = doc(db, 'members', id);
+      await safeSetDoc(memberRef, {
+        status: restoredStatus,
+        isDeleted: false,
+        deletedAt: null,
+        deletedBy: null,
+        deletionReason: null,
+        previousStatus: null
+      }, { merge: true });
+
+      addAuditLog({
+        action: 'UPDATE',
+        entity: 'Member',
+        entityId: id,
+        details: `সদস্য #${targetMember.memberNo} (${targetMember.name})-কে রিসাইকেল বিন থেকে পুনরায় সক্রিয় তালিকায় পুনরুদ্ধার করা হয়েছে।`,
+        performedBy: currentUser?.name || 'Admin',
+      });
+
+      return true;
+    } catch (err) {
+      console.error('Error restoring member from Recycle Bin:', err);
+      return false;
+    }
+  };
+
+  const permanentlyDeleteMember = async (id: string): Promise<boolean> => {
+    try {
+      const targetMember = members.find(m => m.id === id);
+      if (!targetMember) return false;
+
+      // Permanently remove from Firestore using writeBatch
+      const batch = writeBatch(db);
+      batch.delete(doc(db, 'members', id));
+      batch.delete(doc(db, 'memberFinancials', id));
+
+      const memberLoans = loans.filter(l => l.memberId === id);
+      memberLoans.forEach(l => {
+        batch.delete(doc(db, 'loans', l.id));
+      });
+
+      const memberSavings = savingsSchemes.filter(s => s.memberId === id);
+      memberSavings.forEach(s => {
+        batch.delete(doc(db, 'savings', s.id));
+      });
+
+      const memberTxs = transactions.filter(t => t.memberId === id);
+      memberTxs.forEach(t => {
+        batch.delete(doc(db, 'transactions', t.id));
+      });
+
+      const memberClosures = shareClosures.filter(c => c.memberId === id);
+      memberClosures.forEach(c => {
+        batch.delete(doc(db, 'shareClosures', c.id));
+      });
+
+      await batch.commit();
+
+      // Update React state
+      setMembers(prev => prev.filter(m => m.id !== id));
+      setLoans(prev => prev.filter(l => l.memberId !== id));
+      setSavingsSchemes(prev => prev.filter(s => s.memberId !== id));
+      setTransactions(prev => prev.filter(t => t.memberId !== id));
+      setShareClosures(prev => prev.filter(c => c.memberId !== id));
+      setUsers(prev => prev.map(u => u.memberId === id ? { ...u, memberId: undefined } : u));
+
+      addAuditLog({
+        action: 'DELETE',
+        entity: 'Member',
+        entityId: id,
+        details: `সদস্য #${targetMember.memberNo} (${targetMember.name}) এবং সংশ্লিষ্ট সকল আর্থিক রেকর্ড রিসাইকেল বিন থেকে স্থায়ীভাবে মুছে ফেলা হয়েছে।`,
+        performedBy: currentUser?.name || 'Admin',
+      });
+
+      return true;
+    } catch (err) {
+      console.error('Error permanently deleting member:', err);
+      return false;
+    }
+  };
+
+  const deleteMember = async (id: string, reason?: string): Promise<boolean> => {
+    // User Requirement: When Admin deletes a member, do NOT permanently delete. Move to Recycle Bin instead!
+    return moveToRecycleBin(id, reason);
   };
 
   const importMembersFromList = (newMembers: Member[]) => {
@@ -4173,6 +4299,34 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const totalVaultCash = Math.max(0, totalAvailableBalance - totalBankCash);
   const totalActiveLoanBalance = accounting.totalActiveLoansOut;
 
+  // Total Approved / Recorded Profit calculation
+  // Total Profit = Total Approved/Recorded Profit calculated from actual transaction records
+  // Only approved profit entries are included; pending, rejected, deleted, or cancelled entries are excluded.
+  // Recalculates automatically if any profit entry is edited or deleted.
+  const totalApprovedProfit = useMemo(() => {
+    // 1. Profit from actual completed transactions in the ledger
+    const completedProfitTxs = transactions.filter(t => 
+      t.status === 'completed' && 
+      (t.type === 'profit_share' || t.type === 'business_funding_profit')
+    );
+    const txProfitSum = completedProfitTxs.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+    // 2. Profit from approved business profit records (status === 'completed') that were not distributed as individual transactions
+    const approvedRecords = businessProfitRecords.filter(r => r.status === 'completed');
+    let unlinkedRecordProfit = 0;
+
+    approvedRecords.forEach(r => {
+      const hasDistributedTxs = completedProfitTxs.some(t => 
+        t.id.includes(r.id) || (t.notes && t.notes.includes(r.id))
+      );
+      if (!hasDistributedTxs) {
+        unlinkedRecordProfit += Number(r.somitiProfitAmount || r.profitAmount || r.totalBusinessProfit || 0);
+      }
+    });
+
+    return Number((txProfitSum + unlinkedRecordProfit).toFixed(2));
+  }, [transactions, businessProfitRecords]);
+
   // Granular inflows and outflows for reporting & audits
   const totalDepositInflow = accounting.memberDepositsReceived + accounting.sharePurchaseReceived;
   const totalDPSInflow = transactions
@@ -4730,7 +4884,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return { success: false, count: 0, totalDistributed: 0 };
     }
 
-    const totalDepositBase = reconciledMembers.reduce((sum, m) => {
+    const activeMembers = reconciledMembers.filter(m => !m.isDeleted);
+    const totalDepositBase = activeMembers.reduce((sum, m) => {
       if (params.criteria === 'share_capital') {
         return sum + ((m.shareCount || 0) * (settings.sharePricePerUnit || 1000));
       }
@@ -4746,7 +4901,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let totalCredited = 0;
     let profitSerial = getNextLedgerSerial();
 
-    members.forEach((m, idx) => {
+    activeMembers.forEach((m, idx) => {
       const memberBalance = params.criteria === 'share_capital'
         ? (m.shareCount || 0) * (settings.sharePricePerUnit || 1000)
         : (m.generalSavingsBalance + m.dpsSavingsBalance + m.fdrSavingsBalance);
@@ -5242,7 +5397,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       // 2. Snapshot all member deposits at this exact moment in time (Requirement 8)
-      const memberDepositSnapshots = reconciledMembers.map(m => ({
+      const memberDepositSnapshots = reconciledMembers.filter(m => !m.isDeleted).map(m => ({
         memberId: m.id,
         memberNo: m.memberNo,
         memberName: m.name,
@@ -5429,7 +5584,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const providerNo = record.memberNo || '';
 
       // 1. Snapshot all member deposits at approval moment
-      const memberDepositSnapshots = reconciledMembers.map(m => ({
+      const memberDepositSnapshots = reconciledMembers.filter(m => !m.isDeleted).map(m => ({
         memberId: m.id,
         memberNo: m.memberNo,
         memberName: m.name,
@@ -6380,6 +6535,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         addMember,
         updateMember,
         deleteMember,
+        moveToRecycleBin,
+        restoreMemberFromRecycleBin,
+        permanentlyDeleteMember,
         validateMemberRemovalStatus,
         importMembersFromList,
         closeMemberShares,
@@ -6440,6 +6598,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         totalBusinessCapital,
         totalSavingsInSomiti,
         totalActiveLoanBalance,
+        totalApprovedProfit,
         todayStats,
 
         clearAllData,

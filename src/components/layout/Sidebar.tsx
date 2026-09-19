@@ -67,6 +67,7 @@ export const Sidebar: React.FC<{
 
   const isBn = language === 'bn';
   const pendingLoanCount = loans ? loans.filter(l => l.status === 'pending').length : 0;
+  const recycleBinCount = members ? members.filter(m => m.isDeleted).length : 0;
   const formattedPendingBadge = pendingLoanCount > 0 
     ? (isBn || useBengaliDigits ? toBengaliNumber(pendingLoanCount) : pendingLoanCount.toString()) 
     : undefined;
@@ -185,6 +186,15 @@ export const Sidebar: React.FC<{
               setSelectedMemberId(members[0].id);
             }
             setActiveTab('member_profile');
+          }
+        },
+        { 
+          id: 'recycle_bin', 
+          label: isBn ? 'রিসাইকেল বিন' : 'Recycle Bin',
+          badge: recycleBinCount > 0 ? (isBn || useBengaliDigits ? toBengaliNumber(recycleBinCount) : recycleBinCount.toString()) : undefined,
+          action: () => {
+            setSelectedMemberId(null);
+            setActiveTab('recycle_bin');
           }
         },
       ],
@@ -327,7 +337,7 @@ export const Sidebar: React.FC<{
             const isParentActive = 
               activeTab === item.id || 
               (item.subItems && item.subItems.some(sub => sub.id === activeTab)) ||
-              (item.id === 'members' && (activeTab.startsWith('member') || activeTab === 'new_member' || activeTab === 'all_members' || activeTab === 'active_members')) ||
+              (item.id === 'members' && (activeTab.startsWith('member') || activeTab === 'new_member' || activeTab === 'all_members' || activeTab === 'active_members' || activeTab === 'recycle_bin')) ||
               (item.id === 'transactions' && (activeTab.startsWith('tx_') || activeTab.startsWith('transactions'))) ||
               (item.id === 'loans' && activeTab.startsWith('loans')) ||
               (item.id === 'savings' && activeTab.startsWith('savings')) ||
@@ -383,6 +393,7 @@ export const Sidebar: React.FC<{
                         (sub.id === 'active_members' && (activeTab === 'active_members' || activeTab === 'members_active')) ||
                         (sub.id === 'new_member' && (activeTab === 'new_member' || activeTab === 'members_new')) ||
                         (sub.id === 'member_profile' && (activeTab === 'member_profile' || activeTab === 'members_profile' || (selectedMemberId !== null && (activeTab === 'members' || activeTab.startsWith('members_'))))) ||
+                        (sub.id === 'recycle_bin' && (activeTab === 'recycle_bin' || activeTab === 'member_recycle_bin')) ||
                         (sub.id === 'loans_list' && (activeTab === 'loans' || activeTab === 'loans_list'));
 
                       return (

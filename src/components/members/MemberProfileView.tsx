@@ -35,7 +35,8 @@ import {
   Search,
   Sparkles,
   Upload,
-  Clock
+  Clock,
+  RotateCcw
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -45,6 +46,7 @@ import { BuyShareModal } from './BuyShareModal';
 import { ShareClosuresList } from './ShareClosuresList';
 import { EditMemberModal } from './EditMemberModal';
 import { DeleteMemberModal } from './DeleteMemberModal';
+import { PermanentDeleteMemberModal } from './PermanentDeleteMemberModal';
 import { SignatureUploadModal } from './SignatureUploadModal';
 import { EditTransactionModal } from '../transactions/EditTransactionModal';
 import { NewDepositModal } from '../transactions/NewDepositModal';
@@ -100,6 +102,8 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
     requestMemberUpdate,
     bankAccounts,
     buyMemberShares,
+    restoreMemberFromRecycleBin,
+    permanentlyDeleteMember,
     setActiveTab: setGlobalActiveTab
   } = useSomiti();
 
@@ -116,6 +120,8 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
   const [showBuyShareModal, setShowBuyShareModal] = useState(false);
   const [showEditMemberModal, setShowEditMemberModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showPermanentDeleteModal, setShowPermanentDeleteModal] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
   // Dedicated member-locked transaction modals
@@ -502,41 +508,103 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                 <ArrowUpRight className="w-3.5 h-3.5" />
                 <span>{isBn ? 'উত্তোলন' : 'Withdraw'}</span>
               </button>
-              <button
-                onClick={() => setShowShareClosureModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
-                title="শেয়ার ক্লোজ বা সমর্পণ করুন"
-              >
-                <Archive className="w-3.5 h-3.5" />
-                <span>{isBn ? 'শেয়ার সমর্পণ/ক্লোজ' : 'Surrender Shares'}</span>
-              </button>
-              <button
-                onClick={() => setShowBuyShareModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
-                title="নতুন শেয়ার ক্রয় করুন"
-              >
-                <TrendingUp className="w-3.5 h-3.5" />
-                <span>{isBn ? 'শেয়ার ক্রয়' : 'Buy Shares'}</span>
-              </button>
-              <button
-                onClick={() => setShowLoanModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
-              >
-                <CreditCard className="w-3.5 h-3.5" />
-                <span>{isBn ? 'নতুন ঋণ' : 'New Loan'}</span>
-              </button>
-              <button
-                onClick={() => setShowDeleteModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                title={isBn ? "সদস্য মুছে ফেলুন" : "Delete Member"}
-              >
-                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                <span>{isBn ? 'সদস্য মুছুন' : 'Delete'}</span>
-              </button>
-            </>
-          )}
+            {member.isDeleted ? (
+              <>
+                <button
+                  onClick={async () => {
+                    setIsRestoring(true);
+                    const ok = await restoreMemberFromRecycleBin(member.id);
+                    setIsRestoring(false);
+                  }}
+                  disabled={isRestoring}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                  title={isBn ? "সদস্যকে পুনরুদ্ধার করুন" : "Restore Member"}
+                >
+                  <RotateCcw className={`w-3.5 h-3.5 ${isRestoring ? 'animate-spin' : ''}`} />
+                  <span>{isBn ? 'সদস্য পুনরুদ্ধার' : 'Restore Member'}</span>
+                </button>
+                <button
+                  onClick={() => setShowPermanentDeleteModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                  title={isBn ? "স্থায়ীভাবে মুছে ফেলুন" : "Permanently Delete Member"}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{isBn ? 'চিরতরে মুছুন' : 'Permanently Delete'}</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setShowShareClosureModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                  title="শেয়ার ক্লোজ বা সমর্পণ করুন"
+                >
+                  <Archive className="w-3.5 h-3.5" />
+                  <span>{isBn ? 'শেয়ার সমর্পণ/ক্লোজ' : 'Surrender Shares'}</span>
+                </button>
+                <button
+                  onClick={() => setShowBuyShareModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                  title="নতুন শেয়ার ক্রয় করুন"
+                >
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  <span>{isBn ? 'শেয়ার ক্রয়' : 'Buy Shares'}</span>
+                </button>
+                <button
+                  onClick={() => setShowLoanModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>{isBn ? 'নতুন ঋণ' : 'New Loan'}</span>
+                </button>
+                <button
+                  onClick={() => setShowDeleteModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                  title={isBn ? "রিসাইকেল বিনে পাঠান" : "Move to Recycle Bin"}
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                  <span>{isBn ? 'রিসাইকেল বিন' : 'Recycle Bin'}</span>
+                </button>
+              </>
+            )}
+          </>
+        )}
         </div>
       </div>
+
+      {/* Recycle Bin Warning Notice if Member is Soft-Deleted */}
+      {member.isDeleted && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-900 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <Archive className="w-5 h-5 text-amber-600 shrink-0" />
+            <div>
+              <h4 className="font-bold text-sm text-amber-950">
+                {isBn ? 'সদস্য বর্তমানে রিসাইকেল বিনে রয়েছে (In Recycle Bin)' : 'This member is currently in the Recycle Bin'}
+              </h4>
+              <p className="text-xs text-amber-800">
+                {isBn
+                  ? 'শেয়ার, সঞ্চয়, ঋণ, কিস্তি এবং আর্থিক হিস্ট্রি শতভাগ নিরাপদে সংরক্ষিত আছে। সক্রিয় কার্যক্রমে এদের গণনা বাদ দেওয়া হয়েছে।'
+                  : 'All shares, savings, loans, and financial history are intact. Excluded from active counts.'}
+                {member.deletionReason ? ` (${isBn ? 'কারণ:' : 'Reason:'} ${member.deletionReason})` : ''}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+            <button
+              onClick={async () => {
+                setIsRestoring(true);
+                await restoreMemberFromRecycleBin(member.id);
+                setIsRestoring(false);
+              }}
+              disabled={isRestoring}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <RotateCcw className={`w-3.5 h-3.5 ${isRestoring ? 'animate-spin' : ''}`} />
+              <span>{isBn ? 'এখনই পুনরুদ্ধার করুন' : 'Restore Now'}</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Member Profile Header Card */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
@@ -2609,12 +2677,20 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
         transaction={editingTx}
       />
 
-      {/* Delete Member Confirmation Modal */}
+      {/* Delete Member (Move to Recycle Bin) Confirmation Modal */}
       <DeleteMemberModal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         member={member}
         onDeleted={onBack}
+      />
+
+      {/* Permanent Delete Member Confirmation Modal */}
+      <PermanentDeleteMemberModal
+        isOpen={showPermanentDeleteModal}
+        onClose={() => setShowPermanentDeleteModal(false)}
+        member={member}
+        onPermanentlyDeleted={onBack}
       />
 
       {/* Signature Upload & Background Removal Modal */}

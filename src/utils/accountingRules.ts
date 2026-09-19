@@ -178,8 +178,13 @@ export function calculateMemberSavingsBreakdown(
  * Only outstanding principal should be counted as Active Loans Out.
  * Loan interest/profit must NOT be incorrectly added to the outstanding principal.
  */
-export function calculateActiveLoansOut(loans: Loan[] = [], transactions: Transaction[] = []): number {
-  const activeLoans = (loans || []).filter(l => l.status === 'active');
+export function calculateActiveLoansOut(
+  loans: Loan[] = [],
+  transactions: Transaction[] = [],
+  members: Member[] = []
+): number {
+  const deletedMemberIds = new Set((members || []).filter(m => m.isDeleted).map(m => m.id));
+  const activeLoans = (loans || []).filter(l => l.status === 'active' && !deletedMemberIds.has(l.memberId));
   const completedInstallments = (transactions || []).filter(
     t => t.status === 'completed' && t.type === 'loan_installment'
   );
@@ -463,15 +468,16 @@ export function calculateAccountingSummary(
   // Available Balance = Total Money Received - Total Money Paid/Invested
   const availableBalance = totalMoneyReceived - totalMoneyPaidOrInvested;
 
-  // 3. Total Member Savings across all members
+  // 3. Total Member Savings across all active members (excluding Recycle Bin members)
   let totalMemberSavings = 0;
   for (const m of members || []) {
+    if (m.isDeleted) continue;
     const breakdown = calculateMemberSavingsBreakdown(m, transactions);
     totalMemberSavings += breakdown.totalSavings;
   }
 
-  // 4. Active Loans Out
-  const totalActiveLoansOut = calculateActiveLoansOut(loans, transactions);
+  // 4. Active Loans Out (excluding Recycle Bin members)
+  const totalActiveLoansOut = calculateActiveLoansOut(loans, transactions, members);
 
   // 5. Total Business Capital
   const totalBusinessCapital = calculateTotalBusinessCapital(businessFundings, transactions);

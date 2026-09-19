@@ -43,6 +43,7 @@ export const DashboardView: React.FC = () => {
     totalCapital, 
     totalSavingsInSomiti,
     totalActiveLoanBalance,
+    totalApprovedProfit,
     todayStats, 
     useBengaliDigits,
     setActiveTab,
@@ -56,7 +57,8 @@ export const DashboardView: React.FC = () => {
   } = useSomiti();
 
   const isBengaliNum = isBn && useBengaliDigits;
-  const activeMembers = members.filter(m => m.status === 'active');
+  const nonDeletedMembers = members.filter(m => !m.isDeleted);
+  const activeMembers = nonDeletedMembers.filter(m => m.status === 'active');
   const recentTransactions = transactions.filter(t => t.status === 'completed').slice(0, 8);
 
   const num = (n: number | string) => (isBengaliNum ? toBengaliNumber(n) : n.toString());
@@ -75,6 +77,9 @@ export const DashboardView: React.FC = () => {
       ? ((Number(myMember?.generalSavingsBalance) || 0) + (Number(myMember?.dpsSavingsBalance) || 0) + (Number(myMember?.fdrSavingsBalance) || 0))
       : Number(myMember?.totalSavings ?? myMember?.generalSavingsBalance ?? 0);
     const myActiveLoanBalance = Number(myMember?.activeLoanBalance ?? 0);
+    const myApprovedProfit = myTransactions
+      .filter(t => t.type === 'profit_share' && t.status === 'completed')
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
     return (
       <div className="space-y-6 pb-12">
@@ -123,19 +128,19 @@ export const DashboardView: React.FC = () => {
           </div>
         </div>
 
-        {/* 4 Financial Metric Cards for Member */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* 5 Financial Metric Cards for Member */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
           {/* Card 1: Total Savings */}
-          <div className="bg-white p-5 rounded-2xl border border-emerald-200/80 shadow-2xs">
+          <div className="bg-white p-4.5 rounded-xl border border-emerald-200/80 shadow-2xs">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-emerald-700">
                 {isBn ? 'আমার মোট সঞ্চয়' : 'My Total Savings'}
               </span>
-              <span className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+              <span className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
                 <Wallet className="w-4 h-4" />
               </span>
             </div>
-            <div className="text-2xl font-black text-slate-800 tracking-tight">
+            <div className="text-xl font-black text-slate-800 tracking-tight">
               {formatCurrency(mySavingsTotal, isBengaliNum)}
             </div>
             <div className="text-[11px] text-slate-500 mt-2">
@@ -144,36 +149,54 @@ export const DashboardView: React.FC = () => {
           </div>
 
           {/* Card 2: Active Loan Balance */}
-          <div className="bg-white p-5 rounded-2xl border border-amber-200/80 shadow-2xs">
+          <div className="bg-white p-4.5 rounded-xl border border-amber-200/80 shadow-2xs">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-amber-700">
                 {isBn ? 'চলমান ঋণ বকেয়া' : 'Active Loan Balance'}
               </span>
-              <span className="p-2 bg-amber-50 text-amber-600 rounded-xl">
+              <span className="p-1.5 bg-amber-50 text-amber-600 rounded-lg">
                 <CreditCard className="w-4 h-4" />
               </span>
             </div>
-            <div className="text-2xl font-black text-slate-800 tracking-tight">
+            <div className="text-xl font-black text-slate-800 tracking-tight">
               {formatCurrency(myActiveLoanBalance, isBengaliNum)}
             </div>
             <div className="text-[11px] text-slate-500 mt-2">
               {myActiveLoans.length > 0 
-                ? (isBn ? `${num(myActiveLoans.length)} টি সক্রিয় ঋণ চলছে` : `${myActiveLoans.length} active loans`) 
+                ? (isBn ? `${num(myActiveLoans.length)} টি সক্রিয় ঋণ` : `${myActiveLoans.length} active loans`) 
                 : (isBn ? 'কোনো বকেয়া ঋণ নেই' : 'No outstanding loan')}
             </div>
           </div>
 
-          {/* Card 3: Active Savings Schemes */}
-          <div className="bg-white p-5 rounded-2xl border border-blue-200/80 shadow-2xs">
+          {/* Card 3: My Approved Profit */}
+          <div className="bg-white p-4.5 rounded-xl border border-teal-200/80 shadow-2xs">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-teal-700">
+                {isBn ? 'আমার অর্জিত লভ্যাংশ' : 'My Total Profit'}
+              </span>
+              <span className="p-1.5 bg-teal-50 text-teal-600 rounded-lg">
+                <Sparkles className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="text-xl font-black text-slate-800 tracking-tight">
+              {formatCurrency(myApprovedProfit, isBengaliNum)}
+            </div>
+            <div className="text-[11px] text-slate-500 mt-2">
+              {isBn ? 'অনুমোদিত লভ্যাংশ জমা' : 'Approved profit credits'}
+            </div>
+          </div>
+
+          {/* Card 4: Active Savings Schemes */}
+          <div className="bg-white p-4.5 rounded-xl border border-blue-200/80 shadow-2xs">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-blue-700">
-                {isBn ? 'সক্রিয় স্কিম (DPS/FDR)' : 'Active Schemes (DPS/FDR)'}
+                {isBn ? 'সক্রিয় স্কিম (DPS/FDR)' : 'Active Schemes'}
               </span>
-              <span className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+              <span className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
                 <Clock className="w-4 h-4" />
               </span>
             </div>
-            <div className="text-2xl font-black text-slate-800 tracking-tight">
+            <div className="text-xl font-black text-slate-800 tracking-tight">
               {num(mySavings.length)} <span className="text-xs font-medium text-slate-500">{isBn ? 'টি' : 'schemes'}</span>
             </div>
             <div className="text-[11px] text-slate-500 mt-2">
@@ -181,18 +204,18 @@ export const DashboardView: React.FC = () => {
             </div>
           </div>
 
-          {/* Card 4: My Shares & Capital */}
-          <div className="bg-white p-5 rounded-2xl border border-indigo-200/80 shadow-2xs">
+          {/* Card 5: My Shares & Capital */}
+          <div className="bg-white p-4.5 rounded-xl border border-indigo-200/80 shadow-2xs">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-indigo-700">
                 {isBn ? 'আমার শেয়ার ও মূলধন' : 'My Shares & Capital'}
               </span>
-              <span className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+              <span className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
                 <Building className="w-4 h-4" />
               </span>
             </div>
-            <div className="text-2xl font-black text-slate-800 tracking-tight font-mono">
-              {num(mySharesCount)} <span className="text-base font-bold text-slate-500">{isBn ? 'টি' : 'Shares'}</span>
+            <div className="text-xl font-black text-slate-800 tracking-tight font-mono">
+              {num(mySharesCount)} <span className="text-sm font-bold text-slate-500">{isBn ? 'টি' : 'Shares'}</span>
             </div>
             <div className="text-[11px] text-slate-500 mt-2">
               {isBn ? 'মোট সক্রিয় শেয়ার সংখ্যা' : 'Total Active Shares Count'}
@@ -307,9 +330,33 @@ export const DashboardView: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Section: Balances & Active Members (5 cols on xl, 12 on lg) */}
         <div className="lg:col-span-12 xl:col-span-5 space-y-6 min-w-0">
-          {/* Balances side by side: 4 Key Financial Pillars */}
+          {/* Balances: 5 Key Financial Pillars */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            {/* 1. Total Member Savings (Emerald Card) */}
+            {/* 1. Available Balance (Featured Card across 2 columns) */}
+            <div className="sm:col-span-2 bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-900 text-white p-4.5 rounded-xl shadow-md relative overflow-hidden">
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-medium text-blue-200 block">
+                    {isBn ? 'উপলব্ধ ব্যালেন্স (ক্যাশ + ব্যাংক)' : 'Available Balance (Cash + Bank)'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/15 text-white">
+                    {isBn ? 'মোট তারল্য' : 'Total Liquidity'}
+                  </span>
+                </div>
+                <div className="text-2xl font-extrabold tracking-tight">
+                  {formatCurrency(totalAvailableBalance, isBengaliNum)}
+                </div>
+                <div className="mt-2.5 flex items-center justify-between text-xs text-blue-200 pt-2 border-t border-blue-600/60">
+                  <span className="truncate">{isBn ? 'প্রাপ্ত অর্থ − ব্যয়/বিনিয়োগ' : 'Total Inflows − Outflows'}</span>
+                  <span className="font-semibold text-emerald-300 shrink-0 ml-1">
+                    {isBn ? 'তারল্য' : 'Liquidity'}
+                  </span>
+                </div>
+              </div>
+              <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
+            </div>
+
+            {/* 2. Total Member Savings (Emerald Card) */}
             <div className="bg-white p-4.5 rounded-xl border border-emerald-200/80 shadow-2xs hover:border-emerald-300 transition-all">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-bold text-emerald-700 block">
@@ -330,7 +377,7 @@ export const DashboardView: React.FC = () => {
               </div>
             </div>
 
-            {/* 2. Total Active Loans (Amber Card) */}
+            {/* 3. Total Active Loans (Amber Card) */}
             <div className="bg-white p-4.5 rounded-xl border border-amber-200/80 shadow-2xs hover:border-amber-300 transition-all">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-bold text-amber-700 block">
@@ -351,26 +398,32 @@ export const DashboardView: React.FC = () => {
               </div>
             </div>
 
-            {/* 3. Available Balance (Dark Blue Card) */}
-            <div className="bg-gradient-to-br from-blue-700 to-indigo-800 text-white p-4.5 rounded-xl shadow-md relative overflow-hidden">
-              <div className="relative z-10">
-                <span className="text-xs font-medium text-blue-200 block mb-1">
-                  {isBn ? 'উপলব্ধ ব্যালেন্স (ক্যাশ + ব্যাংক)' : 'Available Balance (Cash + Bank)'}
+            {/* 4. Total Profit (Teal Card) */}
+            <div 
+              id="dashboard-total-profit-card"
+              onClick={() => setActiveTab('business_funding')}
+              className="bg-white p-4.5 rounded-xl border border-teal-200/80 shadow-2xs hover:border-teal-300 hover:shadow-xs transition-all cursor-pointer group"
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-teal-700 block">
+                  {isBn ? 'মোট অর্জিত/অনুমোদিত লভ্যাংশ' : 'Total Profit'}
                 </span>
-                <div className="text-xl font-extrabold tracking-tight">
-                  {formatCurrency(totalAvailableBalance, isBengaliNum)}
-                </div>
-                <div className="mt-2.5 flex items-center justify-between text-xs text-blue-200 pt-2 border-t border-blue-600/60">
-                  <span className="truncate">{isBn ? 'প্রাপ্ত অর্থ − ব্যয়/বিনিয়োগ' : 'Total Inflows − Outflows'}</span>
-                  <span className="font-semibold text-emerald-300 shrink-0 ml-1">
-                    {isBn ? 'তারল্য' : 'Liquidity'}
-                  </span>
-                </div>
+                <span className="p-1.5 bg-teal-50 text-teal-600 rounded-lg group-hover:bg-teal-100 transition-colors">
+                  <Sparkles className="w-4 h-4" />
+                </span>
               </div>
-              <div className="absolute -right-4 -bottom-4 w-20 h-20 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
+              <div className="text-xl font-extrabold text-slate-800 tracking-tight">
+                {formatCurrency(totalApprovedProfit, isBengaliNum)}
+              </div>
+              <div className="mt-2.5 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+                <span className="truncate">{isBn ? 'অনুমোদিত লেনদেন হতে হিসাবকৃত' : 'From approved records'}</span>
+                <span className="font-semibold text-teal-600 shrink-0 ml-1">
+                  {isBn ? 'মোট লাভ' : 'Total Profit'}
+                </span>
+              </div>
             </div>
 
-            {/* 4. Total Capital (Clean Light Card) */}
+            {/* 5. Total Capital (Clean Light Card) */}
             <div className="bg-white p-4.5 rounded-xl border border-slate-200/80 shadow-2xs">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-medium text-slate-500 block">
@@ -400,7 +453,7 @@ export const DashboardView: React.FC = () => {
                 <span>{isBn ? 'সক্রিয় গ্রাহক / সদস্য' : 'Active Clients / Members'}</span>
               </h3>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-600 text-white">
-                {isBn ? `মোট গ্রাহক: ${num(members.length)}` : `Total Clients: ${members.length}`}
+                {isBn ? `মোট গ্রাহক: ${num(nonDeletedMembers.length)}` : `Total Clients: ${nonDeletedMembers.length}`}
               </span>
             </div>
 
@@ -695,6 +748,10 @@ export const DashboardView: React.FC = () => {
             <div className="flex justify-between py-1 border-b border-slate-50">
               <span className="text-slate-600">{isBn ? '💵 মোট সঞ্চয় আমানত' : '💵 Total Savings Deposit'}</span>
               <span className="font-bold text-emerald-700">: {formatCurrency(totalSavingsInSomiti, isBengaliNum)}</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-50">
+              <span className="text-slate-600">{isBn ? '✨ মোট অনুমোদিত লভ্যাংশ' : '✨ Total Approved Profit'}</span>
+              <span className="font-bold text-teal-700">: {formatCurrency(totalApprovedProfit, isBengaliNum)}</span>
             </div>
             <div className="flex justify-between py-1 border-b border-slate-50">
               <span className="text-slate-600">{isBn ? '📊 মোট সক্রিয় শেয়ার' : '📊 Total Active Shares'}</span>

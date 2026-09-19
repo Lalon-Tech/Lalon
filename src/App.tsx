@@ -110,7 +110,7 @@ const AppContent: React.FC = () => {
     'users', 'user_management', 'settings', 'banking', 'accounts',
     'excel', 'excel_import', 'reports', 'reports_daily', 'reports_monthly',
     'reports_member', 'reports_income_expense', 'reports_yearly',
-    'all_members', 'new_member', 'active_members',
+    'all_members', 'new_member', 'active_members', 'recycle_bin', 'member_recycle_bin',
     'members', 'members_all', 'loans_kisti', 'transactions_kisti'
   ];
 
@@ -151,6 +151,8 @@ const AppContent: React.FC = () => {
       case 'all_members':
       case 'members_active':
       case 'active_members':
+      case 'recycle_bin':
+      case 'member_recycle_bin':
         return <MemberList />;
 
       case 'members_new':
