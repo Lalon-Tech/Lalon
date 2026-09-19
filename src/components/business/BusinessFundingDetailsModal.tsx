@@ -49,7 +49,8 @@ export const BusinessFundingDetailsModal: React.FC<BusinessFundingDetailsModalPr
     getMemberSavingsBalance,
     useBengaliDigits,
     setActiveTab,
-    setSelectedMemberId
+    setSelectedMemberId,
+    totalAvailableBalance
   } = useSomiti();
   const { language } = useLanguage();
   const isBn = language === 'bn';
@@ -94,6 +95,15 @@ export const BusinessFundingDetailsModal: React.FC<BusinessFundingDetailsModalPr
     const finalAmount = Number(approvedAmount);
     if (!finalAmount || finalAmount <= 0) {
       setErrorMessage(isBn ? 'অনুগ্রহ করে অনুমোদিত সঠিক টাকার পরিমাণ লিখুন।' : 'Please enter valid approved amount.');
+      return;
+    }
+
+    if (finalAmount > totalAvailableBalance) {
+      setErrorMessage(
+        isBn
+          ? `অপর্যাপ্ত তহবিল: সমিতির বর্তমান মোট তহবিল (${fmt(totalAvailableBalance)}) অপেক্ষা অনুমোদিত পরিমাণ বেশি। তহবিল ঘাটতির কারণে অনুমোদন দেওয়া সম্ভব নয়।`
+          : `Insufficient funds: Approved amount (${fmt(finalAmount)}) exceeds society's available balance (${fmt(totalAvailableBalance)}).`
+      );
       return;
     }
 
@@ -448,6 +458,20 @@ export const BusinessFundingDetailsModal: React.FC<BusinessFundingDetailsModalPr
                     </div>
                   </div>
 
+                  {Number(approvedAmount) > totalAvailableBalance && (
+                    <div className="p-3 bg-rose-50 border border-rose-300 rounded-xl text-xs text-rose-800 space-y-1">
+                      <div className="flex items-center gap-1.5 font-bold text-rose-900">
+                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>{isBn ? 'অপর্যাপ্ত তহবিল সতর্কতা' : 'Insufficient Balance Warning'}</span>
+                      </div>
+                      <p>
+                        {isBn
+                          ? `সমিতির বর্তমান উপলব্ধ মোট তহবিল (ক্যাশ + ব্যাংক) ${fmt(totalAvailableBalance)}। অনুমোদিত অর্থ (${fmt(Number(approvedAmount))}) বর্তমান উপলব্ধ তহবিলের চেয়ে বেশি হওয়ায় অনুমোদন করা যাবে না।`
+                          : `Society's available balance is ${fmt(totalAvailableBalance)}. Approved amount (${fmt(Number(approvedAmount))}) exceeds available balance.`}
+                      </p>
+                    </div>
+                  )}
+
                   {/* Approve & Reject Trigger Buttons */}
                   <div className="pt-2 flex flex-col sm:flex-row items-center justify-end gap-2.5">
                     <button
@@ -461,9 +485,9 @@ export const BusinessFundingDetailsModal: React.FC<BusinessFundingDetailsModalPr
 
                     <button
                       type="button"
-                      disabled={isProcessing}
+                      disabled={isProcessing || Number(approvedAmount) > totalAvailableBalance || Number(approvedAmount) <= 0}
                       onClick={handleApprove}
-                      className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <CheckCircle2 className="w-4 h-4 text-white" />
                       <span>{isProcessing ? (isBn ? 'অনুমোদন হচ্ছে...' : 'Approving...') : (isBn ? 'আবেদন অনুমোদন নিশ্চিত করুন' : 'Confirm Approval')}</span>

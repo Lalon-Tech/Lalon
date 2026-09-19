@@ -20,7 +20,7 @@ export const BusinessApplyModal: React.FC<BusinessApplyModalProps> = ({
   onSuccess,
 }) => {
   useModalScrollLock(isOpen);
-  const { members, currentUser, isUserAdmin, addBusinessFunding, useBengaliDigits } = useSomiti();
+  const { members, currentUser, isUserAdmin, addBusinessFunding, useBengaliDigits, totalAvailableBalance } = useSomiti();
   const { language } = useLanguage();
   const isBn = language === 'bn';
 
@@ -38,6 +38,9 @@ export const BusinessApplyModal: React.FC<BusinessApplyModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string>('');
 
   if (!isOpen) return null;
+
+  const numAmount = Number(amountRequested) || 0;
+  const isInsufficient = numAmount > totalAvailableBalance;
 
   // Selected member information
   const targetMember = members.find(m => m.id === (presetMemberId || selectedMemberId));
@@ -70,6 +73,15 @@ export const BusinessApplyModal: React.FC<BusinessApplyModalProps> = ({
     const numAmount = Number(amountRequested);
     if (!numAmount || numAmount <= 0) {
       setErrorMsg(isBn ? 'বিনিয়োগের পরিমাণ সঠিক নয়' : 'Invalid funding amount');
+      return;
+    }
+
+    if (numAmount > totalAvailableBalance) {
+      setErrorMsg(
+        isBn
+          ? `অপর্যাপ্ত তহবিল: সমিতির বর্তমান মোট তহবিল ${formatCurrency(totalAvailableBalance, isBn && useBengaliDigits)} অপেক্ষা বেশি আবেদন করা যাবে না।`
+          : `Insufficient funds: Requested amount exceeds society's available balance (${formatCurrency(totalAvailableBalance, false)}).`
+      );
       return;
     }
 
@@ -229,6 +241,19 @@ export const BusinessApplyModal: React.FC<BusinessApplyModalProps> = ({
               <p className="text-[11px] text-slate-400 mt-1">
                 {isBn ? 'উদাহরণ: ৳ ১,০০,০০০' : 'Example: ৳ 100,000'}
               </p>
+              {isInsufficient && (
+                <div className="p-3 bg-rose-50 border border-rose-300 rounded-xl text-xs text-rose-800 space-y-1 mt-2">
+                  <div className="flex items-center gap-1.5 font-bold text-rose-900">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>{isBn ? 'অপর্যাপ্ত তহবিল সতর্কতা' : 'Insufficient Balance Warning'}</span>
+                  </div>
+                  <p>
+                    {isBn
+                      ? `সমিতির বর্তমান উপলব্ধ মোট তহবিল (ক্যাশ + ব্যাংক) ${formatCurrency(totalAvailableBalance, isBn && useBengaliDigits)}। আবেদনকৃত অর্থ (৳${formatCurrency(numAmount, isBn && useBengaliDigits)}) বর্তমান তহবিলের চেয়ে বেশি।`
+                      : `Society's current available balance is ${formatCurrency(totalAvailableBalance, false)}. Requested amount exceeds available balance.`}
+                  </p>
+                </div>
+              )}
             </div>
 
             <div>
@@ -427,8 +452,8 @@ export const BusinessApplyModal: React.FC<BusinessApplyModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-98 shadow-md transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
+              disabled={isSubmitting || isInsufficient || numAmount <= 0}
+              className="px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-98 shadow-md transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>

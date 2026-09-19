@@ -458,11 +458,20 @@ export const TransactionManager: React.FC = () => {
                         <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${typeInfo.badge}`}>
                           {typeInfo.label}
                         </span>
-                        {tx.selectedShares && tx.selectedShares.length > 0 && (
+                        {tx.shareAmounts && Object.keys(tx.shareAmounts).length > 0 ? (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {Object.entries(tx.shareAmounts).map(([sNo, sAmt]) => (
+                              <span key={sNo} className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-amber-50 border border-amber-200 text-amber-900 text-[10px] font-bold">
+                                <span>{isBn ? `শেয়ার #${toBengaliNumber(sNo)}:` : `Share #${sNo}:`}</span>
+                                <span>৳{formatCurrency(Number(sAmt), isBn && useBengaliDigits)}</span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : tx.selectedShares && tx.selectedShares.length > 0 ? (
                           <span className="inline-block ml-1.5 px-2 py-0.2 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-300">
-                            শেয়ার: {tx.selectedShares.map(s => `#${toBengaliNumber(s)}`).join(', ')}
+                            {isBn ? 'শেয়ার: ' : 'Shares: '}{tx.selectedShares.map(s => `#${toBengaliNumber(s)}`).join(', ')}
                           </span>
-                        )}
+                        ) : null}
                         {tx.notes && <span className="block text-[10px] text-slate-400 truncate max-w-xs mt-0.5">{tx.notes}</span>}
                       </td>
 

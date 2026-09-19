@@ -181,6 +181,7 @@ export interface Transaction {
   fineAmount?: number;
   discountAmount?: number;
   loanId?: string;
+  businessFundingId?: string;
   installmentNo?: number;
   savingsSchemeId?: string;
   shareCount?: number;          // e.g. 2 shares

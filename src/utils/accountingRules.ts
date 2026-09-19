@@ -229,6 +229,13 @@ export function calculateTotalBusinessCapital(
     f => f.status === 'active' || f.status === 'completed' || !!f.disbursementDate
   );
 
+  if (activeOrDisbursedFundings.length === 0) {
+    return 0;
+  }
+
+  const validFundingIds = new Set(activeOrDisbursedFundings.map(f => f.id));
+  const validAppNos = new Set(activeOrDisbursedFundings.map(f => f.applicationNo).filter(Boolean));
+
   const totalBusinessFunding = activeOrDisbursedFundings.reduce(
     (sum, f) => sum + (Number(f.approvedAmount || f.amountRequested) || 0),
     0
@@ -241,7 +248,12 @@ export function calculateTotalBusinessCapital(
   );
 
   const returnedFromTxs = (transactions || [])
-    .filter(t => t.status === 'completed' && t.type === 'business_funding_return')
+    .filter(t => {
+      if (t.status !== 'completed' || t.type !== 'business_funding_return') return false;
+      return (t.businessFundingId && validFundingIds.has(t.businessFundingId)) ||
+        Array.from(validFundingIds).some(id => t.id.includes(id) || t.notes?.includes(id)) ||
+        Array.from(validAppNos).some(appNo => t.notes?.includes(appNo));
+    })
     .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
   const totalBusinessCapitalReturned = Math.max(returnedFromFundings, returnedFromTxs);
@@ -277,7 +289,21 @@ export function calculateAccountingSummary(
   bankBalances: number = 0,
   startingMoney: number = 0
 ): AccountingSummary {
+  // Only strictly 'completed' transactions contribute. Any pending, rejected, cancelled, or reversed contribute 0.
   const completedTxs = (transactions || []).filter(t => t.status === 'completed');
+
+  // Valid active/cleared records sets
+  const validLoans = (loans || []).filter(
+    l => l.status === 'active' || l.status === 'cleared'
+  );
+  const validLoanIds = new Set(validLoans.map(l => l.id));
+  const validLoanNos = new Set(validLoans.map(l => l.loanNo).filter(Boolean));
+
+  const validBusinessFundings = (businessFundings || []).filter(
+    f => f.status === 'active' || f.status === 'completed' || !!f.disbursementDate
+  );
+  const validFundingIds = new Set(validBusinessFundings.map(f => f.id));
+  const validAppNos = new Set(validBusinessFundings.map(f => f.applicationNo).filter(Boolean));
 
   // 1. Money Received Breakdown
   // - Member Deposits: deposit, dps_deposit, fdr_deposit, admission_fee
@@ -290,14 +316,30 @@ export function calculateAccountingSummary(
     .filter(t => t.type === 'share_purchase')
     .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
-  // - Loan Repayments
+  // - Loan Repayments: only from valid loans (deleted or rejected loans contribute 0)
   const loanRepaymentsReceived = completedTxs
-    .filter(t => t.type === 'loan_installment')
+    .filter(t => {
+      if (t.type !== 'loan_installment') return false;
+      if (t.loanId && loans.length > 0) {
+        const matchingLoan = loans.find(l => l.id === t.loanId);
+        if (matchingLoan && (matchingLoan.status === 'rejected' || matchingLoan.isReversed)) {
+          return false;
+        }
+      }
+      return true;
+    })
     .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
-  // - Business Funding Repayments / Income (capital return + profit return)
+  // - Business Funding Repayments / Income (capital return + profit return): only from valid existing fundings
   const businessFundingRepaymentsReceived = completedTxs
-    .filter(t => t.type === 'business_funding_return' || t.type === 'business_funding_profit')
+    .filter(t => {
+      if (t.type !== 'business_funding_return' && t.type !== 'business_funding_profit') return false;
+      if (validBusinessFundings.length === 0) return false;
+      return (t.businessFundingId && validFundingIds.has(t.businessFundingId)) ||
+        Array.from(validFundingIds).some(id => t.id.includes(id) || t.notes?.includes(id)) ||
+        Array.from(validAppNos).some(appNo => t.notes?.includes(appNo)) ||
+        validBusinessFundings.some(f => f.memberId === t.memberId);
+    })
     .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
   // - Profit
@@ -326,21 +368,51 @@ export function calculateAccountingSummary(
     otherIncomeReceived;
 
   // 2. Money Paid / Invested Breakdown
-  // - Loans Given
-  const loansGiven = completedTxs
-    .filter(t => t.type === 'loan_disbursed')
-    .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  // - Loans Given:
+  // A loan disbursement is ONLY valid if the loan exists in loans and is active/completed.
+  // If the loan was deleted, pending, or rejected, its disbursement transaction contributes 0!
+  const validLoanDisbursedTxs = completedTxs.filter(t => {
+    if (t.type !== 'loan_disbursed') return false;
+    if (validLoans.length === 0) return false;
+    const matchesId = (t.loanId && validLoanIds.has(t.loanId)) ||
+      Array.from(validLoanIds).some(id => t.id.includes(id) || t.notes?.includes(id));
+    const matchesLoanNo = Array.from(validLoanNos).some(no => t.notes?.includes(no));
+    const matchesMemberAndAmount = validLoans.some(l => 
+      l.memberId === t.memberId && Number(t.amount) === Number(l.principalAmount)
+    );
+    return matchesId || matchesLoanNo || matchesMemberAndAmount;
+  });
 
-  // - Business Funding Given
-  const businessFundingGivenFromTxs = completedTxs
-    .filter(t => t.type === 'business_funding_disbursed')
-    .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  const loansGiven = validLoans.length === 0
+    ? 0
+    : (validLoanDisbursedTxs.length > 0
+        ? validLoanDisbursedTxs.reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
+        : validLoans.reduce((sum, l) => sum + (Number(l.principalAmount) || 0), 0));
 
-  const businessFundingGivenFromRecords = (businessFundings || [])
-    .filter(f => f.status === 'active' || f.status === 'completed' || !!f.disbursementDate)
-    .reduce((sum, f) => sum + (Number(f.approvedAmount || f.amountRequested) || 0), 0);
+  // - Business Funding Given:
+  // A business funding disbursement is ONLY valid if the funding exists in businessFundings
+  // and is active or completed. If the funding was deleted, rejected, cancelled, or pending, it contributes 0!
+  const validBusinessFundingTxs = completedTxs.filter(t => {
+    if (t.type !== 'business_funding_disbursed') return false;
+    if (validBusinessFundings.length === 0) return false;
+    const matchesId = (t.businessFundingId && validFundingIds.has(t.businessFundingId)) ||
+      Array.from(validFundingIds).some(id => t.id.includes(id) || t.notes?.includes(id));
+    const matchesAppNo = Array.from(validAppNos).some(appNo => t.notes?.includes(appNo));
+    return matchesId || matchesAppNo;
+  });
 
-  const businessFundingGiven = Math.max(businessFundingGivenFromTxs, businessFundingGivenFromRecords);
+  const businessFundingGivenFromTxs = validBusinessFundingTxs.reduce(
+    (sum, t) => sum + (Number(t.amount) || 0), 0
+  );
+
+  const businessFundingGivenFromRecords = validBusinessFundings.reduce(
+    (sum, f) => sum + (Number(f.approvedAmount || f.amountRequested) || 0), 0
+  );
+
+  // If there are NO active/completed business fundings (e.g. funding was deleted), businessFundingGiven MUST be 0!
+  const businessFundingGiven = validBusinessFundings.length === 0
+    ? 0
+    : (validBusinessFundingTxs.length > 0 ? businessFundingGivenFromTxs : businessFundingGivenFromRecords);
 
   // - Withdrawals / Refunds: withdraw, share_surrender
   const withdrawalsAndRefunds = completedTxs
@@ -349,11 +421,35 @@ export function calculateAccountingSummary(
 
   // - Other Expenses: expense, expense vouchers not in transactions
   const txExpense = completedTxs
-    .filter(t => t.type === 'expense')
+    .filter(t => {
+      if (t.type !== 'expense') return false;
+      // Skip if it is already counted in business funding or is associated with a deleted business funding
+      if (t.businessFundingId || t.category === 'ব্যবসা বিনিয়োগ বিতরণ' || t.notes?.includes('BF-') || t.notes?.includes('ব্যবসা ফান্ডিং')) {
+        const matchesActiveFunding = validBusinessFundings.some(f => 
+          (t.businessFundingId && f.id === t.businessFundingId) || 
+          (f.applicationNo && t.notes?.includes(f.applicationNo)) ||
+          (f.id && t.notes?.includes(f.id))
+        );
+        if (!matchesActiveFunding) return false;
+      }
+      return true;
+    })
     .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
   const voucherExpense = (vouchers || [])
-    .filter(v => v.type === 'expense' && v.category !== 'ব্যবসা বিনিয়োগ বিতরণ' && !completedTxs.some(t => t.voucherNo === v.voucherNo))
+    .filter(v => {
+      if (v.type !== 'expense') return false;
+      if (v.category === 'ব্যবসা বিনিয়োগ বিতরণ') return false;
+      if (completedTxs.some(t => t.voucherNo === v.voucherNo)) return false;
+      // If linked to a deleted business funding, contribute 0
+      if (v.id?.startsWith('v-bf-') || v.notes?.includes('BF-')) {
+        const matchesActiveFunding = validBusinessFundings.some(f => 
+          v.id === `v-bf-${f.id}` || (f.applicationNo && v.notes?.includes(f.applicationNo))
+        );
+        if (!matchesActiveFunding) return false;
+      }
+      return true;
+    })
     .reduce((sum, v) => sum + (Number(v.amount) || 0), 0);
 
   const otherExpenses = txExpense + voucherExpense;

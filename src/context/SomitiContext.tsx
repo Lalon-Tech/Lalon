@@ -1038,7 +1038,64 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   }, [reconciledMembers, members, firestoreConnected, isDataLoading]);
 
+  // Auto-cleanup orphaned transactions or vouchers from previously deleted business fundings or loans
+  useEffect(() => {
+    if (!firestoreConnected || isDataLoading) return;
 
+    const validFundingIds = new Set(businessFundings.map(f => f.id));
+    const validAppNos = new Set(businessFundings.map(f => f.applicationNo).filter(Boolean));
+
+    // Find any business_funding_disbursed transaction whose business funding does not exist in businessFundings
+    const orphanFundingTxs = transactions.filter(t => {
+      if (t.type !== 'business_funding_disbursed') return false;
+      const matchesId = (t.businessFundingId && validFundingIds.has(t.businessFundingId)) ||
+        Array.from(validFundingIds).some(id => t.id.includes(id) || t.notes?.includes(id));
+      const matchesAppNo = Array.from(validAppNos).some(appNo => t.notes?.includes(appNo));
+      const matchesMember = businessFundings.some(f => f.memberId === t.memberId);
+      return !matchesId && !matchesAppNo && !matchesMember;
+    });
+
+    if (orphanFundingTxs.length > 0) {
+      console.log('Purging orphaned business funding transactions:', orphanFundingTxs.length);
+      const orphanIds = new Set(orphanFundingTxs.map(t => t.id));
+
+      orphanFundingTxs.forEach(tx => {
+        // Revert bank balance if deducted from bank
+        if (tx.paymentMethod === 'bank' && tx.bankAccountId) {
+          setBankAccounts(prev => prev.map(b => {
+            if (b.id !== tx.bankAccountId) return b;
+            const restored = { ...b, balance: b.balance + tx.amount };
+            safeSetDoc(doc(db, 'bankAccounts', b.id), restored).catch(console.error);
+            return restored;
+          }));
+        }
+        deleteDoc(doc(db, 'transactions', tx.id)).catch(console.error);
+      });
+
+      setTransactions(prev => prev.filter(t => !orphanIds.has(t.id)));
+    }
+
+    // Find any voucher with category 'ব্যবসা বিনিয়োগ বিতরণ' or starting with 'v-bf-' whose funding does not exist
+    const orphanVouchers = vouchers.filter(v => {
+      if (v.category !== 'ব্যবসা বিনিয়োগ বিতরণ' && !v.id?.startsWith('v-bf-')) return false;
+      const matchesActive = businessFundings.some(f => 
+        v.id === `v-bf-${f.id}` || 
+        v.id.includes(f.id) ||
+        (f.applicationNo && v.notes?.includes(f.applicationNo)) ||
+        (f.businessName && v.title?.includes(f.businessName))
+      );
+      return !matchesActive;
+    });
+
+    if (orphanVouchers.length > 0) {
+      console.log('Purging orphaned business funding vouchers:', orphanVouchers.length);
+      const orphanVoucherIds = new Set(orphanVouchers.map(v => v.id));
+      orphanVouchers.forEach(v => {
+        deleteDoc(doc(db, 'incomeExpenses', v.id)).catch(console.error);
+      });
+      setVouchers(prev => prev.filter(v => !orphanVoucherIds.has(v.id)));
+    }
+  }, [businessFundings, transactions, vouchers, firestoreConnected, isDataLoading]);
 
   // Helper date - returns local YYYY-MM-DD to match browser date pickers precisely
   const getTodayDateStr = () => {
@@ -2208,8 +2265,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       time: getCurrentTimeStr(),
       paymentMethod: params.paymentMethod,
       bankAccountId: params.bankAccountId,
-      collectedBy: currentUser.name,
-      verifiedBy: isMemberRole ? undefined : currentUser.name,
+      collectedBy: currentUser?.name || 'Admin',
+      verifiedBy: isMemberRole ? undefined : (currentUser?.name || 'Admin'),
       savingsSchemeId: params.schemeId,
       selectedShares: params.selectedShares,
       totalMemberShares: params.totalMemberShares,
@@ -2607,6 +2664,29 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       throw new Error(`Member has a pending loan application`);
     }
 
+    // 2. Available Balance Validation: Requested Amount <= Available Balance (Cash + Bank)
+    const currentSummary = calculateAccountingSummary(
+      transactions,
+      vouchers,
+      reconciledMembers,
+      loans,
+      businessFundings,
+      totalBankCash,
+      Number(settings.initialCapital) || 0
+    );
+    if (params.principalAmount > currentSummary.availableBalance) {
+      alert(`ঋণ বিতরণ ব্যর্থ: সমিতির বর্তমান উপলব্ধ মোট তহবিল (ক্যাশ + ব্যাংক: ৳${currentSummary.availableBalance}) অপর্যাপ্ত। ঋণের পরিমাণ (৳${params.principalAmount}) বর্তমান তহবিলের চেয়ে বেশি হতে পারে না।`);
+      throw new Error(`Insufficient available balance for loan disbursement`);
+    }
+
+    if (params.disbursementMethod === 'bank' && params.bankAccountId) {
+      const bank = bankAccounts.find(b => b.id === params.bankAccountId);
+      if (bank && bank.balance < params.principalAmount) {
+        alert(`ঋণ বিতরণ ব্যর্থ: নির্বাচিত ব্যাংক একাউন্টে পর্যাপ্ত ব্যালেন্স নেই (বর্তমান ব্যাংক ব্যালেন্স: ৳${bank.balance})।`);
+        throw new Error(`Insufficient bank account balance for loan`);
+      }
+    }
+
     const member = members.find(m => m.id === params.memberId);
     const guarantorMember = params.guarantorMemberId ? members.find(m => m.id === params.guarantorMemberId) : null;
 
@@ -2770,6 +2850,23 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       };
     }
 
+    // 2. Available Balance Validation: Requested Amount <= Available Balance (Cash + Bank)
+    const currentSummary = calculateAccountingSummary(
+      transactions,
+      vouchers,
+      reconciledMembers,
+      loans,
+      businessFundings,
+      totalBankCash,
+      Number(settings.initialCapital) || 0
+    );
+    if (params.principalAmount > currentSummary.availableBalance) {
+      return {
+        success: false,
+        message: `ঋণ আবেদন ব্যর্থ: সমিতির বর্তমান উপলব্ধ মোট তহবিল (ক্যাশ + ব্যাংক: ৳${currentSummary.availableBalance}) অপর্যাপ্ত। ঋণের পরিমাণ (৳${params.principalAmount}) বর্তমান তহবিলের চেয়ে বেশি হতে পারে না।`,
+      };
+    }
+
     const member = members.find(m => m.id === params.memberId);
     if (!member) {
       return { success: false, message: 'সদস্য খুঁজে পাওয়া যায়নি।' };
@@ -2875,9 +2972,36 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       };
     }
 
+    // Available Balance Validation: Loan Principal <= Available Balance (Cash + Bank)
+    const currentSummary = calculateAccountingSummary(
+      transactions,
+      vouchers,
+      reconciledMembers,
+      loans,
+      businessFundings,
+      totalBankCash,
+      Number(settings.initialCapital) || 0
+    );
+    if (loan.principalAmount > currentSummary.availableBalance) {
+      return {
+        success: false,
+        message: `অনুমোদন ব্যর্থ: সমিতির বর্তমান উপলব্ধ মোট তহবিল (ক্যাশ + ব্যাংক: ৳${currentSummary.availableBalance}) অপর্যাপ্ত। ঋণের পরিমাণ (৳${loan.principalAmount}) বর্তমান তহবিলের চেয়ে বেশি।`,
+      };
+    }
+
     const member = members.find(m => m.id === loan.memberId);
     const method = params.disbursementMethod || loan.disbursementMethod || 'cash';
     const bankId = params.bankAccountId || loan.bankAccountId;
+
+    if (method === 'bank' && bankId) {
+      const bank = bankAccounts.find(b => b.id === bankId);
+      if (bank && bank.balance < loan.principalAmount) {
+        return {
+          success: false,
+          message: `অনুমোদন ব্যর্থ: নির্বাচিত ব্যাংক একাউন্টে পর্যাপ্ত ব্যালেন্স নেই (বর্তমান ব্যাংক ব্যালেন্স: ৳${bank.balance})।`,
+        };
+      }
+    }
     const fee = params.processingFee !== undefined ? params.processingFee : (loan.processingFee || 0);
 
     const updatedLoan: Loan = {
@@ -3572,6 +3696,16 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const reason = options.reason?.trim() || 'কোনো কারণ উল্লেখ করা হয়নি';
 
     if (options.mode === 'safe_reversal') {
+      // Revert bank balance if loan was disbursed from bank
+      if (loan.disbursementMethod === 'bank' && loan.bankAccountId) {
+        setBankAccounts(prev => prev.map(b => {
+          if (b.id !== loan.bankAccountId) return b;
+          const restored = { ...b, balance: b.balance + loan.principalAmount };
+          safeSetDoc(doc(db, 'bankAccounts', b.id), restored).catch(console.error);
+          return restored;
+        }));
+      }
+
       const reversedLoan: Loan = {
         ...loan,
         status: 'rejected',
@@ -3631,6 +3765,16 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       };
     } else {
       // Permanent Delete
+      // Revert bank balance if loan was disbursed from bank
+      if (loan.disbursementMethod === 'bank' && loan.bankAccountId) {
+        setBankAccounts(prev => prev.map(b => {
+          if (b.id !== loan.bankAccountId) return b;
+          const restored = { ...b, balance: b.balance + loan.principalAmount };
+          safeSetDoc(doc(db, 'bankAccounts', b.id), restored).catch(console.error);
+          return restored;
+        }));
+      }
+
       const newLoans = loans.filter(l => l.id !== loanId);
       setLoans(newLoans);
       deleteDoc(doc(db, 'loans', loanId)).catch(console.error);
@@ -4500,6 +4644,21 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const addBusinessFunding = async (
     fundingData: Omit<BusinessFunding, 'id' | 'applicationNo' | 'status' | 'totalProfitRecorded' | 'totalMemberProfitPaid' | 'totalSomitiProfitEarned' | 'createdAt'>
   ): Promise<BusinessFunding> => {
+    // Available Balance Validation: Requested Amount <= Available Balance (Cash + Bank)
+    const currentSummary = calculateAccountingSummary(
+      transactions,
+      vouchers,
+      reconciledMembers,
+      loans,
+      businessFundings,
+      totalBankCash,
+      Number(settings.initialCapital) || 0
+    );
+    if (fundingData.amountRequested > currentSummary.availableBalance) {
+      alert(`আবেদন ব্যর্থ: সমিতির বর্তমান উপলব্ধ মোট তহবিল (ক্যাশ + ব্যাংক: ৳${currentSummary.availableBalance}) অপর্যাপ্ত। অনুরোধকৃত অর্থ (৳${fundingData.amountRequested}) বর্তমান তহবিলের চেয়ে বেশি হতে পারে না।`);
+      throw new Error(`Insufficient available balance for business funding request`);
+    }
+
     const appNo = `BF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const newFunding: BusinessFunding = {
       ...fundingData,
@@ -4555,6 +4714,24 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return { success: false, message: 'ব্যবসা ফান্ডিং রেকর্ডটি খুঁজে পাওয়া যায়নি।' };
     }
     const finalAmount = params.approvedAmount !== undefined ? params.approvedAmount : funding.amountRequested;
+
+    // Available Balance Validation: Approved Amount <= Available Balance (Cash + Bank)
+    const currentSummary = calculateAccountingSummary(
+      transactions,
+      vouchers,
+      reconciledMembers,
+      loans,
+      businessFundings,
+      totalBankCash,
+      Number(settings.initialCapital) || 0
+    );
+    if (finalAmount > currentSummary.availableBalance) {
+      return {
+        success: false,
+        message: `অনুমোদন ব্যর্থ: সমিতির বর্তমান উপলব্ধ মোট তহবিল (ক্যাশ + ব্যাংক: ৳${currentSummary.availableBalance}) অপর্যাপ্ত। অনুমোদিত অর্থ (৳${finalAmount}) বর্তমান তহবিলের চেয়ে বেশি।`,
+      };
+    }
+
     await updateBusinessFundingStatus(params.fundingId, 'approved', finalAmount, params.notes);
     return {
       success: true,
@@ -4605,24 +4782,75 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // 1. Delete associated business profit records and reverse their distributions
     const relatedProfits = businessProfitRecords.filter(
-      p => p.businessFundingId === id || p.applicationNo === existing.applicationNo
+      p => p.businessFundingId === id || (existing.applicationNo && p.applicationNo === existing.applicationNo)
     );
     for (const p of relatedProfits) {
       await deleteBusinessProfitRecord(p.id);
     }
 
-    // 2. Delete any related disbursement voucher
+    // 2. Find and delete all related transactions (disbursement, returns, profit)
+    const relatedTxs = transactions.filter(t => 
+      t.id.includes(id) || 
+      t.businessFundingId === id ||
+      (existing.applicationNo && t.notes?.includes(existing.applicationNo)) ||
+      t.notes?.includes(id) ||
+      (existing.businessName && t.notes?.includes(existing.businessName) && t.type === 'business_funding_disbursed')
+    );
+
+    let bankAlreadyReverted = false;
+
+    for (const tx of relatedTxs) {
+      // Revert bank balance if disbursed from bank or MFS
+      const isBankOrMfs = tx.paymentMethod === 'bank' || tx.paymentMethod === 'bkash' || tx.paymentMethod === 'nagad';
+      const targetBankId = tx.bankAccountId || existing.bankAccountId;
+
+      if (isBankOrMfs && targetBankId) {
+        setBankAccounts(prev => prev.map(b => {
+          if (b.id !== targetBankId) return b;
+          let newBalance = b.balance;
+          if (tx.type === 'business_funding_disbursed') {
+            newBalance = b.balance + tx.amount;
+            bankAlreadyReverted = true;
+          } else if (tx.type === 'business_funding_return' || tx.type === 'business_funding_profit') {
+            newBalance = Math.max(0, b.balance - tx.amount);
+          }
+          const updated = { ...b, balance: newBalance };
+          safeSetDoc(doc(db, 'bankAccounts', b.id), updated).catch(console.error);
+          return updated;
+        }));
+      }
+      deleteDoc(doc(db, 'transactions', tx.id)).catch(console.error);
+    }
+
+    // Safety fallback: if funding was active or disbursed via bank/MFS and wasn't reverted in relatedTxs loop
+    const disburseAmount = existing.approvedAmount || existing.amountRequested || 0;
+    const fallbackBankId = existing.bankAccountId;
+    if (!bankAlreadyReverted && fallbackBankId && (existing.status === 'active' || existing.disbursementDate) && disburseAmount > 0) {
+      setBankAccounts(prev => prev.map(b => {
+        if (b.id !== fallbackBankId) return b;
+        const newBalance = b.balance + disburseAmount;
+        const updated = { ...b, balance: newBalance };
+        safeSetDoc(doc(db, 'bankAccounts', b.id), updated).catch(console.error);
+        return updated;
+      }));
+    }
+
+    const relatedTxIds = new Set(relatedTxs.map(t => t.id));
+    setTransactions(prev => prev.filter(t => !relatedTxIds.has(t.id)));
+
+    // 3. Delete any related disbursement voucher
     const relatedVouchers = vouchers.filter(v => 
-      v.notes?.includes(existing.applicationNo) || 
-      v.title?.includes(existing.applicationNo) ||
-      v.id === `v-bf-${existing.id}`
+      (existing.applicationNo && (v.notes?.includes(existing.applicationNo) || v.title?.includes(existing.applicationNo))) ||
+      v.id === `v-bf-${existing.id}` ||
+      v.id.includes(existing.id) ||
+      (existing.businessName && v.title?.includes(existing.businessName))
     );
     for (const v of relatedVouchers) {
       setVouchers(prev => prev.filter(item => item.id !== v.id));
       deleteDoc(doc(db, 'incomeExpenses', v.id)).catch(console.error);
     }
 
-    // 3. Delete from businessFundings
+    // 4. Delete from businessFundings
     setBusinessFundings(prev => prev.filter(f => f.id !== id));
     await deleteDoc(doc(db, 'businessFundings', id));
   };
@@ -4638,6 +4866,29 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const amount = funding.approvedAmount || funding.amountRequested;
     const today = getTodayDateStr();
+
+    // Available Balance Validation: Disbursement Amount <= Available Balance (Cash + Bank)
+    const currentSummary = calculateAccountingSummary(
+      transactions,
+      vouchers,
+      reconciledMembers,
+      loans,
+      businessFundings,
+      totalBankCash,
+      Number(settings.initialCapital) || 0
+    );
+    if (amount > currentSummary.availableBalance) {
+      alert(`বিতরণ ব্যর্থ: সমিতির বর্তমান উপলব্ধ মোট তহবিল (ক্যাশ + ব্যাংক: ৳${currentSummary.availableBalance}) অপর্যাপ্ত। বিনিয়োগকৃত অর্থ (৳${amount}) বর্তমান তহবিলের চেয়ে বেশি।`);
+      throw new Error(`Insufficient available balance for business funding disbursement`);
+    }
+
+    if ((paymentMethod === 'bank' || paymentMethod === 'bkash' || paymentMethod === 'nagad') && bankAccountId) {
+      const bank = bankAccounts.find(b => b.id === bankAccountId);
+      if (bank && bank.balance < amount) {
+        alert(`বিতরণ ব্যর্থ: নির্বাচিত ব্যাংক একাউন্টে পর্যাপ্ত ব্যালেন্স নেই (বর্তমান ব্যালেন্স: ৳${bank.balance})।`);
+        throw new Error(`Insufficient bank account balance`);
+      }
+    }
     
     // Calculate maturity date based on duration
     const maturity = new Date();
@@ -4689,6 +4940,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Record transaction for Member Ledger and Transaction Management
     const tx: Transaction = {
       id: `tx-bf-${funding.id}-${Date.now()}`,
+      businessFundingId: funding.id,
       voucherNo: voucher.voucherNo,
       memberId: funding.memberId,
       memberName: funding.memberName,

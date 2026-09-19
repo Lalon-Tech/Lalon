@@ -57,7 +57,8 @@ export const LoansView: React.FC = () => {
     rejectLoan,
     payLoanInstallment,
     openReceiptForTx,
-    currentUser
+    currentUser,
+    totalAvailableBalance
   } = useSomiti();
 
   const isMember = currentUser?.role === 'member';
@@ -254,6 +255,16 @@ export const LoansView: React.FC = () => {
       return;
     }
 
+    if (Number(applyPrincipal) > totalAvailableBalance) {
+      setApplyFeedback({ 
+        success: false, 
+        message: isBn 
+          ? `অপর্যাপ্ত তহবিল: সমিতির বর্তমান মোট তহবিল (${formatCurrency(totalAvailableBalance, isBn && useBengaliDigits)}) অপেক্ষা ঋণের পরিমাণ বেশি। আবেদন গ্রহণ করা যাবে না।` 
+          : `Insufficient funds: Requested loan exceeds available balance (${formatCurrency(totalAvailableBalance, false)}).` 
+      });
+      return;
+    }
+
     const res = applyForLoan({
       memberId: applyMemberId,
       principalAmount: Number(applyPrincipal),
@@ -305,6 +316,16 @@ export const LoansView: React.FC = () => {
 
   const handleConfirmApproval = () => {
     if (!approvingLoan) return;
+
+    if (approvingLoan.principalAmount > totalAvailableBalance) {
+      setActionAlert({ 
+        type: 'error', 
+        message: isBn 
+          ? `অপর্যাপ্ত তহবিল: সমিতির বর্তমান মোট তহবিল (${formatCurrency(totalAvailableBalance, isBn && useBengaliDigits)}) অপেক্ষা ঋণের পরিমাণ (৳${formatCurrency(approvingLoan.principalAmount, isBn && useBengaliDigits)}) বেশি। ঋণ অনুমোদন করা সম্ভব নয়।` 
+          : `Insufficient funds: Loan amount exceeds current available balance.` 
+      });
+      return;
+    }
 
     const res = approveLoan({
       loanId: approvingLoan.id,
@@ -975,6 +996,19 @@ export const LoansView: React.FC = () => {
                   required
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500"
                 />
+                {Number(applyPrincipal) > totalAvailableBalance && (
+                  <div className="p-2.5 bg-rose-50 border border-rose-300 rounded-lg text-xs text-rose-800 space-y-1 mt-2">
+                    <div className="flex items-center gap-1 font-bold text-rose-900">
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                      <span>{isBn ? 'অপর্যাপ্ত তহবিল সতর্কতা' : 'Insufficient Balance'}</span>
+                    </div>
+                    <p className="text-[11px] leading-tight">
+                      {isBn
+                        ? `সমিতির বর্তমান উপলব্ধ তহবিল ${formatCurrency(totalAvailableBalance, isBn && useBengaliDigits)}। ঋণ আবেদন বর্তমান তহবিলের চেয়ে বেশি হওয়ায় জমা নেওয়া যাবে না।`
+                        : `Available balance is ${formatCurrency(totalAvailableBalance, false)}. Requested loan exceeds available funds.`}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -1195,9 +1229,9 @@ export const LoansView: React.FC = () => {
 
               <button
                 type="submit"
-                disabled={memberLoanStatus?.isBlocked}
+                disabled={Boolean(memberLoanStatus?.isBlocked || Number(applyPrincipal) > totalAvailableBalance || Number(applyPrincipal) <= 0)}
                 className={`px-6 py-2.5 rounded-xl text-xs font-bold text-white shadow-md transition-all flex items-center gap-2 cursor-pointer ${
-                  memberLoanStatus?.isBlocked
+                  memberLoanStatus?.isBlocked || Number(applyPrincipal) > totalAvailableBalance || Number(applyPrincipal) <= 0
                     ? 'bg-slate-400 cursor-not-allowed opacity-60'
                     : 'bg-indigo-700 hover:bg-indigo-800'
                 }`}
@@ -1481,6 +1515,20 @@ export const LoansView: React.FC = () => {
                     />
                   </div>
 
+                  {approvingLoan.principalAmount > totalAvailableBalance && (
+                    <div className="p-3 bg-rose-50 border border-rose-300 rounded-xl text-xs text-rose-800 space-y-1">
+                      <div className="flex items-center gap-1.5 font-bold text-rose-900">
+                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>{isBn ? 'অপর্যাপ্ত তহবিল সতর্কতা' : 'Insufficient Balance Warning'}</span>
+                      </div>
+                      <p>
+                        {isBn
+                          ? `সমিতির বর্তমান মোট তহবিল (ক্যাশ + ব্যাংক) ${formatCurrency(totalAvailableBalance, isBn && useBengaliDigits)}। ঋণের পরিমাণ (${formatCurrency(approvingLoan.principalAmount, isBn && useBengaliDigits)}) বর্তমান উপলব্ধ তহবিলের চেয়ে বেশি হওয়ায় ঋণ অনুমোদন করা যাবে না।`
+                          : `Society's available balance is ${formatCurrency(totalAvailableBalance, false)}. Loan amount exceeds available balance.`}
+                      </p>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                     <button
                       onClick={() => setApprovingLoan(null)}
@@ -1490,7 +1538,8 @@ export const LoansView: React.FC = () => {
                     </button>
                     <button
                       onClick={handleConfirmApproval}
-                      className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-md transition-all flex items-center gap-1.5"
+                      disabled={approvingLoan.principalAmount > totalAvailableBalance}
+                      className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-md transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Check className="w-4 h-4" />
                       <span>{isBn ? 'অনুমোদন নিশ্চিত করুন' : 'Confirm Approval'}</span>

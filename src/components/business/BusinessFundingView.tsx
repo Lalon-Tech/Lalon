@@ -58,6 +58,7 @@ export const BusinessFundingView: React.FC = () => {
     useBengaliDigits,
     setSelectedMemberId,
     setActiveTab,
+    totalAvailableBalance,
   } = useSomiti();
 
   const [activeSubTab, setActiveSubTab] = useState<'applications' | 'profits' | 'distributions' | 'calculator' | 'reports'>('applications');
@@ -1110,6 +1111,20 @@ export const BusinessFundingView: React.FC = () => {
                 </div>
               </div>
 
+              {(disburseModalFunding.approvedAmount || disburseModalFunding.amountRequested) > totalAvailableBalance && (
+                <div className="p-3 bg-rose-50 border border-rose-300 rounded-xl text-xs text-rose-800 space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold text-rose-900">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>{isBn ? 'অপর্যাপ্ত তহবিল সতর্কতা' : 'Insufficient Balance Warning'}</span>
+                  </div>
+                  <p>
+                    {isBn
+                      ? `সমিতির বর্তমান উপলব্ধ মোট তহবিল (ক্যাশ + ব্যাংক) ${formatCurrency(totalAvailableBalance, isBn && useBengaliDigits)}। বিনিয়োগের অর্থ বর্তমান উপলব্ধ তহবিলের চেয়ে বেশি হওয়ায় বিতরণ সম্পন্ন করা যাবে না।`
+                      : `Society's current total available balance is ${formatCurrency(totalAvailableBalance, false)}. Disbursement amount exceeds available funds.`}
+                  </p>
+                </div>
+              )}
+
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
                   {isBn ? 'প্রদানের মাধ্যম' : 'Payment Method'}
@@ -1149,9 +1164,9 @@ export const BusinessFundingView: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  disabled={isProcessingDisburse}
+                  disabled={isProcessingDisburse || (disburseModalFunding.approvedAmount || disburseModalFunding.amountRequested) > totalAvailableBalance}
                   onClick={handleDisburseConfirm}
-                  className="px-5 py-2 rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 font-bold shadow-md"
+                  className="px-5 py-2 rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 font-bold shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isProcessingDisburse
                     ? (isBn ? 'প্রক্রিয়াধীন...' : 'Processing...')
