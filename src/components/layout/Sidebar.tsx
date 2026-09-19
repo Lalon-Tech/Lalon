@@ -128,7 +128,7 @@ export const Sidebar: React.FC<{
     },
     {
       id: 'loans',
-      label: isBn ? 'আমার ঋণ ও কিস্তি' : 'My Loans & Kisti',
+      label: isBn ? 'আমার ঋণ ও পরিশোধ' : 'My Loans & Payment',
       icon: HandCoins,
     },
     {

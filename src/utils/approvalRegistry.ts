@@ -197,6 +197,10 @@ export function getAllPendingApprovals(sources: ApprovalCollectorSources): Pendi
           category = 'share_surrender';
           categoryLabelBn = 'শেয়ার সমর্পণ অনুমোদন';
           categoryLabelEn = 'Share Surrender Approval';
+        } else if (tx.type === 'loan_installment') {
+          category = 'loan_payment';
+          categoryLabelBn = 'ঋণ পরিশোধ অনুমোদন';
+          categoryLabelEn = 'Loan Payment Approval';
         }
 
         items.push({

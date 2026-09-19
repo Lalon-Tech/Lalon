@@ -520,6 +520,15 @@ interface SomitiContextType {
     notes?: string;
   }) => Transaction & { success: boolean; message: string };
 
+  submitLoanPaymentRequest: (params: {
+    loanId: string;
+    amount: number;
+    paymentMethod: PaymentMethod;
+    bankAccountId?: string;
+    notes?: string;
+    isFullPayment?: boolean;
+  }) => Promise<{ success: boolean; message: string; transaction?: Transaction }>;
+
   auditLogs: AuditLog[];
   addAuditLog: (logData: Omit<AuditLog, 'id' | 'timestamp' | 'date' | 'time'>) => AuditLog;
 
@@ -3185,6 +3194,102 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
+    if (tx.type === 'loan_installment') {
+      const loan = loans.find(l => l.id === tx.loanId) || (tx.memberId ? loans.find(l => l.memberId === tx.memberId && l.status === 'active') : undefined);
+      if (loan) {
+        const payAmount = Number(tx.amount) || 0;
+        const fineAmount = Number(tx.fineAmount) || 0;
+
+        const scheduleList: LoanInstallmentSchedule[] = Array.isArray(loan.schedule) && loan.schedule.length > 0
+          ? [...loan.schedule]
+          : (Array.isArray((loan as any).installmentSchedule) && (loan as any).installmentSchedule.length > 0
+              ? [...(loan as any).installmentSchedule]
+              : []);
+
+        let remainingPay = payAmount;
+        let actualInstallmentNo = tx.installmentNo;
+
+        let updatedSchedule: LoanInstallmentSchedule[];
+        if (scheduleList.length > 0) {
+          updatedSchedule = scheduleList.map(s => {
+            if (s.status !== 'paid' && remainingPay > 0) {
+              const instDue = Number(s.amount) || 0;
+              if (!actualInstallmentNo) actualInstallmentNo = s.installmentNo;
+              if (remainingPay >= instDue) {
+                remainingPay -= instDue;
+                return {
+                  ...s,
+                  status: 'paid' as const,
+                  paidDate: tx.date || getTodayDateStr(),
+                  paidAmount: instDue,
+                  fine: fineAmount,
+                  receiptNo: tx.voucherNo,
+                };
+              } else {
+                const alreadyPaid = Number(s.paidAmount) || 0;
+                const paidThisTime = remainingPay;
+                remainingPay = 0;
+                return {
+                  ...s,
+                  paidDate: tx.date || getTodayDateStr(),
+                  paidAmount: alreadyPaid + paidThisTime,
+                  fine: fineAmount,
+                  receiptNo: tx.voucherNo,
+                };
+              }
+            }
+            return s;
+          });
+        } else {
+          updatedSchedule = [{
+            installmentNo: tx.installmentNo || 1,
+            dueDate: tx.date || getTodayDateStr(),
+            amount: payAmount,
+            principal: payAmount,
+            interest: 0,
+            status: 'paid',
+            paidDate: tx.date || getTodayDateStr(),
+            paidAmount: payAmount,
+            fine: fineAmount,
+            receiptNo: tx.voucherNo,
+          }];
+        }
+
+        const paidCount = updatedSchedule.filter(s => s.status === 'paid').length;
+        const newPaidAmount = (Number(loan.paidAmount) || 0) + payAmount;
+        const newRemaining = Math.max(0, (Number(loan.totalAmount) || 0) - newPaidAmount);
+        const isCleared = newRemaining <= 0 || paidCount >= (loan.totalInstallments || 1);
+
+        const updatedLoan: Loan = {
+          ...loan,
+          paidAmount: newPaidAmount,
+          remainingAmount: newRemaining,
+          paidInstallmentsCount: paidCount,
+          status: isCleared ? 'cleared' : 'active',
+          schedule: updatedSchedule,
+          installmentSchedule: updatedSchedule,
+        };
+
+        setLoans(prev => prev.map(l => l.id === loan.id ? updatedLoan : l));
+        safeSetDoc(doc(db, 'loans', loan.id), updatedLoan).catch(console.error);
+
+        // Authoritatively update member activeLoanBalance
+        if (loan.memberId) {
+          setMembers(prev => prev.map(m => {
+            if (m.id !== loan.memberId) return m;
+            const remainingForMember = loans
+              .map(l => l.id === loan.id ? updatedLoan : l)
+              .filter(l => l.memberId === loan.memberId && l.status === 'active')
+              .reduce((sum, l) => sum + (Number(l.remainingAmount) || 0), 0);
+
+            const updatedM = { ...m, activeLoanBalance: Math.max(0, remainingForMember) };
+            safeSetDoc(doc(db, 'members', m.id), updatedM).catch(console.error);
+            return updatedM;
+          }));
+        }
+      }
+    }
+
     if (member) {
       const recalculated = recalculateMemberShareFinancials(member, nextTxs, nextClosures, settings?.sharePricePerUnit || 1000);
       setMembers(prev => prev.map(m => m.id === member.id ? recalculated : m));
@@ -3205,7 +3310,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // 2. Bank account balance update if paid via bank
     if (tx.paymentMethod === 'bank' && tx.bankAccountId) {
-      const isCredit = ['deposit', 'dps_deposit', 'fdr_deposit', 'share_purchase', 'income'].includes(tx.type);
+      const isCredit = ['deposit', 'dps_deposit', 'fdr_deposit', 'share_purchase', 'loan_installment', 'income'].includes(tx.type);
       setBankAccounts(prev => prev.map(b => {
         if (b.id === tx.bankAccountId) {
           const newBal = isCredit ? (b.balance + tx.amount) : Math.max(0, b.balance - tx.amount);
@@ -3524,6 +3629,76 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       success: true, 
       message: `ঋণ কিস্তি #${actualInstallmentNo} বাবদ ৳${totalCollected} সফলভাবে আদায় ও সংরক্ষণ সম্পন্ন হয়েছে!` 
     });
+  };
+
+  const submitLoanPaymentRequest = async (params: {
+    loanId: string;
+    amount: number;
+    paymentMethod: PaymentMethod;
+    bankAccountId?: string;
+    notes?: string;
+    isFullPayment?: boolean;
+  }): Promise<{ success: boolean; message: string; transaction?: Transaction }> => {
+    const loan = loans.find(l => l.id === params.loanId);
+    if (!loan) {
+      return { success: false, message: 'ঋণ হিসাবটি খুঁজে পাওয়া যায়নি।' };
+    }
+    if (loan.status !== 'active') {
+      return { success: false, message: 'শুধুমাত্র চলমান (Active) ঋণে পরিশোধের আবেদন করা যাবে।' };
+    }
+
+    const payAmount = Number(params.amount);
+    if (!payAmount || payAmount <= 0) {
+      return { success: false, message: 'পরিশোধের পরিমাণ অবশ্যই ০ টাকার বেশি হতে হবে।' };
+    }
+
+    const outstanding = Number(loan.remainingAmount) || Math.max(0, Number(loan.totalAmount) - Number(loan.paidAmount));
+    if (payAmount > outstanding) {
+      return { 
+        success: false, 
+        message: `পেমেন্টের পরিমাণ অবশিষ্ট বকেয়া (৳${outstanding.toLocaleString('bn-BD')})-এর চেয়ে বেশি হতে পারে না।` 
+      };
+    }
+
+    const member = members.find(m => m.id === loan.memberId);
+    const voucherNo = `LP-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const newTx: Transaction = {
+      id: `tx-lp-${Date.now()}`,
+      voucherNo,
+      memberId: loan.memberId,
+      memberName: loan.memberName,
+      memberNo: loan.memberNo || member?.memberNo,
+      type: 'loan_installment',
+      amount: payAmount,
+      date: getTodayDateStr(),
+      time: getCurrentTimeStr(),
+      paymentMethod: params.paymentMethod,
+      bankAccountId: params.bankAccountId,
+      loanId: loan.id,
+      collectedBy: currentUser?.name || member?.name || 'সদস্য',
+      status: 'pending', // Pending Admin Approval
+      notes: params.notes || (params.isFullPayment ? `সম্পূর্ণ ঋণ পরিশোধ আবেদন (${loan.loanNo})` : `ঋণ পরিশোধ আবেদন (${loan.loanNo})`),
+    };
+
+    setTransactions(prev => [newTx, ...prev]);
+    await safeSetDoc(doc(db, 'transactions', newTx.id), newTx);
+
+    addAuditLog({
+      action: 'installment',
+      entityType: 'loan',
+      entityId: loan.id,
+      entityTitle: `${loan.loanNo} (${loan.memberName})`,
+      performedBy: currentUser?.name || member?.name || 'সদস্য',
+      userRole: currentUser?.role || 'member',
+      details: `${loan.memberName} ঋণ ${loan.loanNo}-এ ৳${payAmount} পরিশোধের আবেদন করেছেন (অ্যাডমিন অনুমোদনের অপেক্ষমাণ)।`,
+    });
+
+    return {
+      success: true,
+      message: `ঋণ পরিশোধের আবেদন সফলভাবে জমা হয়েছে! অ্যাডমিন অনুমোদন করার পর এটি কার্যকর হবে। (ভাউচার: #${voucherNo})`,
+      transaction: newTx,
+    };
   };
 
   // Update Loan (Edit Loan with automatic recalculation across all stats, member balances, and audit logs)
@@ -6222,6 +6397,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         updateLoan,
         deleteLoan,
         payLoanInstallment,
+        submitLoanPaymentRequest,
         auditLogs,
         addAuditLog,
         addSavingsScheme,

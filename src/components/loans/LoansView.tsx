@@ -39,6 +39,7 @@ import { Loan, PaymentMethod } from '../../types';
 import { EditLoanModal } from './EditLoanModal';
 import { DeleteLoanModal } from './DeleteLoanModal';
 import { LoanAuditModal } from './LoanAuditModal';
+import { LoanPaymentModal } from './LoanPaymentModal';
 
 export const LoansView: React.FC = () => {
   const { language } = useLanguage();
@@ -48,6 +49,7 @@ export const LoansView: React.FC = () => {
     loans, 
     members,
     bankAccounts,
+    transactions,
     activeTab,
     setActiveTab,
     useBengaliDigits, 
@@ -56,6 +58,8 @@ export const LoansView: React.FC = () => {
     approveLoan,
     rejectLoan,
     payLoanInstallment,
+    approvePendingTransaction,
+    rejectPendingTransaction,
     openReceiptForTx,
     currentUser,
     totalAvailableBalance
@@ -65,12 +69,16 @@ export const LoansView: React.FC = () => {
 
   // Internal tab state synced with activeTab or local navigation
   const [currentTab, setCurrentTab] = useState<'overview' | 'apply' | 'pending' | 'kisti' | 'calculator'>('overview');
+  const [pendingSubTab, setPendingSubTab] = useState<'applications' | 'payments'>('applications');
+  const [showLoanPaymentModal, setShowLoanPaymentModal] = useState<boolean>(false);
+  const [selectedLoanForPayment, setSelectedLoanForPayment] = useState<Loan | null>(null);
 
   useEffect(() => {
     if (activeTab === 'loans_apply') setCurrentTab('apply');
     else if (activeTab === 'loans_pending') setCurrentTab('pending');
     else if (activeTab === 'loans_kisti' || activeTab === 'transactions_kisti') {
       if (isMember) {
+        setShowLoanPaymentModal(true);
         setCurrentTab('overview');
         setActiveTab('loans');
       } else {
@@ -83,7 +91,7 @@ export const LoansView: React.FC = () => {
 
   const displayCount = (num: number) => (isBn || useBengaliDigits ? toBengaliNumber(num) : num.toString());
 
-  // Pending loans count
+  // Pending loans count (applications)
   const pendingLoans = useMemo(() => {
     return loans.filter(l => {
       if (isMember && currentUser?.memberId && l.memberId !== currentUser.memberId) {
@@ -92,6 +100,17 @@ export const LoansView: React.FC = () => {
       return l.status === 'pending';
     });
   }, [loans, isMember, currentUser]);
+
+  // Pending loan payment requests
+  const pendingLoanPayments = useMemo(() => {
+    return transactions.filter(t => {
+      if (t.type !== 'loan_installment' || t.status !== 'pending') return false;
+      if (isMember && currentUser?.memberId && t.memberId !== currentUser.memberId) {
+        return false;
+      }
+      return true;
+    });
+  }, [transactions, isMember, currentUser]);
 
   const activeLoans = useMemo(() => {
     return loans.filter(l => {
@@ -546,14 +565,25 @@ export const LoansView: React.FC = () => {
           >
             <Clock className="w-4 h-4 text-amber-600" />
             <span>{isBn ? (isMember ? 'আবেদন ও পেন্ডিং স্ট্যাটাস' : 'অনুমোদন ও পেন্ডিং') : (isMember ? 'Application & Status' : 'Approvals & Pending')}</span>
-            {pendingLoans.length > 0 && (
+            {(pendingLoans.length + pendingLoanPayments.length) > 0 && (
               <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white animate-pulse shadow-2xs">
-                {displayCount(pendingLoans.length)}
+                {displayCount(pendingLoans.length + pendingLoanPayments.length)}
               </span>
             )}
           </button>
 
-          {!isMember && (
+          {isMember ? (
+            <button
+              onClick={() => {
+                setSelectedLoanForPayment(null);
+                setShowLoanPaymentModal(true);
+              }}
+              className="px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer text-slate-700 hover:text-slate-950 hover:bg-slate-200/60"
+            >
+              <CreditCard className="w-4 h-4 text-indigo-600" />
+              <span>{isBn ? 'ঋণ পরিশোধ' : 'Loan Payment'}</span>
+            </button>
+          ) : (
             <button
               onClick={() => { setCurrentTab('kisti'); setActiveTab('loans_kisti'); }}
               className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
@@ -729,13 +759,26 @@ export const LoansView: React.FC = () => {
                 <span>{isBn ? 'অডিট হিস্ট্রি' : 'Audit Logs'}</span>
               </button>
 
-              <button
-                onClick={() => { setCurrentTab('kisti'); setActiveTab('loans_kisti'); }}
-                className="flex items-center gap-1.5 px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all cursor-pointer"
-              >
-                <Coins className="w-4 h-4" />
-                <span>{isBn ? 'কিস্তি আদায়' : 'Collect Kisti'}</span>
-              </button>
+              {isMember ? (
+                <button
+                  onClick={() => {
+                    setSelectedLoanForPayment(null);
+                    setShowLoanPaymentModal(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all cursor-pointer"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>{isBn ? 'ঋণ পরিশোধ' : 'Loan Payment'}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => { setCurrentTab('kisti'); setActiveTab('loans_kisti'); }}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all cursor-pointer"
+                >
+                  <Coins className="w-4 h-4" />
+                  <span>{isBn ? 'কিস্তি আদায়' : 'Collect Kisti'}</span>
+                </button>
+              )}
 
               <button
                 onClick={() => { setCurrentTab('apply'); setActiveTab('loans_apply'); }}
@@ -856,6 +899,18 @@ export const LoansView: React.FC = () => {
                                 className="px-2.5 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded text-[11px] font-bold transition-colors shadow-2xs cursor-pointer"
                               >
                                 {isBn ? 'কিস্তি আদায়' : 'Collect'}
+                              </button>
+                            )}
+                            {loan.status === 'active' && isMember && (
+                              <button
+                                onClick={() => {
+                                  setSelectedLoanForPayment(loan);
+                                  setShowLoanPaymentModal(true);
+                                }}
+                                className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[11px] font-bold transition-colors shadow-2xs cursor-pointer flex items-center gap-1"
+                              >
+                                <CreditCard className="w-3.5 h-3.5" />
+                                <span>{isBn ? 'ঋণ পরিশোধ' : 'Loan Payment'}</span>
                               </button>
                             )}
                             <button
@@ -1255,154 +1310,379 @@ export const LoansView: React.FC = () => {
                 <Clock className="w-5 h-5 text-amber-600" />
                 <span>
                   {isBn 
-                    ? (isMember ? 'আমার ঋণের আবেদন ও বর্তমান অবস্থা' : 'পেন্ডিং ঋণের আবেদন ও অ্যাডমিন অনুমোদন') 
-                    : (isMember ? 'My Loan Application & Approval Status' : 'Pending Loan Applications & Admin Approval')}
+                    ? (isMember ? 'আমার ঋণের আবেদন ও পরিশোধ অবস্থা' : 'পেন্ডিং ঋণ আবেদন ও পরিশোধ অনুমোদন') 
+                    : (isMember ? 'My Loan Applications & Payment Requests' : 'Pending Applications & Payment Approvals')}
                 </span>
-                {pendingLoans.length > 0 && (
+                {(pendingLoans.length + pendingLoanPayments.length) > 0 && (
                   <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300">
-                    {displayCount(pendingLoans.length)} {isBn ? 'টি পেন্ডিং' : 'Pending'}
+                    {displayCount(pendingLoans.length + pendingLoanPayments.length)} {isBn ? 'টি পেন্ডিং' : 'Pending'}
                   </span>
                 )}
               </h3>
               <p className="text-xs text-slate-500 mt-1">
                 {isBn 
-                  ? (isMember ? 'এখানে আপনার প্রেরিত ঋণের আবেদনের বর্তমান স্ট্যাটাস এবং বিবরণ দেখতে পারবেন।' : 'এখানে নতুন ঋণের আবেদনগুলো যাচাই করে অ্যাডমিন অনুমোদন বা বাতিল করতে পারবেন।') 
-                  : (isMember ? 'View the status and details of your loan applications.' : 'Review member loan requests to disburse or reject.')}
+                  ? (isMember ? 'এখানে আপনার প্রেরিত নতুন ঋণের আবেদন এবং ঋণ পরিশোধের পেন্ডিং অনুরোধের বিবরণ দেখতে পারবেন।' : 'এখানে নতুন ঋণ বিতরণ এবং সদস্যদের কিস্তি/ঋণ পরিশোধের পেন্ডিং আবেদন যাচাই করে অনুমোদন দিন।') 
+                  : (isMember ? 'View the status of your loan applications and loan payment requests.' : 'Review and approve member loan disbursements and loan payment requests.')}
               </p>
             </div>
 
+            <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+              {isMember && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedLoanForPayment(null);
+                    setShowLoanPaymentModal(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>{isBn ? 'ঋণ পরিশোধ ফরম' : 'Loan Payment'}</span>
+                </button>
+              )}
+              <button
+                onClick={() => setCurrentTab('apply')}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>{isBn ? 'নতুন ঋণের আবেদন' : 'New Application'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Sub-tab Switcher between Loan Applications and Payment Requests */}
+          <div className="flex items-center gap-2 p-1 bg-slate-100/90 rounded-xl max-w-md border border-slate-200/80">
             <button
-              onClick={() => setCurrentTab('apply')}
-              className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer self-start sm:self-auto"
+              type="button"
+              onClick={() => setPendingSubTab('applications')}
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                pendingSubTab === 'applications'
+                  ? 'bg-white text-indigo-700 shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
             >
-              <PlusCircle className="w-4 h-4" />
-              <span>{isBn ? 'নতুন ঋণের আবেদন' : 'New Application'}</span>
+              <span>{isBn ? 'ঋণ আবেদন' : 'Loan Applications'}</span>
+              {pendingLoans.length > 0 && (
+                <span className="px-1.5 py-0.2 bg-amber-500 text-white rounded-full text-[10px] font-extrabold">
+                  {displayCount(pendingLoans.length)}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPendingSubTab('payments')}
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                pendingSubTab === 'payments'
+                  ? 'bg-white text-indigo-700 shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <CreditCard className="w-3.5 h-3.5 text-indigo-600" />
+              <span>{isBn ? 'ঋণ পরিশোধ আবেদন' : 'Payment Requests'}</span>
+              {pendingLoanPayments.length > 0 && (
+                <span className="px-1.5 py-0.2 bg-rose-500 text-white rounded-full text-[10px] font-extrabold animate-pulse">
+                  {displayCount(pendingLoanPayments.length)}
+                </span>
+              )}
             </button>
           </div>
 
-          {/* Pending Applications List */}
-          {pendingLoans.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-2xs">
-              <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-3 text-emerald-600">
-                <CheckCircle2 className="w-8 h-8" />
-              </div>
-              <h4 className="text-base font-bold text-slate-800">
-                {isBn 
-                  ? (isMember ? 'আপনার বর্তমানে কোনো অপেক্ষমাণ ঋণের আবেদন নেই' : 'বর্তমানে কোনো পেন্ডিং ঋণের আবেদন নেই') 
-                  : (isMember ? 'You have no pending loan applications' : 'No Pending Loan Applications')}
-              </h4>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
-                {isBn 
-                  ? (isMember ? 'নতুন ঋণের প্রয়োজন হলে "নতুন ঋণের আবেদন" বোতামে ক্লিক করে আবেদন জমা দিন।' : 'সকল ঋণ আবেদন প্রক্রিয়া সম্পন্ন হয়েছে। নতুন ঋণের আবেদন গ্রহণের জন্য "নতুন ঋণের আবেদন" বোতামে ক্লিক করুন।') 
-                  : (isMember ? 'Click "New Application" if you want to apply for a loan.' : 'All applications have been processed. Click "New Application" to add a new request.')}
-              </p>
+          {/* Subtab 1: Loan Applications */}
+          {pendingSubTab === 'applications' && (
+            <div>
+              {pendingLoans.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-2xs">
+                  <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-3 text-emerald-600">
+                    <CheckCircle2 className="w-8 h-8" />
+                  </div>
+                  <h4 className="text-base font-bold text-slate-800">
+                    {isBn 
+                      ? (isMember ? 'আপনার বর্তমানে কোনো অপেক্ষমাণ ঋণের আবেদন নেই' : 'বর্তমানে কোনো পেন্ডিং ঋণের আবেদন নেই') 
+                      : (isMember ? 'You have no pending loan applications' : 'No Pending Loan Applications')}
+                  </h4>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+                    {isBn 
+                      ? 'নতুন ঋণের প্রয়োজন হলে "নতুন ঋণের আবেদন" বোতামে ক্লিক করে আবেদন জমা দিন।' 
+                      : 'Click "New Application" if you want to apply for a loan.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {pendingLoans.map((loan) => (
+                    <div key={loan.id} className="bg-white rounded-2xl border border-amber-200 shadow-xs hover:shadow-md transition-all p-5 space-y-4">
+                      {/* Card Header */}
+                      <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-black px-2 py-0.5 bg-amber-100 text-amber-800 rounded">
+                              {loan.loanNo}
+                            </span>
+                            <span className="text-xs font-bold text-slate-800">
+                              {loan.memberName}
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-slate-400 font-mono mt-0.5 block">
+                            {loan.memberNo} • {isBn ? 'আবেদনের তারিখ:' : 'Applied:'} {formatBengaliDate(loan.disbursedDate, isBn)}
+                          </span>
+                        </div>
+
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-amber-600 animate-spin" />
+                          <span>{isBn ? 'অনুমোদন অপেক্ষমাণ' : 'Pending Approval'}</span>
+                        </span>
+                      </div>
+
+                      {/* Financial Details Grid */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 p-3 rounded-xl text-xs">
+                        <div>
+                          <span className="text-slate-400 block text-[10px]">{isBn ? 'মূল ঋণ' : 'Principal'}</span>
+                          <span className="font-bold text-slate-900">{formatCurrency(loan.principalAmount, isBn && useBengaliDigits)}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[10px]">{isBn ? 'সুদসহ মোট' : 'Total'}</span>
+                          <span className="font-bold text-indigo-700">{formatCurrency(loan.totalAmount, isBn && useBengaliDigits)}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[10px]">{isBn ? 'মেয়াদ' : 'Term'}</span>
+                          <span className="font-bold text-slate-700">{displayCount(loan.termMonths)} {isBn ? 'মাস' : 'Mo'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[10px]">{isBn ? 'প্রতি কিস্তি' : 'EMI'}</span>
+                          <span className="font-bold text-emerald-700">{formatCurrency(loan.installmentAmount, isBn && useBengaliDigits)}</span>
+                        </div>
+                      </div>
+
+                      {/* Purpose & Guarantor */}
+                      <div className="space-y-1.5 text-xs text-slate-600">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-slate-500">{isBn ? 'উদ্দেশ্য:' : 'Purpose:'}</span>
+                          <span className="font-medium text-slate-800">{loan.purpose}</span>
+                        </div>
+                        {loan.guarantorName && (
+                          <div className="flex items-center gap-1.5">
+                            <UserCheck className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                            <span className="font-semibold text-slate-500">{isBn ? 'জামিনদার:' : 'Guarantor:'}</span>
+                            <span>{loan.guarantorName} ({loan.guarantorRelation}) {loan.guarantorPhone && `• ${loan.guarantorPhone}`}</span>
+                          </div>
+                        )}
+                        {loan.processingFee ? (
+                          <div className="text-[11px] text-slate-500">
+                            {isBn ? `প্রসেসিং ফি: ${formatCurrency(loan.processingFee, isBn && useBengaliDigits)}` : `Processing Fee: ${formatCurrency(loan.processingFee)}`}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {/* Approval Actions or Member Status Indicator */}
+                      {!isMember ? (
+                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                          <button
+                            onClick={() => {
+                              setRejectingLoan(loan);
+                              setRejectReason('');
+                            }}
+                            className="px-3.5 py-1.5 rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <XCircle className="w-4 h-4 text-rose-600" />
+                            <span>{isBn ? 'বাতিল করুন (Reject)' : 'Reject'}</span>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setApprovingLoan(loan);
+                              setApproveMethod(loan.disbursementMethod || 'cash');
+                              setApproveBankAccountId(loan.bankAccountId || '');
+                              setApproveComments('');
+                            }}
+                            className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <CheckCircle2 className="w-4 h-4 text-white" />
+                            <span>{isBn ? 'অনুমোদন ও বিতরণ (Approve)' : 'Approve & Disburse'}</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs bg-amber-50/50 p-2.5 rounded-xl border border-amber-100">
+                          <span className="text-slate-600 font-medium flex items-center gap-1.5">
+                            <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                            <span>{isBn ? 'আবেদনের বর্তমান অবস্থা:' : 'Current Status:'}</span>
+                          </span>
+                          <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                            {isBn ? 'অ্যাডমিন পর্যালোচনার অপেক্ষায়' : 'Under Admin Review'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {pendingLoans.map((loan) => (
-                <div key={loan.id} className="bg-white rounded-2xl border border-amber-200 shadow-xs hover:shadow-md transition-all p-5 space-y-4">
-                  {/* Card Header */}
-                  <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-black px-2 py-0.5 bg-amber-100 text-amber-800 rounded">
-                          {loan.loanNo}
-                        </span>
-                        <span className="text-xs font-bold text-slate-800">
-                          {loan.memberName}
-                        </span>
-                      </div>
-                      <span className="text-[11px] text-slate-400 font-mono mt-0.5 block">
-                        {loan.memberNo} • {isBn ? 'আবেদনের তারিখ:' : 'Applied:'} {formatBengaliDate(loan.disbursedDate, isBn)}
-                      </span>
-                    </div>
+          )}
 
-                    <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-amber-600 animate-spin" />
-                      <span>{isBn ? 'অনুমোদন অপেক্ষমাণ' : 'Pending Approval'}</span>
-                    </span>
+          {/* Subtab 2: Loan Payment Requests */}
+          {pendingSubTab === 'payments' && (
+            <div>
+              {pendingLoanPayments.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-2xs space-y-3">
+                  <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto text-indigo-600">
+                    <CheckCircle2 className="w-8 h-8" />
                   </div>
-
-                  {/* Financial Details Grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 p-3 rounded-xl text-xs">
-                    <div>
-                      <span className="text-slate-400 block text-[10px]">{isBn ? 'মূল ঋণ' : 'Principal'}</span>
-                      <span className="font-bold text-slate-900">{formatCurrency(loan.principalAmount, isBn && useBengaliDigits)}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[10px]">{isBn ? 'সুদসহ মোট' : 'Total'}</span>
-                      <span className="font-bold text-indigo-700">{formatCurrency(loan.totalAmount, isBn && useBengaliDigits)}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[10px]">{isBn ? 'মেয়াদ' : 'Term'}</span>
-                      <span className="font-bold text-slate-700">{displayCount(loan.termMonths)} {isBn ? 'মাস' : 'Mo'}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[10px]">{isBn ? 'প্রতি কিস্তি' : 'EMI'}</span>
-                      <span className="font-bold text-emerald-700">{formatCurrency(loan.installmentAmount, isBn && useBengaliDigits)}</span>
-                    </div>
-                  </div>
-
-                  {/* Purpose & Guarantor */}
-                  <div className="space-y-1.5 text-xs text-slate-600">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-semibold text-slate-500">{isBn ? 'উদ্দেশ্য:' : 'Purpose:'}</span>
-                      <span className="font-medium text-slate-800">{loan.purpose}</span>
-                    </div>
-                    {loan.guarantorName && (
-                      <div className="flex items-center gap-1.5">
-                        <UserCheck className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                        <span className="font-semibold text-slate-500">{isBn ? 'জামিনদার:' : 'Guarantor:'}</span>
-                        <span>{loan.guarantorName} ({loan.guarantorRelation}) {loan.guarantorPhone && `• ${loan.guarantorPhone}`}</span>
-                      </div>
-                    )}
-                    {loan.processingFee ? (
-                      <div className="text-[11px] text-slate-500">
-                        {isBn ? `প্রসেসিং ফি: ${formatCurrency(loan.processingFee, isBn && useBengaliDigits)}` : `Processing Fee: ${formatCurrency(loan.processingFee)}`}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {/* Approval Actions or Member Status Indicator */}
-                  {!isMember ? (
-                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                      <button
-                        onClick={() => {
-                          setRejectingLoan(loan);
-                          setRejectReason('');
-                        }}
-                        className="px-3.5 py-1.5 rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <XCircle className="w-4 h-4 text-rose-600" />
-                        <span>{isBn ? 'বাতিল করুন (Reject)' : 'Reject'}</span>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setApprovingLoan(loan);
-                          setApproveMethod(loan.disbursementMethod || 'cash');
-                          setApproveBankAccountId(loan.bankAccountId || '');
-                          setApproveComments('');
-                        }}
-                        className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <CheckCircle2 className="w-4 h-4 text-white" />
-                        <span>{isBn ? 'অনুমোদন ও বিতরণ (Approve)' : 'Approve & Disburse'}</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs bg-amber-50/50 p-2.5 rounded-xl border border-amber-100">
-                      <span className="text-slate-600 font-medium flex items-center gap-1.5">
-                        <Clock className="w-4 h-4 text-amber-600 shrink-0" />
-                        <span>{isBn ? 'আবেদনের বর্তমান অবস্থা:' : 'Current Status:'}</span>
-                      </span>
-                      <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
-                        {isBn ? 'অ্যাডমিন পর্যালোচনার অপেক্ষায়' : 'Under Admin Review'}
-                      </span>
-                    </div>
+                  <h4 className="text-base font-bold text-slate-800">
+                    {isBn ? 'বর্তমানে কোনো পেন্ডিং ঋণ পরিশোধের আবেদন নেই' : 'No Pending Loan Payment Requests'}
+                  </h4>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto">
+                    {isBn 
+                      ? 'সদস্যরা তাদের চলমান ঋণ পরিশোধের আবেদন জমা দিলে তা এখানে অ্যাডমিন পর্যালোচনার জন্য জমা হবে।' 
+                      : 'When members submit loan payment requests, they will appear here awaiting admin review and approval.'}
+                  </p>
+                  {isMember && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedLoanForPayment(null);
+                        setShowLoanPaymentModal(true);
+                      }}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                    >
+                      {isBn ? 'নতুন ঋণ পরিশোধের আবেদন করুন' : 'Submit Loan Payment'}
+                    </button>
                   )}
                 </div>
-              ))}
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {pendingLoanPayments.map((payment) => {
+                    const matchedLoan = loans.find(l => l.id === payment.loanId);
+                    const currentOutstanding = matchedLoan 
+                      ? (Number(matchedLoan.remainingAmount) || Math.max(0, Number(matchedLoan.totalAmount) - Number(matchedLoan.paidAmount)))
+                      : 0;
+                    const isFull = payment.amount >= currentOutstanding && currentOutstanding > 0;
+
+                    return (
+                      <div key={payment.id} className="bg-white rounded-2xl border border-indigo-200 shadow-xs hover:shadow-md transition-all p-5 space-y-4">
+                        {/* Header */}
+                        <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs font-black px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded">
+                                {payment.voucherNo || payment.id}
+                              </span>
+                              <span className="text-xs font-bold text-slate-900">
+                                {payment.memberName}
+                              </span>
+                            </div>
+                            <span className="text-[11px] text-slate-400 font-mono mt-0.5 block">
+                              {payment.memberNo} • {formatBengaliDate(payment.date, isBn)} {payment.time ? `• ${payment.time}` : ''}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            {isFull && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                {isBn ? 'সম্পূর্ণ পরিশোধ' : 'Full Payment'}
+                              </span>
+                            )}
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-amber-600 animate-spin" />
+                              <span>{isBn ? 'অনুমোদন পেন্ডিং' : 'Pending Approval'}</span>
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Payment & Loan Details */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-slate-50 p-3 rounded-xl text-xs">
+                          <div>
+                            <span className="text-slate-400 block text-[10px]">
+                              {isBn ? 'আবেদনকৃত পরিশোধ' : 'Payment Amount'}
+                            </span>
+                            <span className="font-black text-indigo-700 text-sm">
+                              {formatCurrency(payment.amount, isBn && useBengaliDigits)}
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-400 block text-[10px]">
+                              {isBn ? 'বর্তমান ঋণ বকেয়া' : 'Outstanding Balance'}
+                            </span>
+                            <span className="font-bold text-rose-600">
+                              {formatCurrency(currentOutstanding, isBn && useBengaliDigits)}
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-400 block text-[10px]">
+                              {isBn ? 'পরিশোধের মাধ্যম' : 'Method'}
+                            </span>
+                            <span className="font-bold text-slate-800 uppercase">
+                              {payment.paymentMethod}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Loan Ref info */}
+                        <div className="text-xs text-slate-600 space-y-1 bg-indigo-50/40 p-2.5 rounded-xl border border-indigo-100/60">
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-500 font-medium">{isBn ? 'সংশ্লিষ্ট ঋণ হিসাব:' : 'Linked Loan Account:'}</span>
+                            <span className="font-bold text-slate-800">{matchedLoan?.loanNo || payment.loanId}</span>
+                          </div>
+                          {matchedLoan?.purpose && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-500 font-medium">{isBn ? 'ঋণের উদ্দেশ্য:' : 'Loan Purpose:'}</span>
+                              <span className="font-medium text-slate-700">{matchedLoan.purpose}</span>
+                            </div>
+                          )}
+                          {payment.notes && (
+                            <div className="pt-1 text-[11px] text-slate-500 italic border-t border-indigo-100/60">
+                              "{payment.notes}"
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Mandatory Isolation Workflow Notice */}
+                        <div className="p-2.5 bg-amber-50/70 border border-amber-200/60 rounded-xl text-[11px] text-amber-800 flex items-start gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                          <span>
+                            {isBn 
+                              ? 'অনুমোদন না হওয়া পর্যন্ত মূল ঋণ হিসাব, মোট মাঠের বকেয়া বা পাসবুকে কোনো টাকা কর্তন/যোগ হয়নি।' 
+                              : 'Not reflected in outstanding balance or passbook until admin approval.'}
+                          </span>
+                        </div>
+
+                        {/* Action Buttons */}
+                        {!isMember ? (
+                          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                            <button
+                              type="button"
+                              onClick={() => rejectPendingTransaction(payment.id, 'প্রশাসনিক সিদ্ধান্তে ঋণ পরিশোধ আবেদন বাতিল')}
+                              className="px-3 py-1.5 rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                            >
+                              <XCircle className="w-4 h-4 text-rose-600" />
+                              <span>{isBn ? 'বাতিল (Reject)' : 'Reject'}</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => approvePendingTransaction(payment.id)}
+                              className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-4 h-4 text-white" />
+                              <span>{isBn ? 'অনুমোদন করুন (Approve)' : 'Approve Payment'}</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs bg-amber-50/50 p-2 rounded-xl border border-amber-100">
+                            <span className="text-slate-600 font-medium flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              <span>{isBn ? 'স্ট্যাটাস:' : 'Status:'}</span>
+                            </span>
+                            <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                              {isBn ? 'অ্যাডমিন অনুমোদনের অপেক্ষায়' : 'Pending Admin Approval'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -2000,6 +2280,15 @@ export const LoansView: React.FC = () => {
       <LoanAuditModal
         isOpen={showAuditModal}
         onClose={() => setShowAuditModal(false)}
+      />
+
+      <LoanPaymentModal
+        isOpen={showLoanPaymentModal}
+        onClose={() => {
+          setShowLoanPaymentModal(false);
+          setSelectedLoanForPayment(null);
+        }}
+        initialLoan={selectedLoanForPayment}
       />
     </div>
   );

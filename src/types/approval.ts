@@ -2,6 +2,7 @@ import { Loan, BusinessFunding } from '../types';
 
 export type ApprovalCategory = 
   | 'loan' 
+  | 'loan_payment'
   | 'business_funding' 
   | 'business_profit'
   | 'user_registration'

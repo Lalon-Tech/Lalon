@@ -25,7 +25,8 @@ import {
   Link2,
   AlertCircle,
   Loader2,
-  TrendingUp
+  TrendingUp,
+  CreditCard
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -126,7 +127,7 @@ export const ApprovalNotificationCenter: React.FC = () => {
   const filteredItems = useMemo(() => {
     if (selectedCategory === 'all') return allPendingItems;
     if (selectedCategory === 'deposit') {
-      return allPendingItems.filter(item => ['deposit', 'savings_withdrawal', 'share_purchase', 'share_surrender'].includes(item.category));
+      return allPendingItems.filter(item => ['deposit', 'savings_withdrawal', 'share_purchase', 'share_surrender', 'loan_payment'].includes(item.category));
     }
     if (selectedCategory === 'user_registration') {
       return allPendingItems.filter(item => item.category === 'user_registration' || item.category === 'member_admission');
@@ -448,10 +449,13 @@ export const ApprovalNotificationCenter: React.FC = () => {
             const isUserReg = item.category === 'user_registration';
             const isMemberAdmission = item.category === 'member_admission';
             const isProfileUpdate = item.category === 'member_profile_update';
-            const isTx = ['deposit', 'savings_withdrawal', 'share_purchase', 'share_surrender'].includes(item.category);
+            const isLoanPayment = item.category === 'loan_payment';
+            const isTx = ['deposit', 'savings_withdrawal', 'share_purchase', 'share_surrender', 'loan_payment'].includes(item.category);
 
             const accentColor = isLoan 
               ? 'bg-amber-500' 
+              : isLoanPayment
+              ? 'bg-indigo-600'
               : isBf 
               ? 'bg-indigo-600' 
               : isProfit
@@ -464,6 +468,8 @@ export const ApprovalNotificationCenter: React.FC = () => {
 
             const badgeColor = isLoan
               ? 'bg-amber-100 text-amber-800 border-amber-200'
+              : isLoanPayment
+              ? 'bg-indigo-100 text-indigo-800 border-indigo-200'
               : isBf
               ? 'bg-indigo-100 text-indigo-800 border-indigo-200'
               : isProfit
@@ -487,6 +493,8 @@ export const ApprovalNotificationCenter: React.FC = () => {
                   <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${badgeColor}`}>
                     {isLoan ? (
                       <HandCoins className="w-3 h-3 text-amber-600" />
+                    ) : isLoanPayment ? (
+                      <CreditCard className="w-3 h-3 text-indigo-600" />
                     ) : isBf ? (
                       <Briefcase className="w-3 h-3 text-indigo-600" />
                     ) : isProfit ? (
