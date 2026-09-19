@@ -100,7 +100,6 @@ export const MemberList: React.FC = () => {
       [isBn ? 'জাতীয় পরিচয়পত্র' : 'NID']: m.nid,
       [isBn ? 'পেশা' : 'Occupation']: m.occupation,
       [isBn ? 'শেয়ার সংখ্যা' : 'Share Count']: m.shareCount,
-      [isBn ? 'শেয়ার মূল্য (৳)' : 'Share Value (৳)']: m.shareValue,
       [isBn ? 'মোট সঞ্চয় (৳)' : 'Total Savings (৳)']: m.totalSavings,
       [isBn ? 'চলতি ঋণ (৳)' : 'Active Loan (৳)']: m.activeLoanBalance,
       [isBn ? 'যোগদানের তারিখ' : 'Joining Date']: m.joiningDate,

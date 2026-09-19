@@ -313,7 +313,7 @@ export const DashboardView: React.FC = () => {
             <div className="bg-white p-4.5 rounded-xl border border-emerald-200/80 shadow-2xs hover:border-emerald-300 transition-all">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-bold text-emerald-700 block">
-                  {isBn ? 'মোট সঞ্চয় আমানত' : 'Total Member Savings'}
+                  {isBn ? 'মোট সদস্য সঞ্চয়' : 'Total Member Savings'}
                 </span>
                 <span className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
                   <Wallet className="w-4 h-4" />
@@ -323,9 +323,9 @@ export const DashboardView: React.FC = () => {
                 {formatCurrency(totalSavingsInSomiti, isBengaliNum)}
               </div>
               <div className="mt-2.5 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-                <span className="truncate">{isBn ? 'সকল সদস্যের সঞ্চয় ও শেয়ার আমানত' : 'All Members Savings & Shares'}</span>
+                <span className="truncate">{isBn ? 'জমা আমানত + লভ্যাংশ' : 'Total Deposits + Profit'}</span>
                 <span className="font-semibold text-emerald-600 shrink-0 ml-1">
-                  {isBn ? 'সঞ্চয় + শেয়ার' : 'Savings + Shares'}
+                  {isBn ? 'প্রকৃত সঞ্চয়' : 'Net Savings'}
                 </span>
               </div>
             </div>
@@ -344,9 +344,9 @@ export const DashboardView: React.FC = () => {
                 {formatCurrency(totalActiveLoanBalance, isBengaliNum)}
               </div>
               <div className="mt-2.5 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-                <span className="truncate">{isBn ? 'মাঠে বকেয়া ঋণ স্থিতি' : 'Remaining Principal'}</span>
+                <span className="truncate">{isBn ? 'বকেয়া মূলধন' : 'Principal − Repaid'}</span>
                 <span className="font-semibold text-amber-600 shrink-0 ml-1">
-                  {isBn ? 'সক্রিয় ঋণ' : 'Active Loan'}
+                  {isBn ? 'মূলধন স্থিতি' : 'Principal'}
                 </span>
               </div>
             </div>
@@ -361,9 +361,9 @@ export const DashboardView: React.FC = () => {
                   {formatCurrency(totalAvailableBalance, isBengaliNum)}
                 </div>
                 <div className="mt-2.5 flex items-center justify-between text-xs text-blue-200 pt-2 border-t border-blue-600/60">
-                  <span className="truncate">{isBn ? 'ভল্ট ও ব্যাংক ফান্ড' : 'Vault & Bank Funds'}</span>
+                  <span className="truncate">{isBn ? 'প্রাপ্ত অর্থ − ব্যয়/বিনিয়োগ' : 'Total Inflows − Outflows'}</span>
                   <span className="font-semibold text-emerald-300 shrink-0 ml-1">
-                    {isBn ? 'নগদ স্থিতি' : 'Liquid Cash'}
+                    {isBn ? 'তারল্য' : 'Liquidity'}
                   </span>
                 </div>
               </div>
@@ -384,9 +384,9 @@ export const DashboardView: React.FC = () => {
                 {formatCurrency(totalCapital, isBengaliNum)}
               </div>
               <div className="mt-2.5 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-                <span className="truncate">{isBn ? 'ব্যবসায় দেওয়া মোট অর্থ' : 'Capital Given to Business'}</span>
+                <span className="truncate">{isBn ? 'বিনিয়োগ − ফেরত মূলধন' : 'Funding − Returned'}</span>
                 <span className="font-semibold text-blue-600 shrink-0 ml-1">
-                  {isBn ? 'ব্যবসা ফান্ডিং' : 'Business Funding'}
+                  {isBn ? 'মূলধন' : 'Capital'}
                 </span>
               </div>
             </div>

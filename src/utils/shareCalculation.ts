@@ -1,4 +1,5 @@
 import { Member, Transaction, ShareClosure } from '../types';
+import { calculateMemberSavingsBreakdown } from './accountingRules';
 
 /**
  * Calculates the current remaining active shares for a member based on verified share records
@@ -71,6 +72,12 @@ export function calculateMemberRemainingShares(
     return Math.max(0, totalPurchasedFromTxs);
   }
 
+  // If there are transactions in the system or for this member, but no purchase transactions exist:
+  if (completedTxs.length > 0 && purchaseTxs.length === 0) {
+    // Member has transaction history, but has 0 share purchase transactions
+    return 0;
+  }
+
   // Fallback to member's recorded shareCount
   return Math.max(0, Number(member.shareCount) || 0);
 }
@@ -138,17 +145,23 @@ export function calculateMemberBaseDeposit(
 
   // Transaction ledger net calculation
   const totalDep = depositTxs.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  const totalProf = completedTxs.filter(t => t.type === 'profit_share').reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
   const totalWith = completedTxs.filter(t => t.type === 'withdraw').reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  const netDeposit = Math.max(0, totalDep - totalWith);
+  const netDeposit = Math.max(0, totalDep + totalProf - totalWith);
 
   const initialShares = Math.max(remainingShares, Number(member.shareCount) || remainingShares);
   const ratio = initialShares > 0 ? remainingShares / initialShares : 1;
 
-  if (netDeposit > 0) {
+  if (depositTxs.length > 0 || completedTxs.some(t => t.type === 'profit_share' || t.type === 'withdraw')) {
     return Math.max(0, Number((netDeposit * ratio).toFixed(2)));
   }
 
-  // Proportional general savings
+  // If member has other transactions, but 0 deposit transactions:
+  if (completedTxs.length > 0) {
+    return 0;
+  }
+
+  // Proportional general savings fallback only if no transactions exist in the ledger
   const generalSavings = Number(member.generalSavingsBalance) || 0;
   return Math.max(0, Number((generalSavings * ratio).toFixed(2)));
 }
@@ -157,41 +170,59 @@ export function calculateMemberBaseDeposit(
  * Recalculates all member financial fields based on current/remaining share records.
  * Ensures that when shareCount is 0, all share-related values, Base Deposit, and Share Capital become 0.
  * If only some shares are surrendered, calculates remaining values based only on the remaining shares.
+ * Sums valid active financial records rather than relying on stale cached values.
  */
 export function recalculateMemberShareFinancials(
   member: Member,
   transactions: Transaction[] = [],
-  shareClosures: ShareClosure[] = []
+  shareClosures: ShareClosure[] = [],
+  sharePricePerUnit: number = 1000
 ): Member {
   if (!member) return member;
 
+  const memberId = member.id;
+  const completedTxs = (transactions || []).filter(t => t.memberId === memberId && t.status === 'completed');
+
   const remainingShares = calculateMemberRemainingShares(member, transactions, shareClosures);
-  const dps = Number(member.dpsSavingsBalance) || 0;
-  const fdr = Number(member.fdrSavingsBalance) || 0;
+
+  // Derive DPS and FDR strictly from valid active transactions
+  const dpsTxs = completedTxs.filter(t => t.type === 'dps_deposit');
+  const fdrTxs = completedTxs.filter(t => t.type === 'fdr_deposit');
+  const dpsFromTxs = dpsTxs.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  const fdrFromTxs = fdrTxs.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+  // If member has transactions in history, use exact ledger sum. Do not retain stale cached values.
+  const dps = dpsTxs.length > 0 ? dpsFromTxs : (completedTxs.length > 0 ? 0 : (Number(member.dpsSavingsBalance) || 0));
+  const fdr = fdrTxs.length > 0 ? fdrFromTxs : (completedTxs.length > 0 ? 0 : (Number(member.fdrSavingsBalance) || 0));
 
   // Requirement: When a member surrenders/deletes all of their shares, all share-related values for that member must become 0
+  // Base Deposit must become 0 when the member has no remaining shares.
+  // Share Capital related to those shares must also be 0.
+  // When remainingShares <= 0, any share-related value is 0. If no DPS/FDR records exist, totalSavings is 0.
   if (remainingShares <= 0) {
+    const finalDps = dpsTxs.length > 0 ? dpsFromTxs : 0;
+    const finalFdr = fdrTxs.length > 0 ? fdrFromTxs : 0;
     return {
       ...member,
       shareCount: 0,
       shareValue: 0,
       generalSavingsBalance: 0,
-      totalSavings: dps + fdr,
+      dpsSavingsBalance: finalDps,
+      fdrSavingsBalance: finalFdr,
+      totalSavings: finalDps + finalFdr,
     };
   }
 
-  // If only some shares are surrendered, calculate remaining values based only on the remaining shares
-  const baseDeposit = calculateMemberBaseDeposit(member, transactions, shareClosures);
-  const initialShares = Math.max(remainingShares, Number(member.shareCount) || remainingShares);
-  const ratio = initialShares > 0 ? remainingShares / initialShares : 1;
-  const remainingShareVal = Math.max(0, Math.round((Number(member.shareValue) || 0) * ratio));
-  const totalSavings = baseDeposit + dps + fdr + remainingShareVal;
+  // Calculate pure savings strictly based on actual recorded deposits and profit
+  const breakdown = calculateMemberSavingsBreakdown(member, transactions, shareClosures);
 
   return {
     ...member,
     shareCount: remainingShares,
-    shareValue: remainingShareVal,
-    generalSavingsBalance: baseDeposit,
-    totalSavings,
+    shareValue: 0, // No separate inflated shareValue in savings
+    generalSavingsBalance: breakdown.generalSavingsBalance,
+    dpsSavingsBalance: breakdown.dpsSavingsBalance,
+    fdrSavingsBalance: breakdown.fdrSavingsBalance,
+    totalSavings: breakdown.totalSavings,
   };
 }

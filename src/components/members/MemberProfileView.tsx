@@ -973,12 +973,6 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                     </span>
                   </div>
                   <div className="py-2.5 flex items-center justify-between gap-4">
-                    <span className="text-slate-500 font-medium">{isBn ? 'শেয়ার মূলধন' : 'Share Capital'}</span>
-                    <span className="font-bold text-amber-600 text-right font-mono">
-                      ৳{formatCurrency((Number(member.shareCount) || 0) === 0 ? 0 : member.shareValue, isBn && useBengaliDigits)}
-                    </span>
-                  </div>
-                  <div className="py-2.5 flex items-center justify-between gap-4">
                     <span className="text-slate-500 font-medium">Admission Fee / সদস্য ভর্তি ফি</span>
                     <span className="font-semibold text-slate-800 text-right">
                       ৳{formatCurrency(member.admissionFee, isBn && useBengaliDigits)}
@@ -2390,7 +2384,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                       আমি নিম্নস্বাক্ষরকারী, <strong>{member.name}</strong>, পিতা: {member.fatherName || 'মৃত'}, মাতা: {member.motherName}, বর্তমান ঠিকানা: {member.presentAddress}—স্বেচ্ছায় ও সুস্থ মস্তিষ্কে {settings.somitiName}-এর সদস্যপদ লাভের আবেদন করিতেছি এবং সমিতির সকল উপ-আইন ও পরিচালনা পর্ষদের সিদ্ধান্ত মানিয়া চলার অঙ্গীকার করিতেছি।
                     </p>
                     <p>
-                      আমার সদস্য নম্বর <strong>{member.memberNo}</strong>। আমি সমিতিতে {toBengaliNumber(member.shareCount || 0)} টি শেয়ার বাবদ {formatCurrency((member.shareCount || 0) === 0 ? 0 : member.shareValue, useBengaliDigits)} টাকা এবং ভর্তি ফি বাবদ {formatCurrency(member.admissionFee, useBengaliDigits)} টাকা জমা প্রদান করিয়াছি।
+                      আমার সদস্য নম্বর <strong>{member.memberNo}</strong>। আমি সমিতিতে {toBengaliNumber(member.shareCount || 0)} টি শেয়ার এবং ভর্তি ফি বাবদ {formatCurrency(member.admissionFee, useBengaliDigits)} টাকা জমা প্রদান করিয়াছি।
                     </p>
                     <p>
                       আমার অবর্তমানে আমার সকল সঞ্চয়, শেয়ার এবং আমানতের আইনগত হকদার থাকিবেন আমার মনোনীত নমিনি: <strong>{member.nominees[0]?.name || 'মনোনীত নমিনি'}</strong> (সম্পর্ক: {member.nominees[0]?.relation || 'পরিবার'}, অংশ: {toBengaliNumber(member.nominees[0]?.percentage || 100)}%)।
@@ -2402,7 +2396,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                       I, the undersigned, <strong>{member.nameEn || member.name}</strong>, Father: {member.fatherName || 'Deceased'}, Mother: {member.motherName}, Present Address: {member.presentAddress}, hereby willingly and soundly apply for membership in {settings.somitiName || 'Bondhu Somobay Somiti Ltd.'} and undertake to abide by all bylaws and board decisions.
                     </p>
                     <p>
-                      My member registration number is <strong>{member.memberNo}</strong>. I have deposited {formatCurrency((member.shareCount || 0) === 0 ? 0 : member.shareValue, false)} for {member.shareCount || 0} shares and {formatCurrency(member.admissionFee, false)} as membership admission fee.
+                      My member registration number is <strong>{member.memberNo}</strong>. I have registered for {member.shareCount || 0} shares and deposited {formatCurrency(member.admissionFee, false)} as membership admission fee.
                     </p>
                     <p>
                       In my absence, my designated legal nominee <strong>{member.nominees[0]?.name || 'Nominee'}</strong> (Relationship: {member.nominees[0]?.relation || 'Family'}, Share: {member.nominees[0]?.percentage || 100}%) shall be the sole rightful heir to all my savings, shares, and deposits.

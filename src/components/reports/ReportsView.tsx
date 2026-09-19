@@ -47,6 +47,8 @@ export const ReportsView: React.FC = () => {
     distributeProfitToSavings, 
     businessProfitRecords,
     getMemberSavingsBalance,
+    totalSavingsInSomiti,
+    totalActiveLoanBalance,
     activeTab 
   } = useSomiti();
 
@@ -106,9 +108,9 @@ export const ReportsView: React.FC = () => {
   const totalMonthlyExpense = monthlyExpenseList.reduce((s, i) => s + i.amount, 0);
 
   // Yearly Totals
-  const totalSavingsFund = safeMembers.reduce((s, m) => s + (m.shareCount === 0 ? ((m.generalSavingsBalance || 0) + (m.dpsSavingsBalance || 0) + (m.fdrSavingsBalance || 0)) : (m.totalSavings || 0)), 0);
-  const totalShareFund = safeMembers.reduce((s, m) => s + ((m.shareCount || 0) === 0 ? 0 : (m.shareValue || 0)), 0);
-  const totalActiveLoans = safeLoans.reduce((s, l) => s + (l.status === 'active' ? l.remainingAmount : 0), 0);
+  const totalSavingsFund = totalSavingsInSomiti;
+  const totalShareFund = 0; // Share Value is not maintained as separate inflated fund
+  const totalActiveLoans = totalActiveLoanBalance;
   const totalBankBalances = safeBankAccounts.reduce((s, b) => s + (b.balance || 0), 0);
   const totalLiquidAssets = (cashInHand || 0) + totalBankBalances;
 
@@ -136,8 +138,7 @@ export const ReportsView: React.FC = () => {
         [isBn ? 'নাম' : 'Name']: m.name,
         [isBn ? 'মোবাইল' : 'Phone']: m.phone,
         [isBn ? 'শেয়ার সংখ্যা' : 'Share Count']: m.shareCount || 0,
-        [isBn ? 'শেয়ার মূল্য (৳)' : 'Share Value (৳)']: (m.shareCount || 0) === 0 ? 0 : m.shareValue,
-        [isBn ? 'মোট সঞ্চয় (৳)' : 'Total Savings (৳)']: (m.shareCount || 0) === 0 ? ((m.generalSavingsBalance || 0) + (m.dpsSavingsBalance || 0) + (m.fdrSavingsBalance || 0)) : m.totalSavings,
+        [isBn ? 'মোট সঞ্চয় (৳)' : 'Total Savings (৳)']: m.totalSavings,
         [isBn ? 'চলতি ঋণ (৳)' : 'Active Loans (৳)']: m.activeLoanBalance,
         [isBn ? 'অবস্থা' : 'Status']: m.status === 'active' ? (isBn ? 'সক্রিয়' : 'Active') : (isBn ? 'নিষ্ক্রিয়' : 'Inactive'),
       }));
@@ -740,17 +741,13 @@ export const ReportsView: React.FC = () => {
                   {isBn ? 'দায় ও শেয়ার মূলধন (Liabilities & Equity)' : 'Liabilities & Equity'}
                 </h4>
                 <div className="flex justify-between py-1">
-                  <span>{isBn ? 'সদস্যদের সঞ্চয় আমানত:' : 'Members Savings Deposits:'}</span>
+                  <span>{isBn ? 'সদস্যদের সর্বমোট সঞ্চয় আমানত:' : 'Total Member Savings:'}</span>
                   <span className="font-bold text-emerald-900">{formatCurrency(totalSavingsFund, isBn && useBengaliDigits)}</span>
-                </div>
-                <div className="flex justify-between py-1">
-                  <span>{isBn ? 'পরিশোধিত শেয়ার মূলধন:' : 'Paid-up Share Capital:'}</span>
-                  <span className="font-bold text-amber-900">{formatCurrency(totalShareFund, isBn && useBengaliDigits)}</span>
                 </div>
                 <div className="flex justify-between py-1">
                   <span>{isBn ? 'সংরক্ষিত তহবিল ও উদ্বৃত্ত:' : 'Retained Reserves & Surplus:'}</span>
                   <span className="font-bold text-blue-900">
-                    {formatCurrency(Math.max(0, (totalActiveLoans + totalLiquidAssets) - (totalSavingsFund + totalShareFund)), isBn && useBengaliDigits)}
+                    {formatCurrency(Math.max(0, (totalActiveLoans + totalLiquidAssets) - totalSavingsFund), isBn && useBengaliDigits)}
                   </span>
                 </div>
                 <div className="flex justify-between py-2 border-t-2 border-slate-900 font-extrabold text-sm text-slate-900">
