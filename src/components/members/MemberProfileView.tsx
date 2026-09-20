@@ -748,7 +748,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
         </div>
 
         {/* Tab Navigation (Frozen / Sticky on scroll) */}
-        <div className="flex border-b border-slate-200 bg-slate-50/95 backdrop-blur-xs overflow-x-auto sticky top-[57px] z-20 shadow-2xs">
+        <div className="flex border-b border-slate-200 bg-slate-50/95 backdrop-blur-xs overflow-x-auto sticky top-14 sm:top-16 z-20 shadow-2xs">
           <button
             onClick={() => setActiveTab('profile')}
             className={`px-5 py-3 text-xs font-bold border-b-2 flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${

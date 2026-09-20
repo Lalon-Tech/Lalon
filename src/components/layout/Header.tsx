@@ -92,7 +92,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
     : [];
 
   return (
-    <header className="sticky top-0 z-30 bg-white border-b border-slate-200/80 shadow-2xs px-2 sm:px-4 lg:px-8 py-2 sm:py-3 flex items-center justify-between gap-1 sm:gap-2.5 lg:pl-68 transition-all w-full max-w-full">
+    <header className="fixed top-0 left-0 right-0 lg:left-64 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs px-2 sm:px-4 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-1 sm:gap-2.5 transition-all w-full max-w-full lg:w-auto">
       {/* Left: Hamburger menu on mobile + User Profile badge */}
       <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
         {onToggleSidebar && (

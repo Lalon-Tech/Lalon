@@ -285,7 +285,7 @@ const AppContent: React.FC = () => {
       />
 
       {/* Main Layout Body */}
-      <div className="flex flex-1">
+      <div className="flex flex-1 pt-14 sm:pt-16">
         {/* Left Sidebar */}
         <Sidebar 
           isOpen={sidebarOpen} 
