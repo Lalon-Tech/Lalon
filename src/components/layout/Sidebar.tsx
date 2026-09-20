@@ -25,7 +25,10 @@ import {
   Calculator,
   UserPlus,
   Briefcase,
-  HandCoins
+  HandCoins,
+  ClipboardList,
+  Scale,
+  Database
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useAuth } from '../../context/AuthContext';
@@ -253,12 +256,21 @@ export const Sidebar: React.FC<{
       icon: FileSignature,
     },
     {
+      id: 'field_sheet',
+      label: language === 'bn' ? 'ফিল্ড কালেকশন শিট' : 'Field Collection Sheet',
+      icon: ClipboardList,
+    },
+    {
       id: 'reports',
       label: t('reports'),
       icon: TrendingUp,
       subItems: [
         { id: 'report_daily', label: t('daily_report'), action: () => setActiveTab('reports_daily') },
         { id: 'report_monthly', label: t('monthly_report'), action: () => setActiveTab('reports_monthly') },
+        { id: 'report_field_sheet', label: language === 'bn' ? 'দৈনিক কালেকশন শিট' : 'Field Collection Sheet', action: () => setActiveTab('field_sheet') },
+        { id: 'report_trial_balance', label: language === 'bn' ? 'রেওয়ামিল (Trial Balance)' : 'Trial Balance', action: () => setActiveTab('trial_balance') },
+        { id: 'report_balance_sheet', label: language === 'bn' ? 'ব্যালেন্স শিট (Balance Sheet)' : 'Balance Sheet', action: () => setActiveTab('balance_sheet') },
+        { id: 'report_member_statement', label: language === 'bn' ? 'বার্ষিক সদস্য হিসাব বিবরণী' : 'Member Annual Statement', action: () => setActiveTab('member_annual') },
         { id: 'report_members', label: t('member_report'), action: () => setActiveTab('reports_member') },
         { id: 'report_income_expense', label: t('income_expense_report'), action: () => setActiveTab('reports_income_expense') },
         { id: 'report_yearly', label: t('yearly_report'), action: () => setActiveTab('reports_yearly') },
@@ -278,6 +290,16 @@ export const Sidebar: React.FC<{
       id: 'users',
       label: t('users_roles'),
       icon: ShieldCheck,
+    },
+    {
+      id: 'audit_logs',
+      label: language === 'bn' ? 'অডিট ও নিরাপত্তা লগ' : 'Audit & Security Logs',
+      icon: ShieldCheck,
+    },
+    {
+      id: 'backup',
+      label: language === 'bn' ? 'সিস্টেম ব্যাকআপ' : 'System Backup',
+      icon: Database,
     },
     {
       id: 'excel',

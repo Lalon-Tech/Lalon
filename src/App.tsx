@@ -29,6 +29,13 @@ import { BusinessFundingView } from './components/business/BusinessFundingView';
 import { ReceiptModal } from './components/receipts/ReceiptModal';
 import { AuthModal } from './components/auth/AuthModal';
 import { PendingApprovalView } from './components/auth/PendingApprovalView';
+import { BottomNav } from './components/layout/BottomNav';
+import { FieldCollectionSheet } from './components/field/FieldCollectionSheet';
+import { TrialBalanceReport } from './components/reports/TrialBalanceReport';
+import { BalanceSheetReport } from './components/reports/BalanceSheetReport';
+import { MemberAnnualStatement } from './components/reports/MemberAnnualStatement';
+import { AuditLogViewer } from './components/audit/AuditLogViewer';
+import { BackupRestoreCenter } from './components/backup/BackupRestoreCenter';
 import { Loader2, ShieldAlert, Clock, AlertTriangle } from 'lucide-react';
 import { useModalScrollLock } from './hooks/useModalScrollLock';
 
@@ -250,6 +257,32 @@ const AppContent: React.FC = () => {
       case 'reports_yearly':
         return <ReportsView />;
 
+      case 'field_sheet':
+      case 'collection_sheet':
+        return <FieldCollectionSheet />;
+
+      case 'trial_balance':
+      case 'reports_trial_balance':
+        return <TrialBalanceReport />;
+
+      case 'balance_sheet':
+      case 'reports_balance_sheet':
+        return <BalanceSheetReport />;
+
+      case 'member_annual':
+      case 'member_statement':
+      case 'reports_member_annual':
+        return <MemberAnnualStatement />;
+
+      case 'audit_logs':
+      case 'audit':
+      case 'activity_logs':
+        return <AuditLogViewer />;
+
+      case 'backup':
+      case 'backup_restore':
+        return <BackupRestoreCenter />;
+
       case 'accounts':
       case 'finance':
       case 'income_expense':
@@ -294,12 +327,15 @@ const AppContent: React.FC = () => {
         />
 
         {/* Dynamic Main Workspace Container */}
-        <main className="flex-1 lg:pl-64 p-3 sm:p-6 lg:p-8 w-full min-w-0 transition-all">
+        <main className="flex-1 lg:pl-64 p-3 sm:p-6 lg:p-8 pb-24 lg:pb-8 w-full min-w-0 transition-all">
           <div className="max-w-7xl mx-auto w-full min-w-0">
             {renderActiveView()}
           </div>
         </main>
       </div>
+
+      {/* Mobile Sticky Bottom Navigation */}
+      <BottomNav onOpenMenu={() => setSidebarOpen(true)} />
 
       {/* Global Modals */}
       <NewMemberModal

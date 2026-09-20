@@ -15,12 +15,23 @@ import {
   Calculator, 
   CheckCircle2, 
   Users,
-  Archive
+  Archive,
+  Scale,
+  Building2,
+  ClipboardList,
+  ShieldCheck,
+  Database
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { ShareClosuresList } from '../members/ShareClosuresList';
+import { TrialBalanceReport } from './TrialBalanceReport';
+import { BalanceSheetReport } from './BalanceSheetReport';
+import { MemberAnnualStatement } from './MemberAnnualStatement';
+import { FieldCollectionSheet } from '../field/FieldCollectionSheet';
+import { AuditLogViewer } from '../audit/AuditLogViewer';
+import { BackupRestoreCenter } from '../backup/BackupRestoreCenter';
 import { 
   formatCurrency, 
   formatBengaliDate, 
@@ -52,12 +63,17 @@ export const ReportsView: React.FC = () => {
     activeTab 
   } = useSomiti();
 
-  const [activeReport, setActiveReport] = useState<'daily' | 'monthly' | 'member' | 'income_expense' | 'dividend' | 'yearly' | 'closed_shares'>(() => {
+  const [activeReport, setActiveReport] = useState<'daily' | 'monthly' | 'trial_balance' | 'balance_sheet' | 'member' | 'member_annual' | 'field_sheet' | 'income_expense' | 'dividend' | 'yearly' | 'closed_shares' | 'audit_logs' | 'backup'>(() => {
     if (activeTab === 'reports_monthly' || activeTab === 'report_monthly') return 'monthly';
     if (activeTab === 'reports_member' || activeTab === 'report_members') return 'member';
     if (activeTab === 'reports_income_expense' || activeTab === 'report_income_expense') return 'income_expense';
     if (activeTab === 'reports_yearly' || activeTab === 'report_yearly') return 'yearly';
     if (activeTab === 'reports_shares' || activeTab === 'report_shares') return 'closed_shares';
+    if (activeTab === 'trial_balance' || activeTab === 'reports_trial_balance') return 'trial_balance';
+    if (activeTab === 'balance_sheet' || activeTab === 'reports_balance_sheet') return 'balance_sheet';
+    if (activeTab === 'field_sheet' || activeTab === 'collection_sheet') return 'field_sheet';
+    if (activeTab === 'audit_logs' || activeTab === 'reports_audit') return 'audit_logs';
+    if (activeTab === 'backup' || activeTab === 'reports_backup') return 'backup';
     return 'daily';
   });
 
@@ -67,6 +83,11 @@ export const ReportsView: React.FC = () => {
     else if (activeTab === 'reports_income_expense' || activeTab === 'report_income_expense') setActiveReport('income_expense');
     else if (activeTab === 'reports_yearly' || activeTab === 'report_yearly') setActiveReport('yearly');
     else if (activeTab === 'reports_shares' || activeTab === 'report_shares') setActiveReport('closed_shares');
+    else if (activeTab === 'trial_balance' || activeTab === 'reports_trial_balance') setActiveReport('trial_balance');
+    else if (activeTab === 'balance_sheet' || activeTab === 'reports_balance_sheet') setActiveReport('balance_sheet');
+    else if (activeTab === 'field_sheet' || activeTab === 'collection_sheet') setActiveReport('field_sheet');
+    else if (activeTab === 'audit_logs' || activeTab === 'reports_audit') setActiveReport('audit_logs');
+    else if (activeTab === 'backup' || activeTab === 'reports_backup') setActiveReport('backup');
     else if (activeTab === 'reports_daily' || activeTab === 'report_daily') setActiveReport('daily');
   }, [activeTab]);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -200,12 +221,48 @@ export const ReportsView: React.FC = () => {
             {isBn ? 'মাসিক রিপোর্ট' : 'Monthly Report'}
           </button>
           <button
+            onClick={() => setActiveReport('field_sheet')}
+            className={`px-3.5 py-1.5 text-xs font-bold rounded-md whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer ${
+              activeReport === 'field_sheet' ? 'bg-white text-emerald-700 shadow-xs font-extrabold' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <ClipboardList className="w-3.5 h-3.5 text-emerald-600" />
+            <span>{isBn ? 'ফিল্ড কালেকশন শিট' : 'Field Sheet'}</span>
+          </button>
+          <button
+            onClick={() => setActiveReport('trial_balance')}
+            className={`px-3.5 py-1.5 text-xs font-bold rounded-md whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer ${
+              activeReport === 'trial_balance' ? 'bg-white text-indigo-700 shadow-xs font-extrabold' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Scale className="w-3.5 h-3.5 text-indigo-600" />
+            <span>{isBn ? 'রেওয়ামিল' : 'Trial Balance'}</span>
+          </button>
+          <button
+            onClick={() => setActiveReport('balance_sheet')}
+            className={`px-3.5 py-1.5 text-xs font-bold rounded-md whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer ${
+              activeReport === 'balance_sheet' ? 'bg-white text-emerald-700 shadow-xs font-extrabold' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Building2 className="w-3.5 h-3.5 text-emerald-600" />
+            <span>{isBn ? 'ব্যালেন্স শিট' : 'Balance Sheet'}</span>
+          </button>
+          <button
+            onClick={() => setActiveReport('member_annual')}
+            className={`px-3.5 py-1.5 text-xs font-bold rounded-md whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer ${
+              activeReport === 'member_annual' ? 'bg-white text-blue-700 shadow-xs font-extrabold' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5 text-blue-600" />
+            <span>{isBn ? 'বার্ষিক সদস্য বিবরণী' : 'Member Statement'}</span>
+          </button>
+          <button
             onClick={() => setActiveReport('member')}
             className={`px-3.5 py-1.5 text-xs font-bold rounded-md whitespace-nowrap transition-all cursor-pointer ${
               activeReport === 'member' ? 'bg-white text-blue-700 shadow-xs font-extrabold' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            {isBn ? 'সদস্য রিপোর্ট' : 'Member Report'}
+            {isBn ? 'সদস্য তালিকা' : 'Member List'}
           </button>
           <button
             onClick={() => setActiveReport('income_expense')}
@@ -224,62 +281,83 @@ export const ReportsView: React.FC = () => {
             {isBn ? '💰 লভ্যাংশ বণ্টন ক্যালকুলেটর' : '💰 Profit Distribution'}
           </button>
           <button
-            onClick={() => setActiveReport('yearly')}
-            className={`px-3.5 py-1.5 text-xs font-bold rounded-md whitespace-nowrap transition-all cursor-pointer ${
-              activeReport === 'yearly' ? 'bg-white text-blue-700 shadow-xs font-extrabold' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            {isBn ? 'বার্ষিক আর্থিক প্রতিবেদন' : 'Annual Balance Sheet'}
-          </button>
-          <button
             onClick={() => setActiveReport('closed_shares')}
             className={`px-3.5 py-1.5 text-xs font-bold rounded-md whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
               activeReport === 'closed_shares' ? 'bg-white text-amber-700 shadow-xs font-extrabold' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Archive className="w-3.5 h-3.5" />
-            <span>{isBn ? 'শেয়ার সমর্পণ/ক্লোজার রেজিস্টার' : 'Share Closure Register'}</span>
+            <span>{isBn ? 'শেয়ার সমর্পণ রেজিস্টার' : 'Share Closures'}</span>
+          </button>
+          <button
+            onClick={() => setActiveReport('audit_logs')}
+            className={`px-3.5 py-1.5 text-xs font-bold rounded-md whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer ${
+              activeReport === 'audit_logs' ? 'bg-white text-purple-700 shadow-xs font-extrabold' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+            <span>{isBn ? 'অডিট লগ' : 'Audit Logs'}</span>
+          </button>
+          <button
+            onClick={() => setActiveReport('backup')}
+            className={`px-3.5 py-1.5 text-xs font-bold rounded-md whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer ${
+              activeReport === 'backup' ? 'bg-white text-blue-700 shadow-xs font-extrabold' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Database className="w-3.5 h-3.5 text-blue-600" />
+            <span>{isBn ? 'সিস্টেম ব্যাকআপ' : 'Backup'}</span>
           </button>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          {activeReport === 'daily' && (
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700"
-            />
-          )}
+        {!['field_sheet', 'trial_balance', 'balance_sheet', 'member_annual', 'audit_logs', 'backup'].includes(activeReport) && (
+          <div className="flex items-center gap-2 shrink-0">
+            {activeReport === 'daily' && (
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700"
+              />
+            )}
 
-          {activeReport === 'monthly' && (
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700"
-            />
-          )}
+            {activeReport === 'monthly' && (
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700"
+              />
+            )}
 
-          <button
-            onClick={handleExportExcel}
-            className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold cursor-pointer"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-            <span>{isBn ? 'এক্সেল' : 'Excel'}</span>
-          </button>
+            <button
+              onClick={handleExportExcel}
+              className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold cursor-pointer"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+              <span>{isBn ? 'এক্সেল' : 'Excel'}</span>
+            </button>
 
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-1 px-3.5 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span>{isBn ? 'রিপোর্ট প্রিন্ট' : 'Print Report'}</span>
-          </button>
-        </div>
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-1 px-3.5 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>{isBn ? 'রিপোর্ট প্রিন্ট' : 'Print Report'}</span>
+            </button>
+          </div>
+        )}
       </div>
 
+      {/* Standalone Modules */}
+      {activeReport === 'field_sheet' && <FieldCollectionSheet />}
+      {activeReport === 'trial_balance' && <TrialBalanceReport />}
+      {activeReport === 'balance_sheet' && <BalanceSheetReport />}
+      {activeReport === 'member_annual' && <MemberAnnualStatement />}
+      {activeReport === 'audit_logs' && <AuditLogViewer />}
+      {activeReport === 'backup' && <BackupRestoreCenter />}
+
       {/* Printable Report Canvas */}
+      {!['field_sheet', 'trial_balance', 'balance_sheet', 'member_annual', 'audit_logs', 'backup'].includes(activeReport) && (
       <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-4 sm:p-8 space-y-6">
         {/* Printable Report Header */}
         <div className="text-center border-b-2 border-slate-900 pb-4">
@@ -792,6 +870,7 @@ export const ReportsView: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Profit Distribution Confirmation Modal */}
       {showConfirmModal && (
