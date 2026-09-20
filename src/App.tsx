@@ -295,7 +295,7 @@ const AppContent: React.FC = () => {
 
         {/* Dynamic Main Workspace Container */}
         <main className="flex-1 lg:pl-64 p-3 sm:p-6 lg:p-8 w-full min-w-0 transition-all">
-          <div className="max-w-7xl mx-auto w-full">
+          <div className="max-w-7xl mx-auto w-full min-w-0">
             {renderActiveView()}
           </div>
         </main>
