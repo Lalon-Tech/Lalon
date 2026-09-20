@@ -92,22 +92,22 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
     : [];
 
   return (
-    <header className="sticky top-0 z-30 bg-white border-b border-slate-200/80 shadow-2xs px-2.5 sm:px-6 lg:px-8 py-2 sm:py-3 flex items-center justify-between gap-1.5 sm:gap-3 lg:pl-68 transition-all">
+    <header className="sticky top-0 z-30 bg-white border-b border-slate-200/80 shadow-2xs px-2 sm:px-4 lg:px-8 py-2 sm:py-3 flex items-center justify-between gap-1 sm:gap-2.5 lg:pl-68 transition-all w-full max-w-full">
       {/* Left: Hamburger menu on mobile + User Profile badge */}
-      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+      <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
         {onToggleSidebar && (
           <button
             type="button"
             onClick={onToggleSidebar}
-            className="p-1.5 sm:p-2 -ml-1 text-slate-600 hover:bg-slate-100 rounded-lg lg:hidden transition-colors"
+            className="p-1.5 sm:p-2 text-slate-600 hover:bg-slate-100 rounded-lg lg:hidden transition-colors"
             title="মেনু খুলুন"
           >
             <Menu className="w-5 h-5" />
           </button>
         )}
 
-        <div className="flex items-center gap-2 sm:gap-2.5 cursor-pointer group" onClick={() => setActiveTab('users')}>
-          <div className="relative">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 cursor-pointer group" onClick={() => setActiveTab('users')}>
+          <div className="relative shrink-0">
             <img
               src={currentUser.avatarUrl}
               alt={currentUser.name}
@@ -116,8 +116,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
             <span className="absolute bottom-0 right-0 w-2 sm:w-2.5 h-2 sm:h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
           </div>
           <div className="hidden sm:block">
-            <h2 className="text-sm font-bold text-slate-800 leading-tight group-hover:text-blue-600 transition-colors">{currentUser.name}</h2>
-            <p className="text-[11px] text-slate-500">
+            <h2 className="text-sm font-bold text-slate-800 leading-tight group-hover:text-blue-600 transition-colors truncate max-w-[120px] md:max-w-[160px]">{currentUser.name}</h2>
+            <p className="text-[11px] text-slate-500 truncate max-w-[120px] md:max-w-[160px]">
               {language === 'bn' ? `${currentUser.roleTitle} • ${t('your_profile')}` : `${currentUser.role === 'admin' ? 'Admin & CEO' : currentUser.roleTitle} • ${t('your_profile')}`}
             </p>
           </div>
@@ -127,7 +127,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
       {/* Center: Search input */}
       <div ref={searchRef} className="relative flex-1 max-w-xs sm:max-w-md mx-1 sm:mx-2 min-w-0">
         <div className="relative">
-          <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 absolute left-2.5 sm:left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 absolute left-2.5 sm:left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             placeholder={t('search_placeholder')}
@@ -137,7 +137,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
               setShowSearchResults(true);
             }}
             onFocus={() => setShowSearchResults(true)}
-            className="w-full pl-7 sm:pl-9.5 pr-2.5 sm:pr-4 py-1.5 sm:py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all truncate"
+            className="w-full pl-7 sm:pl-9.5 pr-2 sm:pr-4 py-1.5 sm:py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all truncate"
           />
         </div>
 
@@ -177,10 +177,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
       </div>
 
       {/* Right Controls: Quick Add, Language toggle & User Profile */}
-      <div className="flex items-center gap-2 sm:gap-3">
-        {/* User Authentication Status & Profile */}
+      <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
+        {/* User Authentication Status & Profile - hidden on mobile screens, shown on desktop (md+) */}
         {firebaseUser && (
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-semibold shadow-2xs">
+          <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-semibold shadow-2xs shrink-0">
             <Flame className="w-4 h-4 text-amber-500 shrink-0" />
             <button
               onClick={onOpenAuthModal}
@@ -211,7 +211,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
               }
             }, 100);
           }}
-          className={`relative p-2 rounded-xl transition-all cursor-pointer ${
+          className={`relative p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer shrink-0 ${
             pendingApprovalsCount > 0
               ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200'
               : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
@@ -224,23 +224,28 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
               : `${pendingApprovalsCount} pending approvals`
           }
         >
-          <Bell className="w-5 h-5" />
+          <Bell className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
           {pendingApprovalsCount > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-rose-600 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center border-2 border-white shadow-xs animate-pulse">
+            <span className="absolute -top-1 -right-1 min-w-4 sm:min-w-5 h-4 sm:h-5 px-1 bg-rose-600 text-white text-[9px] sm:text-[10px] font-extrabold rounded-full flex items-center justify-center border-2 border-white shadow-xs animate-pulse">
               {language === 'bn' ? toBengaliNumber(pendingApprovalsCount) : pendingApprovalsCount}
             </span>
           )}
         </button>
 
-        {/* Language Selector: Bangla | English */}
-        <LanguageSwitcher variant="segmented" />
+        {/* Language Selector: Segmented on tablets/desktop, compact toggle button on mobile */}
+        <div className="hidden sm:block shrink-0">
+          <LanguageSwitcher variant="segmented" />
+        </div>
+        <div className="sm:hidden shrink-0">
+          <LanguageSwitcher variant="compact" />
+        </div>
 
         {/* Quick Add Button & Dropdown */}
-        <div ref={addMenuRef} className="relative">
+        <div ref={addMenuRef} className="relative shrink-0">
           <button
             id="quick-action-btn"
             onClick={() => setShowAddMenu(!showAddMenu)}
-            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-xs sm:text-sm font-medium shadow-xs hover:shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3.5 py-1.5 sm:py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-xs sm:text-sm font-medium shadow-xs hover:shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap shrink-0"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">{t('add_new')}</span>
