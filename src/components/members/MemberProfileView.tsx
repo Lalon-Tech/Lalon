@@ -1301,7 +1301,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
 
               {/* Scrollable Transaction Table Container with Sticky Column Headers */}
               <div className="passbook-scroll-container border border-slate-200 rounded-xl overflow-x-auto overflow-y-auto max-h-[520px] shadow-2xs relative bg-white">
-                <table className="w-full text-left text-xs text-slate-600 border-collapse">
+                <table className="w-full text-left text-xs text-slate-600 border-collapse min-w-[850px]">
                   <thead className="bg-slate-100/95 backdrop-blur-xs font-bold text-slate-700 border-b border-slate-200 sticky top-0 z-10 shadow-2xs">
                     <tr>
                       <th className="py-2.5 px-2.5 text-center whitespace-nowrap bg-slate-100">{isBn ? 'লেজার ক্রমিক' : 'Ledger Serial'}</th>
@@ -1617,7 +1617,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                 ) : (
                   <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs text-slate-600">
+                      <table className="w-full text-left text-xs text-slate-600 min-w-[650px]">
                         <thead className="bg-slate-50 font-bold text-slate-700 border-b border-slate-200">
                           <tr>
                             <th className="py-2.5 px-3">{isBn ? 'তারিখ / মাস' : 'Date / Month'}</th>
@@ -1810,7 +1810,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                   </div>
 
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
+                    <table className="w-full text-left text-xs border-collapse min-w-[650px]">
                       <thead>
                         <tr className="bg-slate-50 text-slate-700 border-b border-slate-200 font-bold">
                           <th className="py-2.5 px-3">{isBn ? 'শেয়ার নং' : 'Share No.'}</th>
@@ -1974,7 +1974,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                         {isBn ? 'কিস্তি পরিশোধের বিস্তারিত শিডিউল' : 'Installment Repayment Schedule'}
                       </h5>
                       <div className="border border-slate-200 rounded-lg overflow-x-auto">
-                        <table className="w-full text-left text-xs">
+                        <table className="w-full text-left text-xs min-w-[550px]">
                           <thead className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
                             <tr>
                               <th className="py-2 px-3">{isBn ? 'কিস্তি নং' : 'Installment No'}</th>

@@ -280,7 +280,7 @@ export const ReportsView: React.FC = () => {
       </div>
 
       {/* Printable Report Canvas */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-8 space-y-6">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-4 sm:p-8 space-y-6">
         {/* Printable Report Header */}
         <div className="text-center border-b-2 border-slate-900 pb-4">
           <h1 className="text-2xl font-bold text-slate-900 uppercase">
@@ -326,7 +326,8 @@ export const ReportsView: React.FC = () => {
               <div className="bg-slate-100 px-4 py-2 text-xs font-bold text-slate-700">
                 {isBn ? `আজকের লেনদেনের তালিকা (${toBengaliNumber(dailyTransactions.length)} টি)` : `Today's Transactions List (${dailyTransactions.length})`}
               </div>
-              <table className="w-full text-left text-xs text-slate-600">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-600 min-w-[650px]">
                 <thead className="bg-slate-50 font-bold border-b border-slate-200">
                   <tr>
                     <th className="py-2.5 px-3">{isBn ? 'ভাউচার' : 'Voucher'}</th>
@@ -367,6 +368,7 @@ export const ReportsView: React.FC = () => {
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         )}
@@ -421,7 +423,7 @@ export const ReportsView: React.FC = () => {
         {/* 3. Member Wise Report */}
         {activeReport === 'member' && (
           <div className="border border-slate-200 rounded-xl overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-600">
+            <table className="w-full text-left text-xs text-slate-600 min-w-[750px]">
               <thead className="bg-slate-100 font-bold border-b border-slate-200">
                 <tr>
                   <th className="py-2.5 px-3">{isBn ? 'সদস্য নং' : 'Member No'}</th>
@@ -464,7 +466,7 @@ export const ReportsView: React.FC = () => {
         {activeReport === 'income_expense' && (
           <div className="space-y-4">
             <div className="border border-slate-200 rounded-xl overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-600">
+              <table className="w-full text-left text-xs text-slate-600 min-w-[700px]">
                 <thead className="bg-slate-100 font-bold border-b border-slate-200">
                   <tr>
                     <th className="py-2.5 px-3">{isBn ? 'তারিখ' : 'Date'}</th>
@@ -640,7 +642,8 @@ export const ReportsView: React.FC = () => {
                   <span>{isBn ? 'সদস্যভিত্তিক লভ্যাংশ বণ্টন তালিকা (যথাযথ আনুপাতিক হার)' : 'Member-wise Dividend Distribution List (Proportional)'}</span>
                   <span className="text-emerald-700 font-bold">{isBn ? 'মোট বণ্টন চেক:' : 'Total Distribution:'} {formatCurrency(totalDistributed, isBn && useBengaliDigits)}</span>
                 </div>
-                <table className="w-full text-left text-xs text-slate-600">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-600 min-w-[650px]">
                   <thead className="bg-slate-50 font-bold border-b border-slate-200">
                     <tr>
                       <th className="py-2.5 px-3">{isBn ? 'সদস্য নং' : 'Member No'}</th>
@@ -703,6 +706,7 @@ export const ReportsView: React.FC = () => {
                     </tr>
                   </tfoot>
                 </table>
+                </div>
               </div>
             </div>
           );

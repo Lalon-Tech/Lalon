@@ -250,9 +250,9 @@ export const SettingsView: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-slate-100 text-slate-700 rounded-lg">
+          <div className="p-2.5 bg-slate-100 text-slate-700 rounded-lg shrink-0">
             <Settings className="w-5 h-5" />
           </div>
           <div>
@@ -266,8 +266,8 @@ export const SettingsView: React.FC = () => {
         </div>
 
         {isSaved && (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-800 rounded-lg text-xs font-bold animate-in fade-in">
-            <CheckCircle2 className="w-4 h-4" />
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-800 rounded-lg text-xs font-bold animate-in fade-in self-start sm:self-auto">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
             <span>সেটিংস সফলভাবে সংরক্ষিত হয়েছে!</span>
           </div>
         )}

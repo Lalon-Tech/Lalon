@@ -330,9 +330,9 @@ export const TransactionManager: React.FC = () => {
       )}
 
       {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-3 w-full md:w-auto flex-1 max-w-xl">
-          <div className="relative w-full">
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto flex-1 max-w-xl">
+          <div className="relative flex-1">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -343,27 +343,29 @@ export const TransactionManager: React.FC = () => {
             />
           </div>
 
-          <input
-            type="date"
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700"
-          />
-          {dateFilter && (
-            <button
-              onClick={() => setDateFilter('')}
-              className="text-xs text-rose-500 hover:underline whitespace-nowrap font-medium cursor-pointer"
-            >
-              {isBn ? 'রিসেট তারিখ' : 'Reset Date'}
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="flex-1 sm:flex-none px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700"
+            />
+            {dateFilter && (
+              <button
+                onClick={() => setDateFilter('')}
+                className="text-xs text-rose-500 hover:underline whitespace-nowrap font-medium cursor-pointer"
+              >
+                {isBn ? 'রিসেট' : 'Reset'}
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-2 w-full md:w-auto justify-end flex-wrap">
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 bg-white"
+            className="flex-1 sm:flex-none px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 bg-white"
           >
             <option value="all">{isBn ? 'সকল লেনদেন' : 'All Transactions'}</option>
             <option value="deposit_all">{isBn ? 'সকল সঞ্চয় জমা (সাধারণ+ডিপিএস+এফডিআর)' : 'All Savings Deposits (Gen+DPS+FDR)'}</option>
@@ -394,7 +396,7 @@ export const TransactionManager: React.FC = () => {
       {/* Transactions Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-600">
+          <table className="w-full text-left text-xs text-slate-600 min-w-[920px]">
             <thead className="bg-slate-50 font-bold text-slate-700 border-b border-slate-200 uppercase tracking-wider">
               <tr>
                 <th className="py-3 px-3 text-center">{isBn ? 'লেজার ক্রমিক' : 'Ledger Serial'}</th>

@@ -252,7 +252,7 @@ export const SavingsView: React.FC = () => {
       {/* Schemes Grid Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-600">
+          <table className="w-full text-left text-xs text-slate-600 min-w-[780px]">
             <thead className="bg-slate-50 font-bold text-slate-700 border-b border-slate-200 uppercase tracking-wider">
               <tr>
                 <th className="py-3 px-4">{isBn ? 'হিসাব নং ও স্কিম নাম' : 'A/C No & Scheme'}</th>

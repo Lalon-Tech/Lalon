@@ -506,7 +506,7 @@ export const BusinessFundingView: React.FC = () => {
               </div>
             ) : (
               <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                <table className="w-full text-left text-xs">
+                <table className="w-full text-left text-xs min-w-[860px]">
                   <thead className="bg-slate-50 text-[10px] text-slate-500 uppercase border-b border-slate-200">
                     <tr>
                       <th className="py-3 px-4 font-bold">{isBn ? 'আবেদন নং / তারিখ' : 'App No / Date'}</th>

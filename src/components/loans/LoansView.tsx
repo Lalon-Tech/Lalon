@@ -793,7 +793,7 @@ export const LoansView: React.FC = () => {
           {/* Loans Table */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-600">
+              <table className="w-full text-left text-xs text-slate-600 min-w-[880px]">
                 <thead className="bg-slate-50 font-bold text-slate-700 border-b border-slate-200 uppercase tracking-wider">
                   <tr>
                     <th className="py-3 px-4">{isBn ? 'ঋণ নং ও উদ্দেশ্য' : 'Loan No & Purpose'}</th>

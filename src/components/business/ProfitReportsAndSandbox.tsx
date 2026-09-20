@@ -765,7 +765,7 @@ export const ProfitReportsAndSandbox: React.FC = () => {
               </div>
 
               <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-2xs">
-                <table className="w-full text-left text-xs">
+                <table className="w-full text-left text-xs min-w-[700px]">
                   <thead className="bg-slate-50 text-[10px] text-slate-500 uppercase border-b border-slate-200">
                     <tr>
                       <th className="py-3 px-4 font-bold">{isBn ? 'সদস্য' : 'Member'}</th>
@@ -866,7 +866,7 @@ export const ProfitReportsAndSandbox: React.FC = () => {
                 </div>
               ) : (
                 <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                  <table className="w-full text-left text-xs">
+                  <table className="w-full text-left text-xs min-w-[600px]">
                     <thead className="bg-slate-50 text-[10px] text-slate-500 uppercase border-b border-slate-200">
                       <tr>
                         <th className="py-3 px-4 font-bold">{isBn ? 'তারিখ' : 'Date'}</th>
@@ -925,7 +925,7 @@ export const ProfitReportsAndSandbox: React.FC = () => {
                 </div>
               ) : (
                 <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                  <table className="w-full text-left text-xs">
+                  <table className="w-full text-left text-xs min-w-[650px]">
                     <thead className="bg-slate-50 text-[10px] text-slate-500 uppercase border-b border-slate-200">
                       <tr>
                         <th className="py-3 px-4 font-bold">{isBn ? 'মাস' : 'Month'}</th>
@@ -988,7 +988,7 @@ export const ProfitReportsAndSandbox: React.FC = () => {
                 </div>
               ) : (
                 <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                  <table className="w-full text-left text-xs">
+                  <table className="w-full text-left text-xs min-w-[500px]">
                     <thead className="bg-slate-50 text-[10px] text-slate-500 uppercase border-b border-slate-200">
                       <tr>
                         <th className="py-3 px-4 font-bold">{isBn ? 'উদ্যোক্তা সদস্য' : 'Entrepreneur Member'}</th>
@@ -1091,7 +1091,8 @@ export const ProfitReportsAndSandbox: React.FC = () => {
                               <span>Total Distributed: <strong className="text-emerald-700">৳{formatCurrency(r.totalDistributed || r.somitiProfitAmount || 0, false)}</strong></span>
                             </div>
 
-                            <table className="w-full text-left text-xs">
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-left text-xs min-w-[500px]">
                               <thead className="bg-slate-50 text-[10px] text-slate-500 uppercase border-b border-slate-200">
                                 <tr>
                                   <th className="py-2 px-3 font-bold">{isBn ? 'সদস্য' : 'Member'}</th>
@@ -1120,6 +1121,7 @@ export const ProfitReportsAndSandbox: React.FC = () => {
                                 ))}
                               </tbody>
                             </table>
+                            </div>
                           </div>
                         )}
                       </div>

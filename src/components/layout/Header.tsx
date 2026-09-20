@@ -92,28 +92,28 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
     : [];
 
   return (
-    <header className="sticky top-0 z-30 bg-white border-b border-slate-200/80 shadow-2xs px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3 lg:pl-68 transition-all">
+    <header className="sticky top-0 z-30 bg-white border-b border-slate-200/80 shadow-2xs px-2.5 sm:px-6 lg:px-8 py-2 sm:py-3 flex items-center justify-between gap-1.5 sm:gap-3 lg:pl-68 transition-all">
       {/* Left: Hamburger menu on mobile + User Profile badge */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
         {onToggleSidebar && (
           <button
             type="button"
             onClick={onToggleSidebar}
-            className="p-2 -ml-1 text-slate-600 hover:bg-slate-100 rounded-lg lg:hidden transition-colors"
+            className="p-1.5 sm:p-2 -ml-1 text-slate-600 hover:bg-slate-100 rounded-lg lg:hidden transition-colors"
             title="মেনু খুলুন"
           >
             <Menu className="w-5 h-5" />
           </button>
         )}
 
-        <div className="flex items-center gap-2.5 cursor-pointer group" onClick={() => setActiveTab('users')}>
+        <div className="flex items-center gap-2 sm:gap-2.5 cursor-pointer group" onClick={() => setActiveTab('users')}>
           <div className="relative">
             <img
               src={currentUser.avatarUrl}
               alt={currentUser.name}
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover ring-2 ring-blue-500/20 shadow-xs"
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover ring-2 ring-blue-500/20 shadow-xs"
             />
-            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
+            <span className="absolute bottom-0 right-0 w-2 sm:w-2.5 h-2 sm:h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
           </div>
           <div className="hidden sm:block">
             <h2 className="text-sm font-bold text-slate-800 leading-tight group-hover:text-blue-600 transition-colors">{currentUser.name}</h2>
@@ -125,9 +125,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
       </div>
 
       {/* Center: Search input */}
-      <div ref={searchRef} className="relative flex-1 max-w-md mx-2">
+      <div ref={searchRef} className="relative flex-1 max-w-xs sm:max-w-md mx-1 sm:mx-2 min-w-0">
         <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 absolute left-2.5 sm:left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder={t('search_placeholder')}
@@ -137,7 +137,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
               setShowSearchResults(true);
             }}
             onFocus={() => setShowSearchResults(true)}
-            className="w-full pl-9.5 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+            className="w-full pl-7 sm:pl-9.5 pr-2.5 sm:pr-4 py-1.5 sm:py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all truncate"
           />
         </div>
 
@@ -240,10 +240,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
           <button
             id="quick-action-btn"
             onClick={() => setShowAddMenu(!showAddMenu)}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-sm font-medium shadow-xs hover:shadow-md transition-all active:scale-95 cursor-pointer"
+            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-xs sm:text-sm font-medium shadow-xs hover:shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap"
           >
             <Plus className="w-4 h-4" />
-            <span>{t('add_new')}</span>
+            <span className="hidden sm:inline">{t('add_new')}</span>
             <ChevronDown className="w-3.5 h-3.5 ml-0.5 opacity-80" />
           </button>
 

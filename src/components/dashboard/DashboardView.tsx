@@ -244,7 +244,7 @@ export const DashboardView: React.FC = () => {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left text-xs min-w-[500px]">
                 <thead>
                   <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
                     <th className="pb-3">{isBn ? 'তারিখ' : 'Date'}</th>

@@ -159,7 +159,7 @@ export const BankCashView: React.FC = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-600">
+          <table className="w-full text-left text-xs text-slate-600 min-w-[700px]">
             <thead className="bg-slate-100 font-bold text-slate-700 border-b border-slate-200">
               <tr>
                 <th className="py-2.5 px-4">{t('date')}</th>

@@ -683,7 +683,7 @@ export const UserManagementView: React.FC = () => {
         /* TABLE VIEW (Requirement 8) */
         <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[800px]">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                   <th className="py-3.5 px-4">{isBn ? 'ইউজার ইউআইডি (UID)' : 'User UID'}</th>
