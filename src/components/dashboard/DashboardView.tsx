@@ -114,15 +114,24 @@ export const DashboardView: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
-              onClick={() => {
-                if (currentUser.memberId) setSelectedMemberId(currentUser.memberId);
-                setActiveTab('member_profile');
-              }}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center gap-1.5"
+              onClick={() => setActiveTab('member_deposit')}
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center gap-1.5"
             >
-              <span>{isBn ? 'আমার পূর্ণাঙ্গ পাসবুক' : 'My Full Passbook'}</span>
+              <span>{isBn ? 'সঞ্চয় জমা আবেদন' : 'Deposit'}</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('member_loan_payment')}
+              className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center gap-1.5"
+            >
+              <span>{isBn ? 'ঋণ পরিশোধ' : 'Loan Pay'}</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('member_passbook')}
+              className="px-3.5 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center gap-1.5 border border-white/20"
+            >
+              <span>{isBn ? 'পাসবুক ও লেজার' : 'Passbook'}</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>

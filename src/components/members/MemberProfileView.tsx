@@ -791,7 +791,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
             }`}
           >
             <Archive className="w-4 h-4 text-amber-600" />
-            <span>{isBn ? `আমার শেয়ার ও মূলধন (${displayCount(member.shareCount || 0)})` : `My Shares & Capital (${displayCount(member.shareCount || 0)})`}</span>
+            <span>{isBn ? `আমার সক্রিয় শেয়ার (${displayCount(member.shareCount || 0)})` : `My Active Shares (${displayCount(member.shareCount || 0)})`}</span>
           </button>
           <button
             onClick={() => setActiveTab('loans')}

@@ -3282,7 +3282,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updatedTx: Transaction = {
       ...tx,
       status: 'completed',
-      collectedBy: (tx.collectedBy && tx.collectedBy !== 'সদস্য' && tx.collectedBy !== 'Member' && tx.collectedBy !== tx.memberName) ? tx.collectedBy : approverName,
+      collectedBy: tx.collectedBy || tx.memberName || 'সদস্য',
       verifiedBy: approverName,
     };
 
@@ -3445,6 +3445,20 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return up;
         }
         return b;
+      }));
+    }
+
+    // 3. Update DPS/FDR Scheme balance if schemeId linked
+    if (tx.savingsSchemeId) {
+      setSavingsSchemes(prev => prev.map(s => {
+        if (s.id !== tx.savingsSchemeId) return s;
+        const updated = {
+          ...s,
+          totalDeposited: (Number(s.totalDeposited) || 0) + (Number(tx.amount) || 0),
+          profitAccrued: (Number(s.profitAccrued) || 0) + ((Number(tx.amount) || 0) * (Number(s.interestRate || 0) / 100) / 12),
+        };
+        safeSetDoc(doc(db, 'savings', s.id), updated).catch(console.error);
+        return updated;
       }));
     }
 

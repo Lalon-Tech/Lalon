@@ -24,7 +24,17 @@ export const BusinessApplyModal: React.FC<BusinessApplyModalProps> = ({
   const { language } = useLanguage();
   const isBn = language === 'bn';
 
-  const [selectedMemberId, setSelectedMemberId] = useState<string>(presetMemberId || (members[0]?.id || ''));
+  const isMember = currentUser?.role === 'member';
+  const defaultMemberId = presetMemberId || (isMember && currentUser?.memberId ? currentUser.memberId : (members[0]?.id || ''));
+  const [selectedMemberId, setSelectedMemberId] = useState<string>(defaultMemberId);
+
+  React.useEffect(() => {
+    if (presetMemberId) {
+      setSelectedMemberId(presetMemberId);
+    } else if (isMember && currentUser?.memberId) {
+      setSelectedMemberId(currentUser.memberId);
+    }
+  }, [presetMemberId, isMember, currentUser?.memberId]);
   const [amountRequested, setAmountRequested] = useState<number | ''>(100000);
   const [durationMonths, setDurationMonths] = useState<number>(12);
   const [businessName, setBusinessName] = useState<string>('');
@@ -170,8 +180,8 @@ export const BusinessApplyModal: React.FC<BusinessApplyModalProps> = ({
             </div>
           )}
 
-          {/* Member Selection (only selectable if Admin and no presetMemberId) */}
-          {!presetMemberId && isUserAdmin ? (
+          {/* Member Selection (only selectable if Admin and not a Member, and no presetMemberId) */}
+          {!presetMemberId && isUserAdmin && !isMember ? (
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 {isBn ? 'আবেদনকারী সদস্য নির্বাচন করুন' : 'Select Applicant Member'} <span className="text-rose-500">*</span>

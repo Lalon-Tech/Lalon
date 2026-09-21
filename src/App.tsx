@@ -30,6 +30,9 @@ import { ReceiptModal } from './components/receipts/ReceiptModal';
 import { AuthModal } from './components/auth/AuthModal';
 import { PendingApprovalView } from './components/auth/PendingApprovalView';
 import { BottomNav } from './components/layout/BottomNav';
+import { MemberDepositView } from './components/members/MemberDepositView';
+import { MemberLoanPaymentView } from './components/members/MemberLoanPaymentView';
+import { MemberPassbookView } from './components/members/MemberPassbookView';
 import { FieldCollectionSheet } from './components/field/FieldCollectionSheet';
 import { TrialBalanceReport } from './components/reports/TrialBalanceReport';
 import { BalanceSheetReport } from './components/reports/BalanceSheetReport';
@@ -201,6 +204,17 @@ const AppContent: React.FC = () => {
       case 'nominees':
       case 'nominee':
         return <NomineesView />;
+
+      case 'member_deposit':
+        return <MemberDepositView />;
+
+      case 'member_loan_payment':
+      case 'member_loan':
+        return <MemberLoanPaymentView />;
+
+      case 'member_passbook':
+      case 'passbook':
+        return <MemberPassbookView />;
 
       case 'transactions':
       case 'tx_history':
