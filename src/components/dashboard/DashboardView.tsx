@@ -27,6 +27,7 @@ import {
   toBengaliNumber 
 } from '../../utils/bengaliUtils';
 import { ApprovalNotificationCenter } from './ApprovalNotificationCenter';
+import { PWAInstallButton } from '../common/PWAInstallButton';
 
 export const DashboardView: React.FC = () => {
   const { language, t } = useLanguage();
@@ -83,6 +84,9 @@ export const DashboardView: React.FC = () => {
 
     return (
       <div className="space-y-6 pb-12">
+        {/* Mobile App Install Banner */}
+        <PWAInstallButton variant="banner" />
+
         {/* Welcome Member Banner */}
         <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 p-6 rounded-2xl text-white shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -298,6 +302,9 @@ export const DashboardView: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-12">
+      {/* Mobile App Install Banner */}
+      <PWAInstallButton variant="banner" />
+
       {/* Top Banner with Overview Header & Quick Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200/80 shadow-2xs">
         <div className="flex items-center gap-3">

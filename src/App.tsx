@@ -39,6 +39,7 @@ import { BalanceSheetReport } from './components/reports/BalanceSheetReport';
 import { MemberAnnualStatement } from './components/reports/MemberAnnualStatement';
 import { AuditLogViewer } from './components/audit/AuditLogViewer';
 import { BackupRestoreCenter } from './components/backup/BackupRestoreCenter';
+import { OfflineIndicator } from './components/common/OfflineIndicator';
 import { Loader2, ShieldAlert, Clock, AlertTriangle } from 'lucide-react';
 import { useModalScrollLock } from './hooks/useModalScrollLock';
 
@@ -384,6 +385,7 @@ const AppContent: React.FC = () => {
       />
 
       <ReceiptModal />
+      <OfflineIndicator />
 
       {/* Inactivity Auto-Logout Warning (at 9 minutes) */}
       {inactivityWarning && (

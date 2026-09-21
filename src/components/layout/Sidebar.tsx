@@ -34,6 +34,7 @@ import { useSomiti } from '../../context/SomitiContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { toBengaliNumber } from '../../utils/bengaliUtils';
+import { PWAInstallButton } from '../common/PWAInstallButton';
 
 interface MenuItem {
   id: string;
@@ -456,6 +457,11 @@ export const Sidebar: React.FC<{
               </div>
             );
           })}
+        </div>
+
+        {/* PWA Mobile App Install Promo */}
+        <div className="px-3 pb-2">
+          <PWAInstallButton variant="sidebar" />
         </div>
 
         {/* Footer User Info & Firebase Auth */}

@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#047857" />
+      <stop offset="50%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#0d9488" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <!-- Rounded Background -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+  
+  <!-- Subtle decorative circular rings -->
+  <circle cx="256" cy="256" r="210" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="4" />
+  <circle cx="256" cy="256" r="175" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="2" stroke-dasharray="8 8" />
+
+  <!-- Center Shield / Emblem -->
+  <g filter="url(#shadow)">
+    <!-- Shield Outer -->
+    <path d="M256 96 C336 96 384 128 384 192 C384 296 296 376 256 416 C216 376 128 296 128 192 C128 128 176 96 256 96 Z" 
+          fill="#ffffff" />
+    
+    <!-- Shield Inner Fill with Gradient -->
+    <path d="M256 114 C324 114 366 142 366 196 C366 286 290 356 256 392 C222 356 146 286 146 196 C146 142 188 114 256 114 Z" 
+          fill="#0f766e" />
+
+    <!-- Center Emblem: Hands holding Coin / Tree of Prosperity -->
+    <!-- Gold Coin -->
+    <circle cx="256" cy="210" r="46" fill="url(#goldGrad)" stroke="#fef3c7" stroke-width="4" />
+    
+    <!-- Taka Symbol inside coin -->
+    <text x="256" y="226" font-family="'Hind Siliguri', sans-serif, Arial" font-size="44" font-weight="900" fill="#78350f" text-anchor="middle">৳</text>
+    
+    <!-- Cooperative Helping Hands -->
+    <path d="M188 280 C210 260 240 270 256 284 C272 270 302 260 324 280 C340 295 330 320 310 334 C284 352 264 366 256 372 C248 366 228 352 202 334 C182 320 172 295 188 280 Z" 
+          fill="#34d399" opacity="0.95" />
+
+    <path d="M208 296 C226 280 246 290 256 302 C266 290 286 280 304 296 C316 308 308 326 294 336 C276 350 262 360 256 364 C250 360 236 350 218 336 C204 326 196 308 208 296 Z" 
+          fill="#ffffff" />
+  </g>
+
+  <!-- Bottom Brand Text -->
+  <text x="256" y="468" font-family="'Hind Siliguri', 'Plus Jakarta Sans', sans-serif" font-size="34" font-weight="bold" fill="#ffffff" letter-spacing="1" text-anchor="middle">বন্ধু সমিতি</text>
+</svg>

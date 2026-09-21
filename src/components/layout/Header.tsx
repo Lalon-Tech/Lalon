@@ -21,6 +21,7 @@ import { useSomiti } from '../../context/SomitiContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { LanguageSwitcher } from '../common/LanguageSwitcher';
+import { PWAInstallButton } from '../common/PWAInstallButton';
 import { getAllPendingApprovals } from '../../utils/approvalRegistry';
 import { toBengaliNumber } from '../../utils/bengaliUtils';
 
@@ -231,6 +232,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
             </span>
           )}
         </button>
+
+        {/* PWA Mobile App Install Button */}
+        <PWAInstallButton variant="header" />
 
         {/* Language Selector: Segmented on tablets/desktop, compact toggle button on mobile */}
         <div className="hidden sm:block shrink-0">
