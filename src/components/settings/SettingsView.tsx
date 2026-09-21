@@ -26,6 +26,7 @@ import {
 import confetti from 'canvas-confetti';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { compressLogoImage } from '../../utils/imageUtils';
 
 export const SettingsView: React.FC = () => {
   const { language } = useLanguage();
@@ -68,39 +69,45 @@ export const SettingsView: React.FC = () => {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
       setActionFeedback({
         type: 'error',
-        message: language === 'bn' ? 'অনুগ্রহ করে শুধুমাত্র ছবি ফাইল (PNG, JPG, SVG) নির্বাচন করুন।' : 'Please select a valid image file.'
+        message: language === 'bn' ? 'অনুগ্রহ করে শুধুমাত্র ছবি ফাইল (PNG, JPG, SVG, WebP) নির্বাচন করুন।' : 'Please select a valid image file.'
       });
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
+    if (file.size > 8 * 1024 * 1024) {
       setActionFeedback({
         type: 'error',
-        message: language === 'bn' ? 'ছবির সাইজ সর্বোচ্চ ২ মেগাবাইট (2MB) হতে পারবে।' : 'Image size must be under 2MB.'
+        message: language === 'bn' ? 'ছবির সাইজ সর্বোচ্চ ৮ মেগাবাইট (8MB) হতে পারবে।' : 'Image size must be under 8MB.'
       });
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      if (dataUrl) {
-        setLogoUrl(dataUrl);
-        setLogoPreview(dataUrl);
-        setActionFeedback({
-          type: 'success',
-          message: language === 'bn' ? 'নতুন লোগো লোড হয়েছে! স্থায়ী করতে নিচের "সংরক্ষণ করুন" বাটনে চাপুন।' : 'New logo selected! Click "Save" below to apply.'
-        });
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      setActionFeedback({
+        type: 'info',
+        message: language === 'bn' ? 'লোগো অপ্টিমাইজ করা হচ্ছে...' : 'Optimizing logo...'
+      });
+
+      const optimizedLogo = await compressLogoImage(file);
+      setLogoUrl(optimizedLogo);
+      setLogoPreview(optimizedLogo);
+      setActionFeedback({
+        type: 'success',
+        message: language === 'bn' ? 'নতুন লোগো সফলভাবে প্রস্তুত হয়েছে! স্থায়ী করতে নিচের "সংরক্ষণ করুন" বাটনে চাপুন।' : 'New logo ready! Click "Save" below to apply.'
+      });
+    } catch (err: any) {
+      setActionFeedback({
+        type: 'error',
+        message: err?.message || (language === 'bn' ? 'লোগো লোড করতে সমস্যা হয়েছে।' : 'Failed to load logo.')
+      });
+    }
   };
 
   const handleResetLogo = () => {
@@ -385,6 +392,11 @@ export const SettingsView: React.FC = () => {
                     <span>ডিফল্ট লোগোতে ফিরুন</span>
                   </button>
                 )}
+              </div>
+
+              <div className="bg-amber-50/80 border border-amber-200/80 rounded-lg p-2.5 text-[11px] text-amber-800 leading-relaxed text-left">
+                <p className="font-semibold text-amber-900 mb-0.5">💡 ইনস্টল করা মোবাইল অ্যাপে আইকন আপডেট:</p>
+                লোগো সেভ করার সাথে সাথে ব্রাউজারের ট্যাব এবং ডাইনামিক অ্যাপ ম্যানিফেস্টে নতুন লোগো সেট হয়ে যাবে। ফোনের হোম স্ক্রিনে ইনস্টল করা অ্যাপটি স্বয়ংক্রিয়ভাবে ব্যাকগ্রাউন্ডে আপডেট না হলে—ফোন থেকে একবার পুরনো অ্যাপ আনইনস্টল করে পুনরায় <strong>"Install App"</strong> দিলেই হোম স্ক্রিনে নতুন লোগোটি যুক্ত হয়ে যাবে।
               </div>
             </div>
           </div>

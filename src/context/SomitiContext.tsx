@@ -754,21 +754,29 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const [settings, setSettings] = useState<SomitiSettings>(() => {
     const loaded = safeParse<SomitiSettings>('bondhu_settings', initialSettings);
-    if (!loaded.logoUrl || loaded.logoUrl.includes('unsplash.com')) {
+    const resolvedName = (loaded.somitiName && loaded.somitiName.trim().length > 0)
+      ? (loaded.somitiName === 'বন্ধু সমবায় সমিতি' ? 'বন্ধু সমবায় সমিতি লিমিটেড' : loaded.somitiName)
+      : 'বন্ধু সমবায় সমিতি লিমিটেড';
+    
+    // Cleanse oversized logoUrl (> 500,000 chars) that causes Firestore 1,048,487 bytes limit errors
+    const isOversized = typeof loaded.logoUrl === 'string' && loaded.logoUrl.length > 500000;
+    const isInvalid = !loaded.logoUrl || loaded.logoUrl.includes('unsplash.com') || isOversized;
+
+    if (isInvalid) {
       return { 
         ...loaded, 
         logoUrl: '/logo.svg',
-        somitiName: loaded.somitiName && !loaded.somitiName.includes('লিমিটেড') ? loaded.somitiName : 'বন্ধু সমবায় সমিতি',
-        somitiNameEn: loaded.somitiNameEn && !loaded.somitiNameEn.includes('Co-Operative') ? loaded.somitiNameEn : 'Bondhu Samabay Somiti'
+        somitiName: resolvedName,
+        somitiNameEn: loaded.somitiNameEn || 'Bondhu Samabay Somiti Ltd.'
       };
     }
-    return loaded;
+    return {
+      ...loaded,
+      somitiName: resolvedName
+    };
   });
 
-  const [isDataLoading, setIsDataLoading] = useState<boolean>(() => {
-    const cachedMembers = safeParse<any[]>('bondhu_members', [], true);
-    return !cachedMembers || cachedMembers.length === 0;
-  });
+  const [isDataLoading, setIsDataLoading] = useState<boolean>(false);
 
   const [members, setMembers] = useState<Member[]>(() => {
     const raw = safeParse<Member[]>('bondhu_members', [], true);
@@ -1733,6 +1741,10 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const updateSettings = (newSet: Partial<SomitiSettings>) => {
     setSettings(prev => {
       const updated = { ...prev, ...newSet };
+      if (typeof updated.logoUrl === 'string' && updated.logoUrl.length > 500000) {
+        console.warn('Oversized logoUrl detected in updateSettings, resetting to /logo.svg to protect Firestore doc limits.');
+        updated.logoUrl = '/logo.svg';
+      }
       safeSetDoc(doc(db, 'settings', 'general'), updated).catch(console.error);
       return updated;
     });

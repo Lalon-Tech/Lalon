@@ -94,7 +94,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
     : [];
 
   return (
-    <header className="fixed top-0 left-0 right-0 lg:left-64 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs px-2 sm:px-4 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-1 sm:gap-2.5 transition-all w-full max-w-full lg:w-auto">
+    <header className="fixed top-0 left-0 right-0 lg:left-72 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs px-2 sm:px-4 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-1 sm:gap-2.5 transition-all w-full max-w-full lg:w-auto">
       {/* Left: Hamburger menu on mobile + User Profile badge */}
       <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
         {onToggleSidebar && (
@@ -108,14 +108,31 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
           </button>
         )}
 
-        {/* Mobile Somiti Logo Badge */}
-        <div className="flex items-center gap-2 lg:hidden">
-          <img
-            src={settings.logoUrl || '/icon.svg'}
-            alt="বন্ধু সমবায় সমিতি"
-            className="w-7 h-7 rounded-lg object-contain bg-white ring-1 ring-slate-200"
-            referrerPolicy="no-referrer"
-          />
+        {/* Mobile Somiti Logo Badge - Round Logo with Name & Motto */}
+        <div 
+          onClick={() => setActiveTab('dashboard')}
+          className="flex items-center gap-2 lg:hidden cursor-pointer"
+        >
+          <div className="w-9 h-9 rounded-full bg-white p-0.5 ring-2 ring-emerald-500/30 shadow-xs flex items-center justify-center shrink-0 overflow-hidden">
+            <img
+              src={
+                settings.logoUrl && settings.logoUrl !== '/logo.svg' && settings.logoUrl !== '/logo-horizontal.svg'
+                  ? settings.logoUrl
+                  : '/icon.svg'
+              }
+              alt={settings.somitiName || "বন্ধু সমবায় সমিতি"}
+              className="w-full h-full object-contain rounded-full"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+          <div className="hidden min-[380px]:block text-left">
+            <p className="text-xs font-bold text-slate-800 leading-tight truncate max-w-[130px]">
+              {settings.somitiName || "বন্ধু সমবায়"}
+            </p>
+            <p className="text-[9px] text-emerald-600 font-extrabold tracking-wider uppercase leading-none mt-0.5">
+              UNITY • GROWTH • TRUST
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2.5 cursor-pointer group" onClick={() => setActiveTab('users')}>

@@ -42,8 +42,12 @@ import { BackupRestoreCenter } from './components/backup/BackupRestoreCenter';
 import { OfflineIndicator } from './components/common/OfflineIndicator';
 import { Loader2, ShieldAlert, Clock, AlertTriangle } from 'lucide-react';
 import { useModalScrollLock } from './hooks/useModalScrollLock';
+import { useDynamicManifest } from './hooks/useDynamicManifest';
 
 const AppContent: React.FC = () => {
+  // Synchronize browser icon, apple-touch-icon, and PWA manifest dynamically when settings.logoUrl changes
+  useDynamicManifest();
+
   const { 
     user, 
     loading, 
@@ -92,8 +96,8 @@ const AppContent: React.FC = () => {
 
   const isMember = currentUser?.role === 'member';
 
-  // Loading state
-  if (loading || (user && isDataLoading)) {
+  // Loading state (only for initial auth check, never locks UI indefinitely)
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#070d1e] flex flex-col items-center justify-center text-cyan-400 gap-3">
         <Loader2 className="w-8 h-8 animate-spin" />
@@ -342,7 +346,7 @@ const AppContent: React.FC = () => {
         />
 
         {/* Dynamic Main Workspace Container */}
-        <main className="flex-1 lg:pl-64 p-3 sm:p-6 lg:p-8 pb-24 lg:pb-8 w-full min-w-0 transition-all">
+        <main className="flex-1 lg:pl-72 p-3 sm:p-6 lg:p-8 pb-24 lg:pb-8 w-full min-w-0 transition-all">
           <div className="max-w-7xl mx-auto w-full min-w-0">
             {renderActiveView()}
           </div>

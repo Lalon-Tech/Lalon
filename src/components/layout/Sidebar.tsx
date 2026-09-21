@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -28,7 +28,8 @@ import {
   HandCoins,
   ClipboardList,
   Scale,
-  Database
+  Database,
+  X
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useAuth } from '../../context/AuthContext';
@@ -86,6 +87,21 @@ export const Sidebar: React.FC<{
     reports: false,
   });
 
+  // Automatically expand parent menu when navigating to a child view from outside the sidebar
+  useEffect(() => {
+    if (activeTab.startsWith('member') || activeTab === 'new_member' || activeTab === 'all_members' || activeTab === 'active_members' || activeTab === 'recycle_bin') {
+      setExpandedMenus(prev => (prev.members ? prev : { ...prev, members: true }));
+    } else if (activeTab.startsWith('tx_') || activeTab.startsWith('transactions')) {
+      setExpandedMenus(prev => (prev.transactions ? prev : { ...prev, transactions: true }));
+    } else if (activeTab.startsWith('loans')) {
+      setExpandedMenus(prev => (prev.loans ? prev : { ...prev, loans: true }));
+    } else if (activeTab.startsWith('savings')) {
+      setExpandedMenus(prev => (prev.savings ? prev : { ...prev, savings: true }));
+    } else if (activeTab.startsWith('report')) {
+      setExpandedMenus(prev => (prev.reports ? prev : { ...prev, reports: true }));
+    }
+  }, [activeTab]);
+
   const toggleSubmenu = (menuId: string) => {
     setExpandedMenus(prev => ({
       ...prev,
@@ -99,14 +115,15 @@ export const Sidebar: React.FC<{
         setSelectedMemberId(currentUser.memberId);
       }
     }
-    if (item.subItems) {
+    if (item.subItems && item.subItems.length > 0) {
+      // Toggle accordion open and closed
       toggleSubmenu(item.id);
     } else {
       if (window.innerWidth < 1024) {
         setIsOpen(false);
       }
+      setActiveTab(item.id);
     }
-    setActiveTab(item.id);
   };
 
   // Rule 7: Member-only navigation items
@@ -330,35 +347,72 @@ export const Sidebar: React.FC<{
       )}
 
       <aside
-        className={`fixed top-0 left-0 bottom-0 z-40 w-64 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 left-0 bottom-0 z-40 w-72 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 transition-transform duration-300 ease-in-out lg:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Somiti Branding Header */}
-        <div className="p-3.5 border-b border-slate-800 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-white p-1 shrink-0 shadow-md ring-1 ring-white/10 flex items-center justify-center overflow-hidden">
-            <img 
-              src={settings.logoUrl || '/icon.svg'} 
-              alt="Logo" 
-              className="w-full h-full object-contain"
-              referrerPolicy="no-referrer"
-            />
-          </div>
-          <div className="overflow-hidden min-w-0">
-            <h1 className="font-bold text-sm text-white truncate tracking-wide">
-              {settings.somitiName || (language === 'bn' ? 'বন্ধু সমবায় সমিতি' : 'Bondhu Samabay Somiti')}
-            </h1>
-            <p className="text-[10px] text-emerald-400 font-semibold truncate tracking-wider uppercase">
-              UNITY • GROWTH • TRUST
-            </p>
+        {/* Somiti Branding Header - Frozen at top */}
+        <div className="shrink-0 sticky top-0 z-30 px-3.5 py-3 border-b border-slate-800 bg-slate-950 flex items-center justify-between shadow-xs">
+          {/* Mobile close button */}
+          <button
+            type="button"
+            onClick={() => setIsOpen(false)}
+            className="absolute top-2.5 right-2.5 p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg lg:hidden transition-colors z-10"
+            title={language === 'bn' ? 'মেনু বন্ধ করুন' : 'Close Menu'}
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          {/* Round Logo + Beside it: Name & Motto */}
+          <div 
+            onClick={() => {
+              setActiveTab('dashboard');
+              if (window.innerWidth < 1024) setIsOpen(false);
+            }}
+            className="flex items-center gap-3 w-full pr-8 lg:pr-0 cursor-pointer group select-none"
+            title={settings.somitiName || (language === 'bn' ? 'বন্ধু সমবায় সমিতি লিমিটেড' : 'Bondhu Samabay Somiti Ltd.')}
+          >
+            {/* Round Shape Logo */}
+            <div className="w-12 h-12 rounded-full bg-white p-1 ring-2 ring-emerald-500/40 shadow-md flex items-center justify-center shrink-0 overflow-hidden transition-transform duration-200 group-hover:scale-105">
+              <img 
+                src={
+                  settings.logoUrl && settings.logoUrl !== '/logo.svg' && settings.logoUrl !== '/logo-horizontal.svg'
+                    ? settings.logoUrl
+                    : '/icon.svg'
+                } 
+                alt="বন্ধু সমবায় সমিতি" 
+                className="w-full h-full object-contain rounded-full"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+
+            {/* Beside Logo: Name and Motto */}
+            <div className="min-w-0 flex-1 text-left">
+              <h1 className="font-bold text-[13px] sm:text-[14px] text-white leading-tight truncate group-hover:text-blue-300 transition-colors">
+                {settings.somitiName || (language === 'bn' ? 'বন্ধু সমবায় সমিতি লিমিটেড' : 'Bondhu Samabay Somiti Ltd.')}
+              </h1>
+              <div className="mt-1 flex items-center gap-1.5">
+                <span className="text-[9.5px] text-emerald-400 font-extrabold tracking-wider uppercase bg-emerald-950/70 border border-emerald-500/30 px-1.5 py-0.5 rounded-sm shadow-2xs">
+                  UNITY • GROWTH • TRUST
+                </span>
+              </div>
+              <p className="text-[9.5px] text-slate-400 font-medium truncate mt-0.5">
+                {language === 'bn' ? 'ঐক্য • সমৃদ্ধি • বিশ্বাস' : 'Cooperative Society'}
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Navigation List */}
-        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1 scrollbar-thin scrollbar-thumb-slate-700">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 px-3 mb-2">
-            {language === 'bn' ? 'প্রধান মেনু' : 'Main Menu'}
-          </div>
+        {/* Frozen Main Menu Section Bar */}
+        <div className="shrink-0 z-20 px-4 py-2 bg-slate-900 border-b border-slate-800/80 flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-400 shadow-xs">
+          <span>{language === 'bn' ? 'প্রধান মেনু' : 'Main Menu'}</span>
+          <span className="text-[10px] text-emerald-400/90 font-medium lowercase tracking-normal">
+            {language === 'bn' ? 'সিস্টেম' : 'system'}
+          </span>
+        </div>
+
+        {/* Navigation List - Only this part scrolls */}
+        <div className="flex-1 overflow-y-auto px-3 py-2.5 space-y-1 scrollbar-thin scrollbar-thumb-slate-700 min-h-0">
 
           {(isMember ? memberMenuItems : menuItems).map((item) => {
             const Icon = item.icon;
@@ -371,7 +425,7 @@ export const Sidebar: React.FC<{
               (item.id === 'savings' && activeTab.startsWith('savings')) ||
               (item.id === 'reports' && activeTab.startsWith('report'));
 
-            const isExpanded = expandedMenus[item.id] || isParentActive;
+            const isExpanded = Boolean(expandedMenus[item.id]);
             const hasSub = item.subItems && item.subItems.length > 0;
 
             return (

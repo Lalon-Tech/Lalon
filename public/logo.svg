@@ -5,14 +5,14 @@
       .somiti-title {
         font-family: 'Hind Siliguri', 'Bangla', sans-serif;
         font-weight: 800;
-        font-size: 50px;
+        font-size: 38px;
         fill: #16244f;
       }
       .somiti-sub {
         font-family: 'Plus Jakarta Sans', sans-serif;
         font-weight: 800;
-        font-size: 21px;
-        letter-spacing: 7px;
+        font-size: 19px;
+        letter-spacing: 5px;
         fill: #22355e;
       }
     </style>
@@ -141,9 +141,9 @@
   </g>
 
   <!-- Typography -->
-  <!-- Bengali Title: বন্ধু সমবায় সমিতি -->
-  <text x="300" y="475" text-anchor="middle" class="somiti-title">বন্ধু সমবায় সমিতি</text>
+  <!-- Bengali Title: বন্ধু সমবায় সমিতি লিমিটেড -->
+  <text x="300" y="475" text-anchor="middle" class="somiti-title">বন্ধু সমবায় সমিতি লিমিটেড</text>
 
-  <!-- English Subtitle: UNITY. GROWTH. TRUST -->
-  <text x="300" y="525" text-anchor="middle" class="somiti-sub">UNITY. GROWTH. TRUST</text>
+  <!-- English Subtitle: UNITY • GROWTH • TRUST -->
+  <text x="300" y="525" text-anchor="middle" class="somiti-sub">UNITY • GROWTH • TRUST</text>
 </svg>

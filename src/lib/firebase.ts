@@ -46,23 +46,35 @@ async function testConnection() {
 testConnection();
 
 /**
- * Deeply removes all `undefined` values from an object or array to prevent
- * Firestore "Function setDoc() called with invalid data. Unsupported field value: undefined" errors.
+ * Deeply removes all `undefined` values and guards against Firestore limits:
+ * - Prevents "Function setDoc() called with invalid data. Unsupported field value: undefined"
+ * - Prevents "The value of property ... is longer than 1048487 bytes" by sanitizing oversized strings.
  */
-export function sanitizeFirestoreData<T>(data: T): T {
+export function sanitizeFirestoreData<T>(data: T, keyName?: string): T {
   if (data === null || data === undefined) {
     return null as unknown as T;
+  }
+  if (typeof data === 'string') {
+    // Firestore hard limit: property value cannot exceed 1,048,487 bytes
+    if (data.length > 700000) {
+      console.warn(`Firestore field "${keyName || 'unknown'}" exceeds safe limit (${data.length} chars). Sanitizing to prevent document rejection.`);
+      if (keyName === 'logoUrl' || data.startsWith('data:image/')) {
+        return '/logo.svg' as unknown as T;
+      }
+      return data.slice(0, 700000) as unknown as T;
+    }
+    return data;
   }
   if (Array.isArray(data)) {
     return data
       .filter(item => item !== undefined)
-      .map(item => sanitizeFirestoreData(item)) as unknown as T;
+      .map(item => sanitizeFirestoreData(item, keyName)) as unknown as T;
   }
   if (typeof data === 'object' && !(data instanceof Date)) {
     const clean: Record<string, any> = {};
     for (const [key, value] of Object.entries(data as Record<string, any>)) {
       if (value !== undefined) {
-        clean[key] = sanitizeFirestoreData(value);
+        clean[key] = sanitizeFirestoreData(value, key);
       }
     }
     return clean as T;

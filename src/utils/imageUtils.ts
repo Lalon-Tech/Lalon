@@ -166,3 +166,84 @@ export const resizeImageFileToBase64 = (
   });
 };
 
+/**
+ * Specifically optimizes and compresses Somiti logo images for headers, receipts, and PWA manifests.
+ * Prevents Firestore document limit errors (property longer than 1,048,487 bytes)
+ * while maintaining crystal-clear logo sharpness and transparency.
+ */
+export const compressLogoImage = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      reject(new Error('অনুগ্রহ করে শুধুমাত্র ছবি ফাইল (PNG, JPG, SVG, WebP) নির্বাচন করুন।'));
+      return;
+    }
+
+    // If SVG is under 200KB, read directly as clean vector
+    if (file.type === 'image/svg+xml' && file.size < 200 * 1024) {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target?.result as string);
+      reader.onerror = () => reject(new Error('SVG ফাইল পড়তে সমস্যা হয়েছে।'));
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 400; // Optimal for header, sidebar, receipt & mobile icon
+        let width = img.naturalWidth || img.width;
+        let height = img.naturalHeight || img.height;
+
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(width, 1);
+        canvas.height = Math.max(height, 1);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(e.target?.result as string);
+          return;
+        }
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        // Try PNG first (preserves alpha channel transparency)
+        let dataUrl = canvas.toDataURL('image/png');
+        // If PNG base64 exceeds 300KB, fallback to WebP or JPEG for massive compression
+        if (dataUrl.length > 300 * 1024) {
+          try {
+            const webpUrl = canvas.toDataURL('image/webp', 0.85);
+            if (webpUrl.startsWith('data:image/webp')) {
+              dataUrl = webpUrl;
+            }
+          } catch {
+            // fallback
+          }
+        }
+        if (dataUrl.length > 300 * 1024) {
+          dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        }
+
+        resolve(dataUrl);
+      };
+
+      img.onerror = () => reject(new Error('ছবি লোড করতে ব্যর্থ হয়েছে।'));
+      img.src = e.target?.result as string;
+    };
+
+    reader.onerror = () => reject(new Error('ফাইল পড়তে ব্যর্থ হয়েছে।'));
+    reader.readAsDataURL(file);
+  });
+};
+

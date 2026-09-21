@@ -46,8 +46,17 @@ const INACTIVITY_WARNING_MS = 9 * 60 * 1000;  // 9 minutes (warning 60 seconds b
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | AppAuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | AppAuthUser | null>(() => {
+    try {
+      const saved = sessionStorage.getItem('somiti_session_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [loading, setLoading] = useState<boolean>(() => {
+    return !sessionStorage.getItem('somiti_session_user');
+  });
   const [error, setError] = useState<string | null>(null);
 
   // Auto-logout state
@@ -67,7 +76,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
+    // Safety watchdog: In sandboxed iframes or slow networks,
+    // ensure loading state NEVER hangs indefinitely! (Max 1.2s timeout)
+    const safetyTimer = setTimeout(() => {
+      setLoading(false);
+    }, 1200);
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      clearTimeout(safetyTimer);
       if (currentUser) {
         setUser(currentUser);
         sessionStorage.removeItem('somiti_session_user');
@@ -85,6 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       setLoading(false);
     }, (err) => {
+      clearTimeout(safetyTimer);
       console.error("Firebase auth state error:", err);
       const saved = sessionStorage.getItem('somiti_session_user');
       if (saved) {
@@ -97,7 +114,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(safetyTimer);
+      unsubscribe();
+    };
   }, []);
 
   // 10-Minute Inactivity Auto-Logout Tracker

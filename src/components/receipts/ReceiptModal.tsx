@@ -347,11 +347,11 @@ ${tx.billingPeriod ? `বিলিং কিস্তি  : ${tx.billingPeriod}\
 
           {/* Somiti Official Header */}
           <div className="text-center pb-3 border-b-2 border-slate-800 relative">
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-2">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 mb-2">
               <img
-                src={settings.logoUrl || '/icon.svg'}
+                src={settings.logoUrl === '/logo.svg' ? '/icon.svg' : (settings.logoUrl || '/icon.svg')}
                 alt="বন্ধু সমবায় সমিতি"
-                className="w-14 h-14 object-contain bg-white rounded-xl p-1 border border-slate-200 shadow-2xs"
+                className="w-16 h-16 sm:w-18 sm:h-18 object-contain bg-white rounded-2xl p-1.5 border border-slate-200 shadow-xs"
                 referrerPolicy="no-referrer"
               />
               <div className="text-center sm:text-left">
