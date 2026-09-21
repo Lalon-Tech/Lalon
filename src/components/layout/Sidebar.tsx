@@ -335,16 +335,21 @@ export const Sidebar: React.FC<{
         }`}
       >
         {/* Somiti Branding Header */}
-        <div className="p-4.5 border-b border-slate-800 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md font-bold text-lg">
-            {language === 'bn' ? 'ব' : 'B'}
+        <div className="p-3.5 border-b border-slate-800 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-white p-1 shrink-0 shadow-md ring-1 ring-white/10 flex items-center justify-center overflow-hidden">
+            <img 
+              src={settings.logoUrl || '/icon.svg'} 
+              alt="Logo" 
+              className="w-full h-full object-contain"
+              referrerPolicy="no-referrer"
+            />
           </div>
-          <div className="overflow-hidden">
-            <h1 className="font-bold text-base text-white truncate tracking-wide">
-              {settings.somitiName || (language === 'bn' ? 'বন্ধু সমিতি' : 'Bondhu Somiti')}
+          <div className="overflow-hidden min-w-0">
+            <h1 className="font-bold text-sm text-white truncate tracking-wide">
+              {settings.somitiName || (language === 'bn' ? 'বন্ধু সমবায় সমিতি' : 'Bondhu Samabay Somiti')}
             </h1>
-            <p className="text-xs text-blue-400 font-medium truncate">
-              {settings.registrationNo || (language === 'bn' ? 'সমবায় সমিতি লিঃ' : 'Cooperative Society Ltd.')}
+            <p className="text-[10px] text-emerald-400 font-semibold truncate tracking-wider uppercase">
+              UNITY • GROWTH • TRUST
             </p>
           </div>
         </div>

@@ -361,9 +361,22 @@ export const ReportsView: React.FC = () => {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-4 sm:p-8 space-y-6">
         {/* Printable Report Header */}
         <div className="text-center border-b-2 border-slate-900 pb-4">
-          <h1 className="text-2xl font-bold text-slate-900 uppercase">
-            {settings.somitiName || (isBn ? 'বন্ধু সমবায় সমিতি লিমিটেড' : 'Bandhu Somobay Samity Ltd.')}
-          </h1>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-2">
+            <img 
+              src={settings.logoUrl || '/icon.svg'} 
+              alt="Logo" 
+              className="w-12 h-12 object-contain" 
+              referrerPolicy="no-referrer"
+            />
+            <div className="text-center sm:text-left">
+              <h1 className="text-2xl font-bold text-slate-900 uppercase leading-tight">
+                {settings.somitiName || (isBn ? 'বন্ধু সমবায় সমিতি' : 'Bondhu Samabay Somiti')}
+              </h1>
+              <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest">
+                UNITY • GROWTH • TRUST
+              </p>
+            </div>
+          </div>
           <p className="text-xs text-slate-600">
             {isBn ? 'রেজিস্ট্রেশন নং:' : 'Reg No:'} {settings.registrationNo} • {settings.address}
           </p>

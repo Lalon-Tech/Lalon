@@ -753,7 +753,16 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   });
 
   const [settings, setSettings] = useState<SomitiSettings>(() => {
-    return safeParse('bondhu_settings', initialSettings);
+    const loaded = safeParse<SomitiSettings>('bondhu_settings', initialSettings);
+    if (!loaded.logoUrl || loaded.logoUrl.includes('unsplash.com')) {
+      return { 
+        ...loaded, 
+        logoUrl: '/logo.svg',
+        somitiName: loaded.somitiName && !loaded.somitiName.includes('লিমিটেড') ? loaded.somitiName : 'বন্ধু সমবায় সমিতি',
+        somitiNameEn: loaded.somitiNameEn && !loaded.somitiNameEn.includes('Co-Operative') ? loaded.somitiNameEn : 'Bondhu Samabay Somiti'
+      };
+    }
+    return loaded;
   });
 
   const [isDataLoading, setIsDataLoading] = useState<boolean>(() => {

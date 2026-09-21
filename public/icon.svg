@@ -1,51 +1,120 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#047857" />
-      <stop offset="50%" stop-color="#059669" />
-      <stop offset="100%" stop-color="#0d9488" />
-    </linearGradient>
-    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#fbbf24" />
-      <stop offset="100%" stop-color="#f59e0b" />
-    </linearGradient>
-    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
-      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-opacity="0.25" />
+    <filter id="icon-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#16244f" flood-opacity="0.18"/>
     </filter>
   </defs>
 
-  <!-- Rounded Background -->
-  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
-  
-  <!-- Subtle decorative circular rings -->
-  <circle cx="256" cy="256" r="210" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="4" />
-  <circle cx="256" cy="256" r="175" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="2" stroke-dasharray="8 8" />
+  <!-- Clean rounded background container with subtle white-to-slate gradient -->
+  <rect width="512" height="512" rx="112" fill="#ffffff" />
 
-  <!-- Center Shield / Emblem -->
-  <g filter="url(#shadow)">
-    <!-- Shield Outer -->
-    <path d="M256 96 C336 96 384 128 384 192 C384 296 296 376 256 416 C216 376 128 296 128 192 C128 128 176 96 256 96 Z" 
-          fill="#ffffff" />
-    
-    <!-- Shield Inner Fill with Gradient -->
-    <path d="M256 114 C324 114 366 142 366 196 C366 286 290 356 256 392 C222 356 146 286 146 196 C146 142 188 114 256 114 Z" 
-          fill="#0f766e" />
+  <!-- Centered Emblem Scaled and Positioned perfectly within 512x512 -->
+  <g transform="translate(10, 20) scale(0.97)" filter="url(#icon-shadow)">
+    <!-- Outer Ring Base Layer: Deep Navy Arc -->
+    <path d="M 233 72 
+             A 180 180 0 1 0 428 277 
+             L 410 272
+             A 162 162 0 1 1 239 90
+             Z" 
+          fill="#1b2a59" />
 
-    <!-- Center Emblem: Hands holding Coin / Tree of Prosperity -->
-    <!-- Gold Coin -->
-    <circle cx="256" cy="210" r="46" fill="url(#goldGrad)" stroke="#fef3c7" stroke-width="4" />
-    
-    <!-- Taka Symbol inside coin -->
-    <text x="256" y="226" font-family="'Hind Siliguri', sans-serif, Arial" font-size="44" font-weight="900" fill="#78350f" text-anchor="middle">৳</text>
-    
-    <!-- Cooperative Helping Hands -->
-    <path d="M188 280 C210 260 240 270 256 284 C272 270 302 260 324 280 C340 295 330 320 310 334 C284 352 264 366 256 372 C248 366 228 352 202 334 C182 320 172 295 188 280 Z" 
-          fill="#34d399" opacity="0.95" />
+    <!-- Outer Ring Green Arc (Top-Right section from top to right) -->
+    <path d="M 280 72 
+             A 180 180 0 0 1 438 230 
+             L 420 235 
+             A 162 162 0 0 0 274 90 
+             Z" 
+          fill="#3ba844" />
 
-    <path d="M208 296 C226 280 246 290 256 302 C266 290 286 280 304 296 C316 308 308 326 294 336 C276 350 262 360 256 364 C250 360 236 350 218 336 C204 326 196 308 208 296 Z" 
-          fill="#ffffff" />
+    <!-- Outer Nodes (Community Member Circles) -->
+    <!-- Top Node (Navy) -->
+    <circle cx="256" cy="68" r="26" fill="#ffffff" />
+    <circle cx="256" cy="68" r="22" fill="#1b2a59" />
+
+    <!-- Left Node (Navy) -->
+    <circle cx="76" cy="248" r="26" fill="#ffffff" />
+    <circle cx="76" cy="248" r="22" fill="#1b2a59" />
+
+    <!-- Right Node (Vibrant Green) -->
+    <circle cx="436" cy="248" r="26" fill="#ffffff" />
+    <circle cx="436" cy="248" r="22" fill="#3ba844" />
+
+    <!-- Left Navy Figure / Arm & Shoulder -->
+    <path d="M 228 112 
+             C 150 118 96 166 90 248
+             C 88 290 106 328 138 354
+             C 154 368 176 378 200 378
+             C 192 358 192 342 200 328
+             C 174 318 148 294 142 264
+             C 138 222 168 174 220 158
+             C 238 152 246 138 228 112
+             Z" 
+          fill="#1b2a59" />
+
+    <!-- Right Green Figure / Arm & Shoulder -->
+    <path d="M 284 112 
+             C 362 118 416 166 422 248
+             C 424 290 406 328 374 354
+             C 358 368 336 378 312 378
+             C 320 358 320 342 312 328
+             C 338 318 364 294 370 264
+             C 374 222 344 174 292 158
+             C 274 152 266 138 284 112
+             Z" 
+          fill="#3ba844" />
+
+    <!-- Center Cooperative Handshake -->
+    <!-- Navy Hand (Left side wrapping around) -->
+    <path d="M 172 294 
+             C 202 284 238 286 252 300
+             C 256 305 260 315 258 326
+             C 254 343 240 355 220 360
+             C 202 365 184 350 180 332
+             Z" 
+          fill="#1b2a59" />
+
+    <!-- Handshake Fingers (Navy clasping) -->
+    <rect x="204" y="350" width="16" height="26" rx="8" fill="#1b2a59" transform="rotate(-15 212 363)" stroke="#ffffff" stroke-width="3" />
+    <rect x="225" y="360" width="16" height="26" rx="8" fill="#1b2a59" transform="rotate(-5 233 373)" stroke="#ffffff" stroke-width="3" />
+    <rect x="248" y="361" width="16" height="26" rx="8" fill="#1b2a59" transform="rotate(10 256 374)" stroke="#ffffff" stroke-width="3" />
+    <rect x="270" y="352" width="16" height="24" rx="8" fill="#1b2a59" transform="rotate(25 278 364)" stroke="#ffffff" stroke-width="3" />
+
+    <!-- Green Hand (Right side grasping) -->
+    <path d="M 340 294 
+             C 310 284 274 286 260 300
+             C 256 305 252 315 254 326
+             C 258 343 272 355 292 360
+             C 310 365 328 350 332 332
+             Z" 
+          fill="#3ba844" />
+
+    <!-- Thumb Clasp in Center -->
+    <path d="M 236 300 
+             C 246 290 266 290 276 300 
+             C 286 310 278 324 256 336 
+             C 234 324 226 310 236 300 Z" 
+          fill="#1b2a59" stroke="#ffffff" stroke-width="3.5" />
+
+    <!-- The 3-Leaf Growth Sprout (Seedling) -->
+    <!-- Central Upright Leaf -->
+    <path d="M 256 288 
+             C 242 236 225 194 256 156 
+             C 287 194 270 236 256 288 Z" 
+          fill="#3ba844" />
+    <path d="M 256 284 L 256 168" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" />
+
+    <!-- Left Leaf -->
+    <path d="M 248 266 
+             C 218 258 180 228 190 196 
+             C 218 196 242 232 252 258 Z" 
+          fill="#43b04c" />
+    <path d="M 246 262 C 232 248 214 230 198 206" stroke="#ffffff" stroke-width="3" stroke-linecap="round" />
+
+    <!-- Right Leaf -->
+    <path d="M 264 266 
+             C 294 258 332 228 322 196 
+             C 294 196 270 232 260 258 Z" 
+          fill="#43b04c" />
+    <path d="M 266 262 C 280 248 298 230 314 206" stroke="#ffffff" stroke-width="3" stroke-linecap="round" />
   </g>
-
-  <!-- Bottom Brand Text -->
-  <text x="256" y="468" font-family="'Hind Siliguri', 'Plus Jakarta Sans', sans-serif" font-size="34" font-weight="bold" fill="#ffffff" letter-spacing="1" text-anchor="middle">বন্ধু সমিতি</text>
 </svg>

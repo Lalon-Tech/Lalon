@@ -1,0 +1,149 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 620" width="600" height="620">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@600;700;800&amp;family=Plus+Jakarta+Sans:wght@700;800&amp;display=swap');
+      .somiti-title {
+        font-family: 'Hind Siliguri', 'Bangla', sans-serif;
+        font-weight: 800;
+        font-size: 50px;
+        fill: #16244f;
+      }
+      .somiti-sub {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-weight: 800;
+        font-size: 21px;
+        letter-spacing: 7px;
+        fill: #22355e;
+      }
+    </style>
+    <filter id="subtle-drop" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#16244f" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Group: Circular Emblem (Centered at x=300, y=210) -->
+  <g transform="translate(0, 0)" filter="url(#subtle-drop)">
+    <!-- Outer Ring Base Layer: Deep Navy Arc -->
+    <!-- Arc from top (near 300,55) counter-clockwise through left, bottom, to right-bottom -->
+    <path d="M 280 62 
+             A 152 152 0 1 0 445 235 
+             L 430 231
+             A 136 136 0 1 1 285 78
+             Z" 
+          fill="#1b2a59" />
+
+    <!-- Outer Ring Green Arc (Top-Right section from top to right) -->
+    <path d="M 320 62 
+             A 152 152 0 0 1 454 195 
+             L 439 199 
+             A 136 136 0 0 0 315 78 
+             Z" 
+          fill="#3ba844" />
+
+    <!-- Outer Nodes (Community Member Circles) -->
+    <!-- Top Node (Navy) -->
+    <circle cx="300" cy="58" r="23" fill="#ffffff" />
+    <circle cx="300" cy="58" r="19" fill="#1b2a59" />
+
+    <!-- Left Node (Navy) -->
+    <circle cx="148" cy="210" r="23" fill="#ffffff" />
+    <circle cx="148" cy="210" r="19" fill="#1b2a59" />
+
+    <!-- Right Node (Vibrant Green) -->
+    <circle cx="452" cy="210" r="23" fill="#ffffff" />
+    <circle cx="452" cy="210" r="19" fill="#3ba844" />
+
+    <!-- Inner Cooperative Figures & Curved Arms -->
+    <!-- Left Navy Figure / Arm & Cuff -->
+    <path d="M 276 96 
+             C 210 102 165 142 160 210
+             C 158 245 174 278 200 300
+             C 214 312 232 320 252 320
+             C 246 304 246 290 252 278
+             C 230 270 208 250 204 224
+             C 200 190 226 150 270 135
+             C 285 130 292 118 276 96
+             Z" 
+          fill="#1b2a59" />
+
+    <!-- Right Green Figure / Arm & Cuff -->
+    <path d="M 324 96 
+             C 390 102 435 142 440 210
+             C 442 245 426 278 400 300
+             C 386 312 368 320 348 320
+             C 354 304 354 290 348 278
+             C 370 270 392 250 396 224
+             C 400 190 374 150 330 135
+             C 315 130 308 118 324 96
+             Z" 
+          fill="#3ba844" />
+
+    <!-- Center Cooperative Handshake -->
+    <!-- Navy Hand (Left side wrapping around) -->
+    <path d="M 230 248 
+             C 255 240 285 242 296 254
+             C 300 258 304 266 302 276
+             C 298 290 286 300 270 304
+             C 255 308 240 295 236 280
+             Z" 
+          fill="#1b2a59" />
+
+    <!-- Handshake Fingers (Navy clasping) -->
+    <!-- Finger 1 -->
+    <rect x="256" y="296" width="13" height="22" rx="6.5" fill="#1b2a59" transform="rotate(-15 262 307)" stroke="#ffffff" stroke-width="2.5" />
+    <!-- Finger 2 -->
+    <rect x="274" y="304" width="13" height="22" rx="6.5" fill="#1b2a59" transform="rotate(-5 280 315)" stroke="#ffffff" stroke-width="2.5" />
+    <!-- Finger 3 -->
+    <rect x="293" y="305" width="13" height="22" rx="6.5" fill="#1b2a59" transform="rotate(10 299 316)" stroke="#ffffff" stroke-width="2.5" />
+    <!-- Finger 4 -->
+    <rect x="312" y="298" width="13" height="20" rx="6.5" fill="#1b2a59" transform="rotate(25 318 308)" stroke="#ffffff" stroke-width="2.5" />
+
+    <!-- Green Hand & Fingers (Right side grasping) -->
+    <path d="M 370 248 
+             C 345 240 315 242 304 254
+             C 300 258 296 266 298 276
+             C 302 290 314 300 330 304
+             C 345 308 360 295 364 280
+             Z" 
+          fill="#3ba844" />
+
+    <!-- Thumb clasp in center -->
+    <path d="M 284 254 
+             C 292 246 308 246 316 254 
+             C 324 262 318 274 300 284 
+             C 282 274 276 262 284 254 Z" 
+          fill="#1b2a59" stroke="#ffffff" stroke-width="3" />
+
+    <!-- The 3-Leaf Growth Sprout (Seedling) -->
+    <!-- Central Upright Leaf -->
+    <path d="M 300 244 
+             C 288 200 274 165 300 134 
+             C 326 165 312 200 300 244 Z" 
+          fill="#3ba844" />
+    <!-- Central Leaf Vein -->
+    <path d="M 300 240 L 300 144" stroke="#ffffff" stroke-width="3" stroke-linecap="round" />
+
+    <!-- Left Leaf -->
+    <path d="M 294 226 
+             C 268 220 236 195 244 168 
+             C 268 168 288 198 296 220 Z" 
+          fill="#43b04c" />
+    <!-- Left Leaf Vein -->
+    <path d="M 292 222 C 280 210 264 195 250 176" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" />
+
+    <!-- Right Leaf -->
+    <path d="M 306 226 
+             C 332 220 364 195 356 168 
+             C 332 168 312 198 304 220 Z" 
+          fill="#43b04c" />
+    <!-- Right Leaf Vein -->
+    <path d="M 308 222 C 320 210 336 195 350 176" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" />
+  </g>
+
+  <!-- Typography -->
+  <!-- Bengali Title: বন্ধু সমবায় সমিতি -->
+  <text x="300" y="475" text-anchor="middle" class="somiti-title">বন্ধু সমবায় সমিতি</text>
+
+  <!-- English Subtitle: UNITY. GROWTH. TRUST -->
+  <text x="300" y="525" text-anchor="middle" class="somiti-sub">UNITY. GROWTH. TRUST</text>
+</svg>

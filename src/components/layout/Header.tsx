@@ -49,7 +49,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
     loans,
     businessFundings,
     businessProfitRecords,
-    users
+    users,
+    settings
   } = useSomiti();
 
   const pendingApprovalsCount = React.useMemo(() => {
@@ -106,6 +107,16 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
             <Menu className="w-5 h-5" />
           </button>
         )}
+
+        {/* Mobile Somiti Logo Badge */}
+        <div className="flex items-center gap-2 lg:hidden">
+          <img
+            src={settings.logoUrl || '/icon.svg'}
+            alt="বন্ধু সমবায় সমিতি"
+            className="w-7 h-7 rounded-lg object-contain bg-white ring-1 ring-slate-200"
+            referrerPolicy="no-referrer"
+          />
+        </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2.5 cursor-pointer group" onClick={() => setActiveTab('users')}>
           <div className="relative shrink-0">

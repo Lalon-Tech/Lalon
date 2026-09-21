@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Settings, 
   Save, 
@@ -20,7 +20,8 @@ import {
   Loader2,
   AlertCircle,
   ShieldCheck,
-  Check
+  Check,
+  Image as ImageIcon
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useSomiti } from '../../context/SomitiContext';
@@ -61,6 +62,56 @@ export const SettingsView: React.FC = () => {
   const [defaultAdmissionFee, setDefaultAdmissionFee] = useState(settings.defaultAdmissionFee);
   const [defaultLoanInterestRate, setDefaultLoanInterestRate] = useState(settings.defaultLoanInterestRate);
   const [defaultDpsInterestRate, setDefaultDpsInterestRate] = useState(settings.defaultDpsInterestRate);
+
+  // Logo state and handlers
+  const [logoUrl, setLogoUrl] = useState(settings.logoUrl || '/logo.svg');
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setActionFeedback({
+        type: 'error',
+        message: language === 'bn' ? 'অনুগ্রহ করে শুধুমাত্র ছবি ফাইল (PNG, JPG, SVG) নির্বাচন করুন।' : 'Please select a valid image file.'
+      });
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setActionFeedback({
+        type: 'error',
+        message: language === 'bn' ? 'ছবির সাইজ সর্বোচ্চ ২ মেগাবাইট (2MB) হতে পারবে।' : 'Image size must be under 2MB.'
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        setLogoUrl(dataUrl);
+        setLogoPreview(dataUrl);
+        setActionFeedback({
+          type: 'success',
+          message: language === 'bn' ? 'নতুন লোগো লোড হয়েছে! স্থায়ী করতে নিচের "সংরক্ষণ করুন" বাটনে চাপুন।' : 'New logo selected! Click "Save" below to apply.'
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleResetLogo = () => {
+    setLogoUrl('/logo.svg');
+    setLogoPreview(null);
+    if (logoInputRef.current) logoInputRef.current.value = '';
+    setActionFeedback({
+      type: 'info',
+      message: language === 'bn' ? 'ডিফল্ট "বন্ধু সমবায় সমিতি" লোগোতে ফিরিয়ে আনা হয়েছে। সংরক্ষণ করতে নিচের সেভ বাটনে চাপুন।' : 'Reset to default logo. Click Save to apply.'
+    });
+  };
 
   const [isSaved, setIsSaved] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
@@ -103,6 +154,7 @@ export const SettingsView: React.FC = () => {
       presidentName: presidentName.trim(),
       secretaryName: secretaryName.trim(),
       cashierName: cashierName.trim(),
+      logoUrl: logoUrl,
       sharePricePerUnit: Number(sharePricePerUnit),
       defaultAdmissionFee: Number(defaultAdmissionFee),
       defaultLoanInterestRate: Number(defaultLoanInterestRate),
@@ -280,6 +332,62 @@ export const SettingsView: React.FC = () => {
             <Building className="w-4 h-4 text-blue-600" />
             <span>১. সমিতির সাধারণ ও প্রাতিষ্ঠানিক তথ্য</span>
           </h3>
+
+          {/* Logo Management */}
+          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 flex flex-col sm:flex-row items-center gap-4">
+            <div className="relative shrink-0">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white p-2 border-2 border-slate-200 shadow-xs flex items-center justify-center overflow-hidden">
+                <img
+                  src={logoPreview || logoUrl || '/logo.svg'}
+                  alt="সমিতির লোগো"
+                  className="w-full h-full object-contain"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 text-center sm:text-left space-y-2">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 flex items-center justify-center sm:justify-start gap-1.5">
+                  <ImageIcon className="w-4 h-4 text-emerald-600" />
+                  <span>সমিতির অফিসিয়াল লোগো (App & Receipt Logo)</span>
+                </h4>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  এই লোগোটি অ্যাপের হেডার, সাইডবার, মোবাইল অ্যাপ আইকন এবং সকল মানি রসিদে প্রিন্ট হবে।
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/png, image/jpeg, image/svg+xml, image/webp"
+                  onChange={handleLogoUpload}
+                  className="hidden"
+                  id="somiti-logo-file-input"
+                />
+                <button
+                  type="button"
+                  onClick={() => logoInputRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>নতুন লোগো আপলোড করুন</span>
+                </button>
+
+                {(logoUrl !== '/logo.svg' || logoPreview) && (
+                  <button
+                    type="button"
+                    onClick={handleResetLogo}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>ডিফল্ট লোগোতে ফিরুন</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>

@@ -1,8 +1,8 @@
 import { Member, Loan, SavingsScheme, Transaction, IncomeExpenseItem, BankAccount, AppUser, SomitiSettings } from '../types';
 
 export const initialSettings: SomitiSettings = {
-  somitiName: 'বন্ধু সমবায় সমিতি লিমিটেড',
-  somitiNameEn: 'Bondhu Co-Operative Society Ltd.',
+  somitiName: 'বন্ধু সমবায় সমিতি',
+  somitiNameEn: 'Bondhu Samabay Somiti',
   registrationNo: 'রেজি নং: ১৯৩৮/ঢাকা/২০১৮',
   establishedDate: '২০১৮-০১-০১',
   address: 'বাড়ি # ৪২, রোড # ০৭, সেক্টর # ৩, উত্তরা, ঢাকা-১২৩০',
@@ -12,7 +12,7 @@ export const initialSettings: SomitiSettings = {
   presidentName: 'হাজী মোঃ নুরুল ইসলাম',
   secretaryName: 'মোঃ রিয়াদ ইসলাম',
   cashierName: 'মোছাঃ সালেহা বেগম',
-  logoUrl: 'https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=120&auto=format&fit=crop&q=80',
+  logoUrl: '/logo.svg',
   sharePricePerUnit: 1000,
   defaultAdmissionFee: 0,
   defaultDpsInterestRate: 9.5,

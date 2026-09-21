@@ -347,14 +347,26 @@ ${tx.billingPeriod ? `বিলিং কিস্তি  : ${tx.billingPeriod}\
 
           {/* Somiti Official Header */}
           <div className="text-center pb-3 border-b-2 border-slate-800 relative">
-            <div className="inline-flex items-center gap-1.5 border border-emerald-300 bg-emerald-50 px-3 py-0.5 rounded-full text-[11px] font-bold text-emerald-800 mb-1.5 shadow-2xs">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>গণপ্রজাতন্ত্রী বাংলাদেশ সরকারের সমবায় অধিদপ্তর নিবন্ধিত</span>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-2">
+              <img
+                src={settings.logoUrl || '/icon.svg'}
+                alt="বন্ধু সমবায় সমিতি"
+                className="w-14 h-14 object-contain bg-white rounded-xl p-1 border border-slate-200 shadow-2xs"
+                referrerPolicy="no-referrer"
+              />
+              <div className="text-center sm:text-left">
+                <div className="inline-flex items-center gap-1.5 border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-emerald-800 shadow-2xs mb-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>গণপ্রজাতন্ত্রী বাংলাদেশ সরকারের সমবায় অধিদপ্তর নিবন্ধিত</span>
+                </div>
+                <h1 className="text-xl sm:text-2xl font-black tracking-wide text-slate-900 uppercase leading-tight">
+                  {somitiTitle}
+                </h1>
+                <p className="text-[11px] text-emerald-600 font-bold uppercase tracking-widest">
+                  UNITY • GROWTH • TRUST
+                </p>
+              </div>
             </div>
-            
-            <h1 className="text-xl sm:text-2xl font-black tracking-wide text-slate-900 uppercase">
-              {somitiTitle}
-            </h1>
             
             <p className="text-xs text-slate-600 font-medium mt-0.5">
               রেজিস্ট্রেশন নং: <span className="font-semibold text-slate-800">{settings.registrationNo || 'REG-2024-889'}</span>
