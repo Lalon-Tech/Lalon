@@ -544,21 +544,6 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
             </div>
           </div>
         </div>
-
-        {/* Mandatory Strict Financial Lock Notice */}
-        <div className="mt-4 pt-3.5 border-t border-white/10 flex items-start gap-2.5 text-xs text-amber-200/90 bg-amber-500/10 p-3 rounded-xl border border-amber-500/20">
-          <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-          <div className="leading-relaxed">
-            <span className="font-bold text-amber-300 mr-1">
-              {isBn ? '🔒 আর্থিক নিরাপত্তা নীতি:' : '🔒 Financial Ledger Security:'}
-            </span>
-            <span>
-              {isBn
-                ? 'সদস্য আইডি, শেয়ার সংখ্যা, সঞ্চয় স্থিতি, ঋণ, লভ্যাংশ এবং আর্থিক লেনদেন কেন্দ্রীয় লেজার দ্বারা সংরক্ষিত। সেটিংস থেকে এগুলো কোনোভাবেই পরিবর্তনযোগ্য নয়।'
-                : 'Member ID, Shares, Savings, Loans, Profit and financial transactions are strictly governed by the cooperative ledger and cannot be altered from settings.'}
-            </span>
-          </div>
-        </div>
       </div>
 
       {/* Toast Feedback */}
@@ -831,43 +816,6 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
                 <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                   {isBn ? 'সরাসরি কার্যকর' : 'Direct Edit'}
                 </span>
-              </div>
-
-              {/* Explicit Read-Only Financial Lock Card */}
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                    <Lock className="w-3.5 h-3.5 text-amber-500" />
-                    <span>{isBn ? 'লকড আর্থিক ও সদস্যপদ পরিচিতি (অপরিবর্তনীয়)' : 'Locked Financial & Membership Data (Read-Only)'}</span>
-                  </span>
-                  <span className="text-[10px] text-slate-400">
-                    {isBn ? 'লেজার নিয়ন্ত্রিত' : 'Ledger Governed'}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
-                  <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                    <span className="text-[10px] text-slate-500 block">{isBn ? 'সদস্য আইডি' : 'Member ID'}</span>
-                    <span className="font-bold text-slate-900 dark:text-slate-100">#{member.memberNo}</span>
-                  </div>
-                  <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                    <span className="text-[10px] text-slate-500 block">{isBn ? 'মোট শেয়ার সংখ্যা' : 'Share Count'}</span>
-                    <span className="font-bold text-slate-900 dark:text-slate-100">
-                      {toBengaliNumber(member.shareCount || 0)} {isBn ? 'টি' : 'shares'}
-                    </span>
-                  </div>
-                  <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                    <span className="text-[10px] text-slate-500 block">{isBn ? 'মোট সঞ্চয় স্থিতি' : 'Total Savings'}</span>
-                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                      {formatCurrency(member.totalSavings, useBengaliDigits)}
-                    </span>
-                  </div>
-                  <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                    <span className="text-[10px] text-slate-500 block">{isBn ? 'চলতি ঋণ বকেয়া' : 'Active Loan Due'}</span>
-                    <span className="font-bold text-rose-600 dark:text-rose-400">
-                      {formatCurrency(member.activeLoanBalance, useBengaliDigits)}
-                    </span>
-                  </div>
-                </div>
               </div>
 
               {/* Editable Fields Form */}

@@ -34,6 +34,7 @@ import { BottomNav } from './components/layout/BottomNav';
 import { MemberDepositView } from './components/members/MemberDepositView';
 import { MemberLoanPaymentView } from './components/members/MemberLoanPaymentView';
 import { MemberPassbookView } from './components/members/MemberPassbookView';
+import { MemberSettingsView } from './components/members/MemberSettingsView';
 import { FieldCollectionSheet } from './components/field/FieldCollectionSheet';
 import { TrialBalanceReport } from './components/reports/TrialBalanceReport';
 import { BalanceSheetReport } from './components/reports/BalanceSheetReport';
@@ -82,7 +83,9 @@ const AppContent: React.FC = () => {
     showQuickKistiModal,
     setShowQuickKistiModal,
     isDataLoading,
-    currentUser
+    currentUser,
+    updateMember,
+    useBengaliDigits
   } = useSomiti();
 
   // Post Login Redirect: After successful login or session switch, always redirect to the Dashboard
@@ -124,7 +127,7 @@ const AppContent: React.FC = () => {
 
   // Rule 7: Member Access Rules - Members cannot access Admin settings or administrative actions
   const adminOnlyTabs = [
-    'users', 'user_management', 'settings', 'banking', 'accounts',
+    'users', 'user_management', 'banking', 'accounts',
     'excel', 'excel_import', 'reports', 'reports_daily', 'reports_monthly',
     'reports_member', 'reports_income_expense', 'reports_yearly',
     'all_members', 'new_member', 'active_members', 'recycle_bin', 'member_recycle_bin',
@@ -132,6 +135,25 @@ const AppContent: React.FC = () => {
   ];
 
   const renderActiveView = () => {
+    // If member accesses settings or member_settings, directly display MemberSettingsView
+    if (isMember && (activeTab === 'settings' || activeTab === 'member_settings' || activeTab === 'settings_member')) {
+      const targetMemberId = currentUser?.memberId || (members.length > 0 ? members[0].id : '');
+      const targetMember = members.find(m => m.id === targetMemberId);
+      if (targetMember) {
+        return (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <MemberSettingsView 
+              member={targetMember} 
+              onUpdateMember={updateMember}
+              isBn={language === 'bn'}
+              useBengaliDigits={useBengaliDigits}
+              onClose={() => setActiveTab('dashboard')} 
+            />
+          </div>
+        );
+      }
+    }
+
     if (isMember && adminOnlyTabs.includes(activeTab)) {
       return (
         <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xs text-center max-w-md mx-auto my-12 space-y-4">
@@ -322,7 +344,59 @@ const AppContent: React.FC = () => {
       case 'excel_import':
         return <ExcelImportView />;
 
+      case 'member_settings':
+      case 'settings_member': {
+        const targetMemberSettingsId = (isMember && currentUser?.memberId)
+          ? currentUser.memberId
+          : (selectedMemberId || (members.length > 0 ? members[0].id : ''));
+        const targetMember = members.find(m => m.id === targetMemberSettingsId) || members[0];
+        if (!targetMember) {
+          return (
+            <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 text-center max-w-md mx-auto my-12">
+              <p className="text-slate-600 dark:text-slate-400">
+                {language === 'bn' ? 'কোনো সদস্য নির্বাচন করা হয়নি' : 'No member selected'}
+              </p>
+            </div>
+          );
+        }
+        return (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <MemberSettingsView 
+              member={targetMember} 
+              onUpdateMember={updateMember}
+              isBn={language === 'bn'}
+              useBengaliDigits={useBengaliDigits}
+              onClose={() => { 
+                if (isMember) {
+                  setActiveTab('dashboard');
+                } else {
+                  setSelectedMemberId(null); 
+                  setActiveTab('all_members'); 
+                }
+              }} 
+            />
+          </div>
+        );
+      }
+
       case 'settings':
+        if (isMember) {
+          const targetMId = currentUser?.memberId || (members.length > 0 ? members[0].id : '');
+          const targetMember = members.find(m => m.id === targetMId) || members[0];
+          if (targetMember) {
+            return (
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                <MemberSettingsView 
+                  member={targetMember} 
+                  onUpdateMember={updateMember}
+                  isBn={language === 'bn'}
+                  useBengaliDigits={useBengaliDigits}
+                  onClose={() => setActiveTab('dashboard')} 
+                />
+              </div>
+            );
+          }
+        }
         return <SettingsView />;
 
       default:

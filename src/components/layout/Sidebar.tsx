@@ -35,7 +35,6 @@ import { useSomiti } from '../../context/SomitiContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { toBengaliNumber } from '../../utils/bengaliUtils';
-import { ThemeToggle } from '../common/ThemeToggle';
 
 interface MenuItem {
   id: string;
@@ -110,7 +109,7 @@ export const Sidebar: React.FC<{
   };
 
   const handleMenuClick = (item: MenuItem) => {
-    if (isMember && item.id === 'member_profile') {
+    if (isMember && (item.id === 'member_profile' || item.id === 'member_settings')) {
       if (currentUser?.memberId) {
         setSelectedMemberId(currentUser.memberId);
       }
@@ -162,6 +161,11 @@ export const Sidebar: React.FC<{
       id: 'receipts',
       label: isBn ? 'রসিদ ও প্রিন্ট' : 'Receipts & Print',
       icon: Receipt,
+    },
+    {
+      id: 'member_settings',
+      label: isBn ? 'সেটিংস ও নিরাপত্তা' : 'Settings & Security',
+      icon: SettingsIcon,
     },
   ];
 
@@ -331,8 +335,13 @@ export const Sidebar: React.FC<{
     },
     {
       id: 'settings',
-      label: t('settings'),
+      label: language === 'bn' ? 'সমিতি সিস্টেম সেটিংস' : 'Somiti System Settings',
       icon: SettingsIcon,
+    },
+    {
+      id: 'member_settings',
+      label: language === 'bn' ? 'সদস্য সেটিংস ও নিরাপত্তা' : 'Member Settings & Security',
+      icon: ShieldCheck,
     },
   ];
 
@@ -554,14 +563,6 @@ export const Sidebar: React.FC<{
               <span>{language === 'bn' ? 'Firebase লগইন / সাইন-আপ' : 'Firebase Login / Sign-up'}</span>
             </button>
           )}
-
-          {/* Global Theme Mode (Eye Strain Reduction) */}
-          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800">
-            <span className="text-[11px] font-bold text-slate-300">
-              {language === 'bn' ? 'থিম / ডার্ক মোড' : 'Theme Mode'}
-            </span>
-            <ThemeToggle variant="segmented" />
-          </div>
 
           <div className="flex items-center justify-between text-[11px] text-slate-500 px-1 pt-1">
             <div className="flex items-center gap-1.5">
