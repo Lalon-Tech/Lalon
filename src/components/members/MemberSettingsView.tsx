@@ -45,6 +45,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useBiometricAuth } from '../../hooks/useBiometricAuth';
 import { toBengaliNumber, formatCurrency } from '../../utils/bengaliUtils';
+import { registerBackHandler } from '../../utils/backHandlerRegistry';
 import { auth, db } from '../../lib/firebase';
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
@@ -226,6 +227,23 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
 
   // Section 11: Logout confirmation modal
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  // Intercept mobile Back button when logout modal is open or when viewing a sub-screen
+  useEffect(() => {
+    if (showLogoutModal) {
+      return registerBackHandler(() => {
+        setShowLogoutModal(false);
+        return true;
+      });
+    }
+
+    if (currentScreen !== 'hub') {
+      return registerBackHandler(() => {
+        setCurrentScreen('hub');
+        return true;
+      });
+    }
+  }, [showLogoutModal, currentScreen]);
 
   // Handler 2: Save Contact Information (Direct - No Admin Approval Required)
   const handleSaveContact = async (e: React.FormEvent) => {

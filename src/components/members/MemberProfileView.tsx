@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { registerBackHandler } from '../../utils/backHandlerRegistry';
 import { 
   ArrowLeft, 
   Printer, 
@@ -149,6 +150,54 @@ export const MemberProfileView: React.FC<{
   const [initialDepositDate, setInitialDepositDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [initialDepositNotes, setInitialDepositNotes] = useState<string>('');
   const [isSubmittingInitialDeposit, setIsSubmittingInitialDeposit] = useState(false);
+
+  // Intercept mobile Back button when any member profile modal is open
+  useEffect(() => {
+    const hasOpenModal =
+      showPhotoModal ||
+      showSignatureModal ||
+      showNomineePhotoModal ||
+      showShareClosureModal ||
+      showBuyShareModal ||
+      showEditMemberModal ||
+      showDeleteModal ||
+      showPermanentDeleteModal ||
+      showDepositModal ||
+      showWithdrawModal ||
+      showLoanModal ||
+      showInitialDepositModal;
+
+    if (!hasOpenModal) return;
+
+    return registerBackHandler(() => {
+      setShowPhotoModal(false);
+      setShowSignatureModal(false);
+      setShowNomineePhotoModal(false);
+      setShowShareClosureModal(false);
+      setShowBuyShareModal(false);
+      setShowEditMemberModal(false);
+      setShowDeleteModal(false);
+      setShowPermanentDeleteModal(false);
+      setShowDepositModal(false);
+      setShowWithdrawModal(false);
+      setShowLoanModal(false);
+      setShowInitialDepositModal(false);
+      return true;
+    });
+  }, [
+    showPhotoModal,
+    showSignatureModal,
+    showNomineePhotoModal,
+    showShareClosureModal,
+    showBuyShareModal,
+    showEditMemberModal,
+    showDeleteModal,
+    showPermanentDeleteModal,
+    showDepositModal,
+    showWithdrawModal,
+    showLoanModal,
+    showInitialDepositModal,
+  ]);
 
   const handleRecordInitialDeposit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -46,6 +46,8 @@ import { InactivityWarningModal } from './components/common/InactivityWarningMod
 import { Loader2, ShieldAlert, Clock, AlertTriangle } from 'lucide-react';
 import { useModalScrollLock } from './hooks/useModalScrollLock';
 import { useDynamicManifest } from './hooks/useDynamicManifest';
+import { useMobileBackNavigation } from './hooks/useMobileBackNavigation';
+import { registerBackHandler } from './utils/backHandlerRegistry';
 
 const AppContent: React.FC = () => {
   // Synchronize browser icon, apple-touch-icon, and PWA manifest dynamically when settings.logoUrl changes
@@ -85,8 +87,89 @@ const AppContent: React.FC = () => {
     isDataLoading,
     currentUser,
     updateMember,
-    useBengaliDigits
+    useBengaliDigits,
+    activeReceipt,
+    closeReceiptModal
   } = useSomiti();
+
+  // Mobile Back Navigation with persistent history stack, overlay interception & Home protection
+  const { navigateBack, showHomeToast } = useMobileBackNavigation({
+    user,
+    activeTab,
+    setActiveTab,
+    selectedMemberId,
+    setSelectedMemberId,
+    isBn: language === 'bn'
+  });
+
+  // Intercept mobile Back button for all root overlays (mobile drawer and modals)
+  useEffect(() => {
+    if (sidebarOpen) {
+      return registerBackHandler(() => {
+        setSidebarOpen(false);
+        return true;
+      });
+    }
+    if (showQuickDepositModal) {
+      return registerBackHandler(() => {
+        setShowQuickDepositModal(false);
+        return true;
+      });
+    }
+    if (showQuickWithdrawModal) {
+      return registerBackHandler(() => {
+        setShowQuickWithdrawModal(false);
+        return true;
+      });
+    }
+    if (showQuickLoanModal) {
+      return registerBackHandler(() => {
+        setShowQuickLoanModal(false);
+        return true;
+      });
+    }
+    if (showQuickKistiModal) {
+      return registerBackHandler(() => {
+        setShowQuickKistiModal(false);
+        return true;
+      });
+    }
+    if (showNewMemberModal) {
+      return registerBackHandler(() => {
+        setShowNewMemberModal(false);
+        return true;
+      });
+    }
+    if (showAuthModal) {
+      return registerBackHandler(() => {
+        setShowAuthModal(false);
+        return true;
+      });
+    }
+    if (activeReceipt && closeReceiptModal) {
+      return registerBackHandler(() => {
+        closeReceiptModal();
+        return true;
+      });
+    }
+  }, [
+    sidebarOpen,
+    showQuickDepositModal,
+    showQuickWithdrawModal,
+    showQuickLoanModal,
+    showQuickKistiModal,
+    showNewMemberModal,
+    showAuthModal,
+    activeReceipt,
+    closeReceiptModal,
+    setSidebarOpen,
+    setShowQuickDepositModal,
+    setShowQuickWithdrawModal,
+    setShowQuickLoanModal,
+    setShowQuickKistiModal,
+    setShowNewMemberModal,
+    setShowAuthModal
+  ]);
 
   // Post Login Redirect: After successful login or session switch, always redirect to the Dashboard
   const previousUserUidRef = useRef<string | null>(null);
@@ -147,7 +230,7 @@ const AppContent: React.FC = () => {
               onUpdateMember={updateMember}
               isBn={language === 'bn'}
               useBengaliDigits={useBengaliDigits}
-              onClose={() => setActiveTab('dashboard')} 
+              onClose={() => navigateBack('dashboard')} 
             />
           </div>
         );
@@ -201,13 +284,13 @@ const AppContent: React.FC = () => {
             <div className="flex items-center justify-between pb-1">
               <button
                 type="button"
-                onClick={() => setActiveTab('all_members')}
+                onClick={() => navigateBack('all_members')}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
               >
                 ← {language === 'bn' ? 'সকল সদস্য তালিকায় ফিরে যান' : 'Back to Member List'}
               </button>
             </div>
-            <NewMemberModal isOpen={true} isEmbedded={true} onClose={() => setActiveTab('all_members')} />
+            <NewMemberModal isOpen={true} isEmbedded={true} onClose={() => navigateBack('all_members')} />
           </div>
         );
 
@@ -221,10 +304,9 @@ const AppContent: React.FC = () => {
             memberId={targetMemberId} 
             onBack={() => { 
               if (isMember) {
-                setActiveTab('dashboard');
+                navigateBack('dashboard');
               } else {
-                setSelectedMemberId(null); 
-                setActiveTab('all_members'); 
+                navigateBack('all_members'); 
               }
             }} 
           />
@@ -368,10 +450,9 @@ const AppContent: React.FC = () => {
               useBengaliDigits={useBengaliDigits}
               onClose={() => { 
                 if (isMember) {
-                  setActiveTab('dashboard');
+                  navigateBack('dashboard');
                 } else {
-                  setSelectedMemberId(null); 
-                  setActiveTab('all_members'); 
+                  navigateBack('all_members'); 
                 }
               }} 
             />
@@ -391,7 +472,7 @@ const AppContent: React.FC = () => {
                   onUpdateMember={updateMember}
                   isBn={language === 'bn'}
                   useBengaliDigits={useBengaliDigits}
-                  onClose={() => setActiveTab('dashboard')} 
+                  onClose={() => navigateBack('dashboard')} 
                 />
               </div>
             );
@@ -484,6 +565,17 @@ const AppContent: React.FC = () => {
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
       />
+
+      {/* Mobile Home Screen Navigation Protection Toast */}
+      {showHomeToast && (
+        <div 
+          role="status" 
+          aria-live="polite"
+          className="fixed bottom-16 sm:bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-slate-900/95 text-white dark:bg-white/95 dark:text-slate-900 text-xs font-semibold rounded-full shadow-xl backdrop-blur-md border border-slate-700 dark:border-slate-300 pointer-events-none select-none transition-all duration-300 animate-in fade-in slide-in-from-bottom-2"
+        >
+          {language === 'bn' ? '🏠 আপনি হোম ড্যাশবোর্ডে আছেন' : '🏠 You are on the Home Dashboard'}
+        </div>
+      )}
     </div>
   );
 };
