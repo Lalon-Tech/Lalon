@@ -430,7 +430,10 @@ const AppContent: React.FC = () => {
       </div>
 
       {/* Mobile Sticky Bottom Navigation */}
-      <BottomNav onOpenMenu={() => setSidebarOpen(true)} />
+      <BottomNav 
+        isSidebarOpen={sidebarOpen}
+        onOpenMenu={() => setSidebarOpen(true)} 
+      />
 
       {/* Global Modals */}
       <NewMemberModal

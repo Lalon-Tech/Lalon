@@ -17,12 +17,14 @@ import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 
 interface BottomNavProps {
+  isSidebarOpen?: boolean;
   onToggleSidebar?: () => void;
   onOpenMenu?: () => void;
   onOpenQuickDeposit?: () => void;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({ 
+  isSidebarOpen,
   onToggleSidebar, 
   onOpenMenu,
   onOpenQuickDeposit 
@@ -37,6 +39,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   } = useSomiti();
   const { language } = useLanguage();
   const isBn = language === 'bn';
+
+  // Completely hide Bottom Navigation when the Side Menu / Hamburger Menu is opened on mobile
+  if (isSidebarOpen) {
+    return null;
+  }
 
   const handleMenuClick = () => {
     if (onOpenMenu) {
