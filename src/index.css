@@ -5,15 +5,45 @@
 @layer base {
   :root {
     color-scheme: light;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
   }
 
   html.dark {
     color-scheme: dark;
   }
 
+  *, *::before, *::after {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* Form inputs, textareas, contenteditable, and explicitly selectable regions remain fully editable & selectable */
+  input,
+  textarea,
+  [contenteditable],
+  [contenteditable="true"],
+  .selectable,
+  .select-text {
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    user-select: text !important;
+  }
+
   body {
     font-family: 'Hind Siliguri', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     transition: background-color 0.2s ease, color 0.2s ease;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
   }
 }
 

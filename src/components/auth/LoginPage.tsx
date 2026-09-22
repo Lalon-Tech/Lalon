@@ -179,21 +179,27 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#070d1e] flex flex-col items-center justify-center p-4 sm:p-6 text-slate-100 font-sans relative overflow-hidden">
+    <div className="min-h-screen w-full bg-[#0c142b] sm:bg-[#070d1e] flex flex-col items-center justify-center p-0 sm:p-6 text-slate-100 font-sans relative overflow-x-hidden">
       {/* Background glow accents */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none"></div>
-      <div className="absolute bottom-10 right-10 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 sm:w-96 h-72 sm:h-96 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute bottom-10 right-10 w-64 sm:w-80 h-64 sm:h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
 
-      {/* Top right language switch on login page */}
-      <div className="absolute top-5 right-5 z-20">
+      {/* Top right language switch on desktop */}
+      <div className="hidden sm:block absolute top-5 right-5 z-20">
         <LanguageSwitcher variant="segmented" darkTheme={true} />
       </div>
 
-      {/* Main Card */}
-      <div className="w-full max-w-[400px] bg-[#0c142b] border border-slate-800/80 rounded-3xl p-7 sm:p-8 shadow-2xl relative z-10">
+      {/* Main Container - full edge-to-edge on mobile, sleek centered card on tablet & desktop */}
+      <div className="w-full sm:max-w-[400px] min-h-screen sm:min-h-0 bg-[#0c142b] border-0 sm:border sm:border-slate-800/80 rounded-none sm:rounded-3xl px-4 py-4 sm:p-8 shadow-none sm:shadow-2xl relative z-10 mx-auto flex flex-col justify-center">
+        
+        {/* Mobile top bar with Language Switcher inside header */}
+        <div className="flex sm:hidden items-center justify-end w-full mb-3 pt-1">
+          <LanguageSwitcher variant="segmented" darkTheme={true} />
+        </div>
+
         {/* Brand header with official round Somiti logo */}
-        <div className="text-center mb-7">
-          <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white p-1 ring-4 ring-emerald-500/40 shadow-xl shadow-emerald-950/50 mb-3 mx-auto overflow-hidden">
+        <div className="text-center mb-5 sm:mb-7">
+          <div className="inline-flex items-center justify-center w-14 h-14 sm:w-20 sm:h-20 rounded-full bg-white p-1 ring-3 sm:ring-4 ring-emerald-500/40 shadow-xl shadow-emerald-950/50 mb-2 sm:mb-3 mx-auto overflow-hidden">
             <img 
               src={
                 settings?.logoUrl && settings.logoUrl !== '/logo.svg' && settings.logoUrl !== '/logo-horizontal.svg'
@@ -205,18 +211,18 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
               referrerPolicy="no-referrer"
             />
           </div>
-          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+          <h1 className="text-lg sm:text-2xl font-black tracking-tight text-white leading-tight">
             {settings?.somitiName || (language === 'bn' ? 'বন্ধু সমবায় সমিতি লিমিটেড' : 'Bondhu Samabay Somiti Ltd.')}
           </h1>
           <div className="mt-1 flex items-center justify-center gap-1.5">
-            <span className="text-[10px] text-emerald-400 font-extrabold tracking-wider uppercase bg-emerald-950/70 border border-emerald-500/30 px-2 py-0.5 rounded-md shadow-2xs">
+            <span className="text-[9px] sm:text-[10px] text-emerald-400 font-extrabold tracking-wider uppercase bg-emerald-950/70 border border-emerald-500/30 px-2 py-0.5 rounded-md shadow-2xs">
               UNITY • GROWTH • TRUST
             </span>
           </div>
-          <p className="text-[11px] text-slate-400 font-medium mt-1">
+          <p className="text-[10px] sm:text-[11px] text-slate-400 font-medium mt-1">
             {language === 'bn' ? 'ঐক্য • সমৃদ্ধি • বিশ্বাস' : 'Cooperative Society'}
           </p>
-          <p className="text-xs text-slate-300/80 mt-2 font-light">
+          <p className="text-[11px] sm:text-xs text-slate-300/80 mt-1.5 sm:mt-2 font-light">
             {mode === 'signin' 
               ? (language === 'bn' ? 'ডিজিটাল একাউন্টে সাইন ইন করুন' : 'Sign in to your digital account')
               : mode === 'signup' 
@@ -227,7 +233,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
 
         {/* Auto Logout Notification (10 minutes inactivity) */}
         {wasAutoLoggedOut && (
-          <div className="mb-4 p-3.5 bg-amber-950/70 border border-amber-500/60 rounded-xl flex items-start gap-2.5 text-xs text-amber-200 animate-in fade-in">
+          <div className="mb-3 sm:mb-4 p-3 sm:p-3.5 bg-amber-950/70 border border-amber-500/60 rounded-xl flex items-start gap-2.5 text-xs text-amber-200 animate-in fade-in">
             <Clock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
             <div className="flex-1 leading-relaxed">
               {language === 'bn' 
@@ -247,7 +253,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
 
         {/* Error Notification */}
         {(validationError || error) && (
-          <div className="mb-4 p-3.5 bg-rose-950/60 border border-rose-500/50 rounded-xl space-y-2 text-xs text-rose-300 animate-in fade-in">
+          <div className="mb-3 sm:mb-4 p-3 sm:p-3.5 bg-rose-950/60 border border-rose-500/50 rounded-xl space-y-2 text-xs text-rose-300 animate-in fade-in">
             <div className="flex items-start gap-2.5">
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
               <div className="flex-1 leading-relaxed">{validationError || error}</div>
@@ -275,17 +281,17 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
 
         {/* Success Notification */}
         {successMsg && (
-          <div className="mb-4 p-3 bg-emerald-950/60 border border-emerald-500/50 rounded-xl flex items-center gap-2.5 text-xs text-emerald-300 font-medium animate-in fade-in">
+          <div className="mb-3 sm:mb-4 p-2.5 sm:p-3 bg-emerald-950/60 border border-emerald-500/50 rounded-xl flex items-center gap-2.5 text-xs text-emerald-300 font-medium animate-in fade-in">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             <div>{successMsg}</div>
           </div>
         )}
 
         {/* Form elements identical to user screenshot */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
           {/* EMAIL ADDRESS OR USER UID */}
           <div>
-            <label className="block text-[11px] font-bold tracking-wider text-slate-300 uppercase mb-1.5">
+            <label className="block text-[10px] sm:text-[11px] font-bold tracking-wider text-slate-300 uppercase mb-1 sm:mb-1.5">
               {mode === 'signin' 
                 ? (language === 'bn' ? 'ইমেইল অথবা ইউজার ইউআইডি (BS-####)' : 'EMAIL OR USER UID (e.g. BS-1001)')
                 : (language === 'bn' ? 'ইমেইল ঠিকানা' : 'EMAIL ADDRESS')}
@@ -301,11 +307,11 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
                   setEmail(e.target.value);
                   setValidationError('');
                 }}
-                className="w-full bg-[#131d36] border border-slate-700/80 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-sans"
+                className="w-full bg-[#131d36] border border-slate-700/80 rounded-xl pl-10 pr-4 py-2.5 sm:py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-sans"
               />
             </div>
             {mode === 'signin' && (
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-[10px] sm:text-[11px] text-slate-400 mt-1">
                 {language === 'bn' ? 'ইমেইল (name@example.com) অথবা ইউআইডি (যেমন: BS-1001) দিয়ে লগইন করুন' : 'Log in using your Email or User UID (e.g. BS-1001)'}
               </p>
             )}
@@ -314,8 +320,8 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
           {/* PASSWORD */}
           {mode !== 'forgot' && (
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[11px] font-bold tracking-wider text-slate-300 uppercase">
+              <div className="flex items-center justify-between mb-1 sm:mb-1.5">
+                <label className="text-[10px] sm:text-[11px] font-bold tracking-wider text-slate-300 uppercase">
                   PASSWORD
                 </label>
                 {mode === 'signin' && (
@@ -326,7 +332,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
                       clearError();
                       setValidationError('');
                     }}
-                    className="text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 transition-colors cursor-pointer"
+                    className="text-[10px] sm:text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 transition-colors cursor-pointer"
                   >
                     {language === 'bn' ? 'Forgot Password?' : 'Forgot Password?'}
                   </button>
@@ -344,7 +350,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
                     setPassword(e.target.value);
                     setValidationError('');
                   }}
-                  className="w-full bg-[#131d36] border border-slate-700/80 rounded-xl pl-10 pr-10 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-sans"
+                  className="w-full bg-[#131d36] border border-slate-700/80 rounded-xl pl-10 pr-10 py-2.5 sm:py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-sans"
                 />
                 <button
                   type="button"
@@ -360,8 +366,8 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
           {/* CONFIRM PASSWORD for signup */}
           {mode === 'signup' && (
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[11px] font-bold tracking-wider text-slate-300 uppercase">
+              <div className="flex items-center justify-between mb-1 sm:mb-1.5">
+                <label className="text-[10px] sm:text-[11px] font-bold tracking-wider text-slate-300 uppercase">
                   {language === 'bn' ? 'কনফার্ম পাসওয়ার্ড (CONFIRM PASSWORD)' : 'CONFIRM PASSWORD'}
                 </label>
               </div>
@@ -377,7 +383,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
                     setConfirmPassword(e.target.value);
                     setValidationError('');
                   }}
-                  className="w-full bg-[#131d36] border border-slate-700/80 rounded-xl pl-10 pr-10 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-sans"
+                  className="w-full bg-[#131d36] border border-slate-700/80 rounded-xl pl-10 pr-10 py-2.5 sm:py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-sans"
                 />
                 <button
                   type="button"
@@ -392,7 +398,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
 
           {/* Remember me checkbox */}
           {mode === 'signin' && (
-            <div className="flex items-center gap-2.5 pt-0.5">
+            <div className="flex items-center gap-2 pt-0.5">
               <input
                 type="checkbox"
                 id="page-remember"
@@ -407,11 +413,11 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
           )}
 
           {/* Sign In Button with Small Biometric Fingerprint Button beside it */}
-          <div className="flex items-stretch gap-2.5 mt-2">
+          <div className="flex items-stretch gap-2 sm:gap-2.5 mt-2">
             <button
               type="submit"
               disabled={loading || googleLoading}
-              className={`${mode === 'signin' ? 'flex-1' : 'w-full'} py-3.5 px-4 bg-cyan-400 hover:bg-cyan-300 active:scale-[0.99] text-slate-950 rounded-2xl font-black text-sm tracking-wide shadow-lg shadow-cyan-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60`}
+              className={`${mode === 'signin' ? 'flex-1' : 'w-full'} py-3 sm:py-3.5 px-4 bg-cyan-400 hover:bg-cyan-300 active:scale-[0.99] text-slate-950 rounded-xl sm:rounded-2xl font-black text-sm tracking-wide shadow-lg shadow-cyan-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60`}
             >
               {loading ? (
                 <>
@@ -435,12 +441,12 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
                 disabled={biometricLoading || loading || googleLoading}
                 title={language === 'bn' ? 'বায়োমেট্রিক দিয়ে লগইন (ফিঙ্গারপ্রিন্ট / ফেস আইডি)' : 'Sign In with Biometrics (Fingerprint / Face ID)'}
                 aria-label="Sign In with Biometrics"
-                className="w-13 sm:w-14 shrink-0 bg-[#131d36] hover:bg-[#1b2b4f] active:scale-95 border border-cyan-500/40 hover:border-cyan-400 text-cyan-400 hover:text-cyan-300 rounded-2xl flex items-center justify-center shadow-lg transition-all cursor-pointer disabled:opacity-50 group"
+                className="w-12 sm:w-14 shrink-0 bg-[#131d36] hover:bg-[#1b2b4f] active:scale-95 border border-cyan-500/40 hover:border-cyan-400 text-cyan-400 hover:text-cyan-300 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg transition-all cursor-pointer disabled:opacity-50 group"
               >
                 {biometricLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
+                  <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-cyan-400" />
                 ) : (
-                  <Fingerprint className="w-5 h-5 text-cyan-400 group-hover:scale-110 transition-transform" />
+                  <Fingerprint className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400 group-hover:scale-110 transition-transform" />
                 )}
               </button>
             )}
@@ -450,9 +456,9 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
         {/* OR Divider */}
         {mode !== 'forgot' && (
           <>
-            <div className="relative flex items-center justify-center my-4">
+            <div className="relative flex items-center justify-center my-3 sm:my-4">
               <div className="border-t border-slate-800 w-full"></div>
-              <span className="bg-[#0c142b] px-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              <span className="bg-[#0c142b] px-3 text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                 OR
               </span>
               <div className="border-t border-slate-800 w-full"></div>
@@ -463,7 +469,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
               type="button"
               onClick={handleGoogleSignIn}
               disabled={googleLoading || loading}
-              className="w-full py-3 px-4 bg-[#131d36] hover:bg-[#192644] border border-slate-700/90 text-white rounded-2xl font-bold text-xs sm:text-sm shadow-sm transition-all flex items-center justify-center gap-3 cursor-pointer active:scale-[0.99] disabled:opacity-60"
+              className="w-full py-2.5 sm:py-3 px-4 bg-[#131d36] hover:bg-[#192644] border border-slate-700/90 text-white rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm shadow-sm transition-all flex items-center justify-center gap-2.5 sm:gap-3 cursor-pointer active:scale-[0.99] disabled:opacity-60"
             >
               {googleLoading ? (
                 <>
@@ -498,7 +504,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
         )}
 
         {/* Footer switchers */}
-        <div className="mt-5 text-center text-xs text-slate-400">
+        <div className="mt-4 sm:mt-5 text-center text-xs text-slate-400">
           {mode === 'signin' ? (
             <p>
               Don't have an account?{' '}
@@ -547,31 +553,36 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
         </div>
 
         {/* Optional Demo preview button / Quick role login */}
-        <div className="mt-5 pt-4 border-t border-slate-800/80">
-          <div className="text-[11px] font-semibold text-slate-400 text-center mb-2">
+        <div className="mt-4 sm:mt-5 pt-3 sm:pt-4 border-t border-slate-800/80">
+          <div className="text-[10px] sm:text-[11px] font-semibold text-slate-400 text-center mb-2">
             {language === 'bn' ? 'এক ক্লিকে সরাসরি প্রবেশ করুন:' : 'One-Click Quick Login:'}
           </div>
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => handleQuickPresetLogin('admin@bondhusomiti.com', 'Super Admin')}
-              className="py-2 px-2.5 bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-500/30 text-cyan-300 rounded-xl text-xs font-bold transition-all text-center cursor-pointer active:scale-95"
+              className="py-2 px-2 sm:px-2.5 bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-500/30 text-cyan-300 rounded-xl text-xs font-bold transition-all text-center cursor-pointer active:scale-95"
             >
               👑 {language === 'bn' ? 'সুপার এডমিন' : 'Super Admin'}
             </button>
             <button
               type="button"
               onClick={() => handleQuickPresetLogin('manager@bondhusomiti.com', 'Manager')}
-              className="py-2 px-2.5 bg-blue-950/40 hover:bg-blue-900/60 border border-blue-500/30 text-blue-300 rounded-xl text-xs font-bold transition-all text-center cursor-pointer active:scale-95"
+              className="py-2 px-2 sm:px-2.5 bg-blue-950/40 hover:bg-blue-900/60 border border-blue-500/30 text-blue-300 rounded-xl text-xs font-bold transition-all text-center cursor-pointer active:scale-95"
             >
               👔 {language === 'bn' ? 'ম্যানেজার' : 'Manager'}
             </button>
           </div>
         </div>
+        {/* Security badge footer on mobile */}
+        <div className="mt-4 flex sm:hidden items-center justify-center gap-1.5 text-[11px] text-slate-400 text-center pb-2">
+          <ShieldCheck className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+          <span>Firebase Secured Authentication • 256-bit Encryption</span>
+        </div>
       </div>
 
-      {/* Security badge footer */}
-      <div className="mt-6 flex items-center gap-2 text-xs text-slate-400">
+      {/* Security badge footer on desktop */}
+      <div className="hidden sm:flex mt-6 items-center gap-2 text-xs text-slate-400">
         <ShieldCheck className="w-4 h-4 text-cyan-400" />
         <span>Firebase Secured Authentication • 256-bit Encryption</span>
       </div>
