@@ -15,21 +15,15 @@ export interface UseMobileBackNavigationOptions {
  */
 export const isMobileNavigation = (): boolean => {
   if (typeof window === 'undefined') return false;
-  // 1. Screen size check (standard mobile / tablet viewport)
   const isSmallScreen = window.innerWidth <= 1024;
-  // 2. Touch capability
   const isTouch = 'ontouchstart' in window || (navigator.maxTouchPoints > 0);
-  // 3. User agent detection for mobile devices, tablets, WebViews
   const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Silk/i.test(
     navigator.userAgent
   );
-  // 4. Standalone PWA / installed app mode
   const isStandalone = 
     window.matchMedia('(display-mode: standalone)').matches ||
     (window.navigator as any).standalone === true;
-  // 5. Coarse pointer (touchscreen / mobile gesture navigation)
   const isCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
-  // 6. Embedded / iframe check (such as preview environments)
   const isEmbedded = window.self !== window.top;
 
   return isSmallScreen || isTouch || isMobileUA || isStandalone || isCoarsePointer || isEmbedded;
@@ -69,7 +63,25 @@ export const useMobileBackNavigation = ({
     }, 2500);
   }, []);
 
-  // 1. Session initialization: Set up history dual-guard buffer upon user login
+  // Ensure persistent history foundation anchor behind the app
+  const ensureHistoryAnchor = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const curHash = window.location.hash;
+      if (!curHash || curHash === '#' || curHash === '#root') {
+        window.history.replaceState({ app: 'somiti', role: 'guard', tab: 'root' }, '', '#root');
+        window.history.pushState(
+          { app: 'somiti', role: 'home_active', tab: 'dashboard', memberId: null },
+          '',
+          '#home'
+        );
+      }
+    } catch (e) {
+      console.warn('History anchor notice:', e);
+    }
+  }, []);
+
+  // 1. Session initialization: Set up history guard buffer upon user login
   useEffect(() => {
     if (!user) {
       hasInitializedHistoryRef.current = false;
@@ -82,21 +94,16 @@ export const useMobileBackNavigation = ({
       inAppHistoryRef.current = [];
       currentViewRef.current = { tab: 'dashboard', memberId: null };
 
-      if (isMobileNavigation()) {
-        try {
-          // Establish dual guard buffer behind Home:
-          // Entry 0: guard_base (deepest foundation)
-          // Entry 1: guard_buffer (secondary cushion)
-          // Entry 2: home_active (current interactive Home state)
-          window.history.replaceState({ app: 'somiti', role: 'guard_base', tab: 'dashboard' }, '');
-          window.history.pushState({ app: 'somiti', role: 'guard_buffer', tab: 'dashboard' }, '');
-          window.history.pushState(
-            { app: 'somiti', role: 'home_active', tab: 'dashboard', memberId: null },
-            ''
-          );
-        } catch (e) {
-          console.error('Failed to initialize history buffer:', e);
-        }
+      try {
+        // Deep root guard at Entry 0, interactive Home state at Entry 1
+        window.history.replaceState({ app: 'somiti', role: 'guard', tab: 'root' }, '', '#root');
+        window.history.pushState(
+          { app: 'somiti', role: 'home_active', tab: 'dashboard', memberId: null },
+          '',
+          '#home'
+        );
+      } catch (e) {
+        console.error('Failed to initialize history buffer:', e);
       }
     }
   }, [user]);
@@ -113,15 +120,18 @@ export const useMobileBackNavigation = ({
         // Re-push current state to replenish consumed browser history entry:
         try {
           const cur = currentViewRef.current;
+          const isHome = cur.tab === 'dashboard' && !cur.memberId;
+          const targetHash = isHome ? '#home' : `#${cur.tab}${cur.memberId ? `?id=${cur.memberId}` : ''}`;
           window.history.pushState(
             {
               app: 'somiti',
-              role: cur.tab === 'dashboard' && !cur.memberId ? 'home_active' : 'page',
+              role: isHome ? 'home_active' : 'page',
               tab: cur.tab,
               memberId: cur.memberId,
               depth: inAppHistoryRef.current.length
             },
-            ''
+            '',
+            targetHash
           );
         } catch (err) {
           console.error('Error replenishing history state:', err);
@@ -141,15 +151,13 @@ export const useMobileBackNavigation = ({
         // If the screen we just popped back to is Home/Dashboard:
         if (previous.tab === 'dashboard' && !previous.memberId) {
           inAppHistoryRef.current = []; // Clear stack so user is at root
-          if (isMobileNavigation()) {
-            try {
-              // Ensure we are in home_active
-              window.history.pushState(
-                { app: 'somiti', role: 'home_active', tab: 'dashboard', memberId: null },
-                ''
-              );
-            } catch {}
-          }
+          try {
+            window.history.replaceState(
+              { app: 'somiti', role: 'home_active', tab: 'dashboard', memberId: null },
+              '',
+              '#home'
+            );
+          } catch {}
         }
 
         setTimeout(() => {
@@ -167,14 +175,13 @@ export const useMobileBackNavigation = ({
         setActiveTab('dashboard');
         setSelectedMemberId(null);
 
-        if (isMobileNavigation()) {
-          try {
-            window.history.pushState(
-              { app: 'somiti', role: 'home_active', tab: 'dashboard', memberId: null },
-              ''
-            );
-          } catch {}
-        }
+        try {
+          window.history.replaceState(
+            { app: 'somiti', role: 'home_active', tab: 'dashboard', memberId: null },
+            '',
+            '#home'
+          );
+        } catch {}
 
         setTimeout(() => {
           isPoppingRef.current = false;
@@ -183,32 +190,27 @@ export const useMobileBackNavigation = ({
       }
 
       // D. User is on Dashboard and stack is empty (Home reached):
-      // On mobile: Keep user on Home/Dashboard, DO NOT close app, DO NOT log out, DO NOT exit
-      if (isMobileNavigation()) {
-        try {
-          const stateRole = event.state?.role;
-          // If the pop reached guard_base (Entry 0), re-push guard_buffer first
-          if (stateRole === 'guard_base') {
-            window.history.pushState({ app: 'somiti', role: 'guard_buffer', tab: 'dashboard' }, '');
-          }
-          // Re-push home_active to restore the active state and maintain the 2-guard cushion
-          window.history.pushState(
-            { app: 'somiti', role: 'home_active', tab: 'dashboard', memberId: null },
-            ''
-          );
-        } catch (err) {
-          console.error('Error re-buffering home state:', err);
-        }
-
-        // Keep view on Home without unnecessary reload
-        if (currentViewRef.current.tab !== 'dashboard' || currentViewRef.current.memberId !== null) {
-          currentViewRef.current = { tab: 'dashboard', memberId: null };
-          setActiveTab('dashboard');
-          setSelectedMemberId(null);
-        }
-
-        showHomeNotice();
+      // On mobile / WebView / Desktop: Keep user on Home/Dashboard, DO NOT close app, DO NOT log out, DO NOT exit!
+      try {
+        // We popped into the #root guard entry.
+        // Immediately restore #home interactive state:
+        window.history.pushState(
+          { app: 'somiti', role: 'home_active', tab: 'dashboard', memberId: null },
+          '',
+          '#home'
+        );
+      } catch (err) {
+        console.error('Error re-buffering home state:', err);
       }
+
+      // Ensure view remains safely on Home
+      if (currentViewRef.current.tab !== 'dashboard' || currentViewRef.current.memberId !== null) {
+        currentViewRef.current = { tab: 'dashboard', memberId: null };
+        setActiveTab('dashboard');
+        setSelectedMemberId(null);
+      }
+
+      showHomeNotice();
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -240,14 +242,13 @@ export const useMobileBackNavigation = ({
     if (isCurrentHome) {
       inAppHistoryRef.current = []; // Reset in-app history stack
       currentViewRef.current = { tab: 'dashboard', memberId: null };
-      if (isMobileNavigation()) {
-        try {
-          window.history.pushState(
-            { app: 'somiti', role: 'home_active', tab: 'dashboard', memberId: null },
-            ''
-          );
-        } catch {}
-      }
+      try {
+        window.history.pushState(
+          { app: 'somiti', role: 'home_active', tab: 'dashboard', memberId: null },
+          '',
+          '#home'
+        );
+      } catch {}
       return;
     }
 
@@ -268,8 +269,9 @@ export const useMobileBackNavigation = ({
     // Forward navigation: record previous view in history stack
     stack.push({ tab: prev.tab, memberId: prev.memberId });
     
-    // Push new entry to browser history
+    // Push new entry to browser history with URL hash
     try {
+      const targetHash = `#${activeTab}${selectedMemberId ? `?id=${selectedMemberId}` : ''}`;
       window.history.pushState(
         {
           app: 'somiti',
@@ -278,7 +280,8 @@ export const useMobileBackNavigation = ({
           memberId: selectedMemberId,
           depth: stack.length
         },
-        ''
+        '',
+        targetHash
       );
     } catch (e) {
       console.error('Error pushing history state:', e);
@@ -287,7 +290,28 @@ export const useMobileBackNavigation = ({
     currentViewRef.current = { tab: activeTab, memberId: selectedMemberId };
   }, [activeTab, selectedMemberId, user]);
 
-  // 4. In-app programmatic back navigation (for Back buttons in UI)
+  // 4. Continuous User Gesture / Touch Safety: keep history anchor active
+  useEffect(() => {
+    if (!user) return;
+
+    const handleUserTouch = () => {
+      if (currentViewRef.current.tab === 'dashboard' && !currentViewRef.current.memberId) {
+        if (!window.location.hash || window.location.hash === '#' || window.location.hash === '#root') {
+          ensureHistoryAnchor();
+        }
+      }
+    };
+
+    window.addEventListener('touchstart', handleUserTouch, { passive: true });
+    window.addEventListener('click', handleUserTouch, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', handleUserTouch);
+      window.removeEventListener('click', handleUserTouch);
+    };
+  }, [user, ensureHistoryAnchor]);
+
+  // 5. In-app programmatic back navigation (for Back buttons in UI)
   const navigateBack = useCallback((fallbackTab: string = 'dashboard') => {
     // 1. If an overlay is active, let it handle the back action
     if (executeTopBackHandler()) {

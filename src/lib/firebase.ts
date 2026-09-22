@@ -4,7 +4,7 @@ import {
   createUserWithEmailAndPassword, 
   updateProfile,
   setPersistence,
-  browserSessionPersistence 
+  browserLocalPersistence 
 } from 'firebase/auth';
 import { 
   getFirestore, 
@@ -21,10 +21,10 @@ import firebaseConfig from '../../firebase-applet-config.json';
 // Initialize Firebase App
 export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Firebase Authentication with browserSessionPersistence for independent browser tab sessions
+// Initialize Firebase Authentication with browserLocalPersistence to keep sessions active on mobile & refresh
 export const auth = getAuth(app);
-setPersistence(auth, browserSessionPersistence).catch((err) => {
-  console.warn("Could not set browserSessionPersistence:", err);
+setPersistence(auth, browserLocalPersistence).catch((err) => {
+  console.warn("Could not set browserLocalPersistence:", err);
 });
 
 // Suppress internal connection/retry log noise to prevent false alarm alerts in dev environment

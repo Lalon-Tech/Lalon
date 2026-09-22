@@ -44,20 +44,45 @@ interface AuthContextType {
 const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 const INACTIVITY_WARNING_MS = 9 * 60 * 1000;  // 9 minutes (warning 60 seconds before logout)
 
+const getStoredUser = (): User | AppAuthUser | null => {
+  try {
+    const saved = localStorage.getItem('somiti_auth_user') || sessionStorage.getItem('somiti_session_user');
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+};
+
+const persistUser = (u: any) => {
+  try {
+    if (u) {
+      const serializable = {
+        uid: u.uid,
+        email: u.email,
+        displayName: u.displayName,
+        photoURL: u.photoURL,
+        role: u.role,
+        memberId: u.memberId,
+        userUid: u.userUid,
+        status: u.status
+      };
+      const json = JSON.stringify(serializable);
+      localStorage.setItem('somiti_auth_user', json);
+      sessionStorage.setItem('somiti_session_user', json);
+    } else {
+      localStorage.removeItem('somiti_auth_user');
+      sessionStorage.removeItem('somiti_session_user');
+    }
+  } catch (err) {
+    console.warn("User persistence error:", err);
+  }
+};
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | AppAuthUser | null>(() => {
-    try {
-      const saved = sessionStorage.getItem('somiti_session_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
-  const [loading, setLoading] = useState<boolean>(() => {
-    return !sessionStorage.getItem('somiti_session_user');
-  });
+  const [user, setUser] = useState<User | AppAuthUser | null>(() => getStoredUser());
+  const [loading, setLoading] = useState<boolean>(() => !getStoredUser());
   const [error, setError] = useState<string | null>(null);
 
   // Auto-logout state
@@ -68,13 +93,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [inactivitySecondsRemaining, setInactivitySecondsRemaining] = useState<number>(60);
   const lastActivityRef = useRef<number>(Date.now());
   const lastThrottleRef = useRef<number>(Date.now());
-
-  // One-time cleanup of legacy shared localStorage session to guarantee independent tabs
-  useEffect(() => {
-    try {
-      localStorage.removeItem('somiti_local_user');
-    } catch {}
-  }, []);
 
   useEffect(() => {
     // Safety watchdog: In sandboxed iframes or slow networks,
@@ -87,15 +105,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       clearTimeout(safetyTimer);
       if (currentUser) {
         setUser(currentUser);
-        sessionStorage.removeItem('somiti_session_user');
+        persistUser(currentUser);
       } else {
-        const saved = sessionStorage.getItem('somiti_session_user');
-        if (saved) {
-          try {
-            setUser(JSON.parse(saved));
-          } catch {
-            setUser(null);
-          }
+        const stored = getStoredUser();
+        if (stored) {
+          setUser(stored);
         } else {
           setUser(null);
         }
@@ -104,13 +118,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, (err) => {
       clearTimeout(safetyTimer);
       console.error("Firebase auth state error:", err);
-      const saved = sessionStorage.getItem('somiti_session_user');
-      if (saved) {
-        try {
-          setUser(JSON.parse(saved));
-        } catch {
-          setUser(null);
-        }
+      const stored = getStoredUser();
+      if (stored) {
+        setUser(stored);
+      } else {
+        setUser(null);
       }
       setLoading(false);
     });
@@ -268,7 +280,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       const cred = await signInWithEmailAndPassword(auth, cleanEmail, pass);
-      sessionStorage.removeItem('somiti_session_user');
+      persistUser(cred.user);
       setUser(cred.user);
     } catch (err: any) {
       console.warn("Firebase signIn info:", err?.code, err?.message);
@@ -281,7 +293,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           displayName: resolvedUser?.name || cleanEmail.split('@')[0],
           photoURL: resolvedUser?.avatarUrl || null,
         };
-        sessionStorage.setItem('somiti_session_user', JSON.stringify(localUser));
+        persistUser(localUser);
         setUser(localUser);
         setError(null);
         return;
@@ -291,7 +303,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (err.code === 'auth/user-not-found') {
         try {
           const cred = await createUserWithEmailAndPassword(auth, cleanEmail, pass);
-          sessionStorage.removeItem('somiti_session_user');
+          persistUser(cred.user);
           setUser(cred.user);
           return;
         } catch (createErr: any) {
@@ -411,7 +423,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             displayName: name || cleanEmail.split('@')[0],
             photoURL: null,
           };
-          sessionStorage.setItem('somiti_session_user', JSON.stringify(localUser));
+          persistUser(localUser);
           setUser(localUser);
           setError(null);
           return;
@@ -426,7 +438,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           displayName: name || cleanEmail.split('@')[0],
           photoURL: null,
         };
-        sessionStorage.setItem('somiti_session_user', JSON.stringify(localUser));
+        persistUser(localUser);
         setUser(localUser);
         setError(null);
         return;
@@ -451,7 +463,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
       const cred = await signInWithPopup(auth, provider);
-      sessionStorage.removeItem('somiti_session_user');
+      persistUser(cred.user);
       setUser(cred.user);
 
       // Sync to Firestore systemUsers collection
@@ -500,7 +512,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       displayName: isMemberRole ? 'মোঃ রফিকুল ইসলাম (সদস্য)' : `মোঃ আব্দুল্লাহ (${role})`,
       photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
     };
-    sessionStorage.setItem('somiti_session_user', JSON.stringify(localUser));
+    persistUser(localUser);
     setUser(localUser);
   };
 
@@ -512,7 +524,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       displayName: profile.displayName || (profile.email ? profile.email.split('@')[0] : 'Member'),
       photoURL: profile.photoURL || null,
     };
-    sessionStorage.setItem('somiti_session_user', JSON.stringify(localUser));
+    persistUser(localUser);
     setUser(localUser);
   };
 
@@ -534,7 +546,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logOut = async () => {
     setError(null);
-    sessionStorage.removeItem('somiti_session_user');
+    persistUser(null);
     try {
       await signOut(auth);
     } catch (err: any) {
