@@ -37,8 +37,10 @@ import {
   Upload,
   Clock,
   RotateCcw,
-  ArrowRight
+  ArrowRight,
+  Settings
 } from 'lucide-react';
+import { MemberSettingsView } from './MemberSettingsView';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { PhotoUploadField } from '../common/PhotoUploadField';
@@ -110,7 +112,7 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
 
   const isMember = currentUser?.role === 'member';
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'passbook' | 'savings' | 'shares' | 'loans' | 'business' | 'nominee' | 'agreement'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'passbook' | 'savings' | 'shares' | 'loans' | 'business' | 'nominee' | 'agreement' | 'settings'>('profile');
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [newPhotoUrl, setNewPhotoUrl] = useState('');
   const [showSignatureModal, setShowSignatureModal] = useState(false);
@@ -682,6 +684,19 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                 </button>
               </>
             )}
+            <button
+              id="member-settings-quick-btn"
+              onClick={() => setActiveTab('settings')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'settings'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 dark:border-slate-700'
+              }`}
+              title={isBn ? "সদস্য প্রোফাইল সেটিংস ও নিরাপত্তা" : "Member Profile Settings & Security"}
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span>{isBn ? 'সেটিংস' : 'Settings'}</span>
+            </button>
           </>
         )}
         </div>
@@ -732,18 +747,17 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
                   alt={member.name}
                   className="w-20 h-20 rounded-full object-cover object-top ring-4 ring-white/20 shadow-md bg-slate-800"
                 />
-                {isUserAdmin && (
-                  <button
-                    onClick={() => {
-                      setNewPhotoUrl(member.photoUrl);
-                      setShowPhotoModal(true);
-                    }}
-                    title={isBn ? "সদস্যের ছবি পরিবর্তন/আপলোড করুন" : "Change Member Photo"}
-                    className="absolute -bottom-1 -right-1 p-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-md border-2 border-slate-900 transition-all cursor-pointer hover:scale-110"
-                  >
-                    <Camera className="w-3.5 h-3.5" />
-                  </button>
-                )}
+                <button
+                  id="member-avatar-photo-change-btn"
+                  onClick={() => {
+                    setNewPhotoUrl(member.photoUrl);
+                    setShowPhotoModal(true);
+                  }}
+                  title={isBn ? "সরাসরি ছবি পরিবর্তন বা আপলোড করুন" : "Change or Upload Photo Directly"}
+                  className="absolute -bottom-1 -right-1 p-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-md border-2 border-slate-900 transition-all cursor-pointer hover:scale-110"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                </button>
               </div>
               <div>
                 <div className="flex items-center gap-2.5 flex-wrap">
@@ -1189,12 +1203,24 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
             onClick={() => setActiveTab('agreement')}
             className={`px-5 py-3 text-xs font-bold border-b-2 flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
               activeTab === 'agreement'
-                ? 'border-blue-600 text-blue-700 bg-white'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-blue-600 text-blue-700 bg-white dark:bg-slate-900 dark:text-blue-400'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
             }`}
           >
             <FileSignature className="w-4 h-4" />
             <span>{isBn ? 'চুক্তিপত্র ও ফরম' : 'Agreements & Forms'}</span>
+          </button>
+          <button
+            id="member-settings-tab-btn"
+            onClick={() => setActiveTab('settings')}
+            className={`px-5 py-3 text-xs font-bold border-b-2 flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
+              activeTab === 'settings'
+                ? 'border-blue-600 text-blue-700 bg-white dark:bg-slate-900 dark:text-blue-400'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            <Settings className="w-4 h-4" />
+            <span>{isBn ? 'সেটিংস' : 'Settings'}</span>
           </button>
         </div>
 
@@ -2871,6 +2897,19 @@ export const MemberProfileView: React.FC<{ memberId: string; onBack: () => void 
         {activeTab === 'business' && (
           <div className="p-6">
             <MemberBusinessFundingTab member={member} isBn={isBn} />
+          </div>
+        )}
+
+        {/* Tab 8: Member Profile Settings & Security Hub */}
+        {activeTab === 'settings' && (
+          <div className="p-4 sm:p-6">
+            <MemberSettingsView
+              member={member}
+              onUpdateMember={updateMember}
+              isBn={isBn}
+              useBengaliDigits={useBengaliDigits}
+              onClose={() => setActiveTab('profile')}
+            />
           </div>
         )}
       </div>
