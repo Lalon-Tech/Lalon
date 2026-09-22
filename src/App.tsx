@@ -104,54 +104,65 @@ const AppContent: React.FC = () => {
 
   // Intercept mobile Back button for all root overlays (mobile drawer and modals)
   useEffect(() => {
+    const unregisters: Array<() => void> = [];
+
+    // Base layer: Sidebar drawer
     if (sidebarOpen) {
-      return registerBackHandler(() => {
+      unregisters.push(registerBackHandler(() => {
         setSidebarOpen(false);
         return true;
-      });
+      }));
     }
+
+    // Modal layer
     if (showQuickDepositModal) {
-      return registerBackHandler(() => {
+      unregisters.push(registerBackHandler(() => {
         setShowQuickDepositModal(false);
         return true;
-      });
+      }));
     }
     if (showQuickWithdrawModal) {
-      return registerBackHandler(() => {
+      unregisters.push(registerBackHandler(() => {
         setShowQuickWithdrawModal(false);
         return true;
-      });
+      }));
     }
     if (showQuickLoanModal) {
-      return registerBackHandler(() => {
+      unregisters.push(registerBackHandler(() => {
         setShowQuickLoanModal(false);
         return true;
-      });
+      }));
     }
     if (showQuickKistiModal) {
-      return registerBackHandler(() => {
+      unregisters.push(registerBackHandler(() => {
         setShowQuickKistiModal(false);
         return true;
-      });
+      }));
     }
     if (showNewMemberModal) {
-      return registerBackHandler(() => {
+      unregisters.push(registerBackHandler(() => {
         setShowNewMemberModal(false);
         return true;
-      });
+      }));
     }
     if (showAuthModal) {
-      return registerBackHandler(() => {
+      unregisters.push(registerBackHandler(() => {
         setShowAuthModal(false);
         return true;
-      });
+      }));
     }
+
+    // Top layer: Receipt popup
     if (activeReceipt && closeReceiptModal) {
-      return registerBackHandler(() => {
+      unregisters.push(registerBackHandler(() => {
         closeReceiptModal();
         return true;
-      });
+      }));
     }
+
+    return () => {
+      unregisters.forEach(unreg => unreg());
+    };
   }, [
     sidebarOpen,
     showQuickDepositModal,
