@@ -35,7 +35,8 @@ import {
   History,
   Check,
   ChevronRight,
-  Info
+  Info,
+  ArrowLeft
 } from 'lucide-react';
 import { Member } from '../../types';
 import { useSomiti } from '../../context/SomitiContext';
@@ -54,10 +55,10 @@ interface MemberSettingsViewProps {
   onClose?: () => void;
   isBn: boolean;
   useBengaliDigits?: boolean;
+  initialScreen?: SettingsSubSection | 'hub';
 }
 
 export type SettingsSubSection =
-  | 'profile'
   | 'contact'
   | 'photo'
   | 'password'
@@ -86,6 +87,7 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
   onClose,
   isBn,
   useBengaliDigits = true,
+  initialScreen = 'hub',
 }) => {
   const { settings, profitDistributions, businessProfitRecords } = useSomiti();
   const { logOut, user } = useAuth();
@@ -105,7 +107,7 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
     clearSuccess: clearBiometricSuccess,
   } = useBiometricAuth();
 
-  const [activeSubSection, setActiveSubSection] = useState<SettingsSubSection>('profile');
+  const [currentScreen, setCurrentScreen] = useState<SettingsSubSection | 'hub'>(initialScreen);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [errorToast, setErrorToast] = useState<string | null>(null);
 
@@ -123,18 +125,6 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
       return () => clearTimeout(timer);
     }
   }, [errorToast]);
-
-  // Section 1: Profile State
-  const [profileName, setProfileName] = useState(member.name || '');
-  const [profileNameEn, setProfileNameEn] = useState(member.nameEn || '');
-  const [fatherName, setFatherName] = useState(member.fatherName || '');
-  const [motherName, setMotherName] = useState(member.motherName || '');
-  const [spouseName, setSpouseName] = useState(member.spouseName || '');
-  const [dob, setDob] = useState(member.dob || '');
-  const [gender, setGender] = useState<'male' | 'female' | 'other'>(member.gender || 'male');
-  const [occupation, setOccupation] = useState(member.occupation || '');
-  const [monthlyIncome, setMonthlyIncome] = useState(member.monthlyIncome ? String(member.monthlyIncome) : '');
-  const [savingProfile, setSavingProfile] = useState(false);
 
   // Section 2: Contact Info State
   const [phone, setPhone] = useState(member.phone || '');
@@ -236,49 +226,6 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
 
   // Section 11: Logout confirmation modal
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-
-  // Calculate total profit earned for read-only preview
-  const generalProfit = profitDistributions
-    .filter((d) => d.memberId === member.id && d.status === 'distributed')
-    .reduce((sum, d) => sum + (d.netProfit || 0), 0);
-  const businessProfit = businessProfitRecords
-    .filter((r) => r.memberId === member.id && r.status === 'distributed')
-    .reduce((sum, r) => sum + (r.netProfit || 0), 0);
-  const totalMemberProfitEarned = generalProfit + businessProfit;
-
-  // Handler 1: Save Allowed Profile Information (Direct - No Admin Approval Required)
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!profileName.trim()) {
-      setErrorToast(isBn ? 'সদস্যের নাম খালি রাখা যাবে না।' : 'Member name cannot be empty.');
-      return;
-    }
-    setSavingProfile(true);
-    try {
-      // Direct update strictly without touching ID, Shares, Savings, Loans, Profit
-      onUpdateMember(member.id, {
-        name: profileName.trim(),
-        nameEn: profileNameEn.trim(),
-        fatherName: fatherName.trim(),
-        motherName: motherName.trim(),
-        spouseName: spouseName.trim(),
-        dob,
-        gender,
-        occupation: occupation.trim(),
-        monthlyIncome: monthlyIncome ? Number(monthlyIncome) : 0,
-      });
-
-      setSuccessToast(
-        isBn
-          ? 'প্রোফাইল তথ্য সরাসরি আপডেট করা হয়েছে! কোনো অ্যাডমিন অনুমোদনের প্রয়োজন নেই।'
-          : 'Profile information updated directly! No admin approval required.'
-      );
-    } catch (err: any) {
-      setErrorToast(err?.message || (isBn ? 'প্রোফাইল সংরক্ষণে সমস্যা হয়েছে।' : 'Failed to update profile.'));
-    } finally {
-      setSavingProfile(false);
-    }
-  };
 
   // Handler 2: Save Contact Information (Direct - No Admin Approval Required)
   const handleSaveContact = async (e: React.FormEvent) => {
@@ -511,40 +458,79 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
     );
   };
 
+  const getScreenTitle = (screen: SettingsSubSection) => {
+    switch (screen) {
+      case 'contact':
+        return isBn ? 'যোগাযোগের তথ্য ও ঠিকানা' : 'Contact Information & Address';
+      case 'photo':
+        return isBn ? 'প্রোফাইল ছবি পরিবর্তন' : 'Change Profile Photo';
+      case 'password':
+        return isBn ? 'পাসওয়ার্ড পরিবর্তন' : 'Change Password';
+      case 'biometric':
+        return isBn ? 'বায়োমেট্রিক লগইন' : 'Biometric Login';
+      case 'security':
+        return isBn ? 'লগইন হিস্ট্রি ও নিরাপত্তা' : 'Login Activity & Security';
+      case 'notifications':
+        return isBn ? 'নোটিফিকেশন নিয়ন্ত্রণ' : 'Notification Preferences';
+      case 'language':
+        return isBn ? 'ভাষা নির্বাচন' : 'Language Preference';
+      case 'appearance':
+        return isBn ? 'থিম ও ডিসপ্লে' : 'Appearance & Theme';
+      case 'agreement':
+        return isBn ? 'সদস্যপদ অঙ্গীকারনামা ও চুক্তিপত্র' : 'Membership Agreement';
+      case 'logout':
+        return isBn ? 'একাউন্ট লগআউট' : 'Account Logout';
+      default:
+        return '';
+    }
+  };
+
   return (
     <div id="member-profile-settings-container" className="space-y-6">
-      {/* Top Header & Security Assurance Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 p-6 rounded-2xl text-white shadow-sm border border-slate-800 relative overflow-hidden">
-        <div className="absolute right-0 top-0 bottom-0 w-80 bg-gradient-to-l from-blue-600/10 to-transparent pointer-events-none"></div>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
-          <div>
-            <div className="flex items-center gap-2.5 mb-1.5">
-              <span className="p-2 rounded-xl bg-blue-600/30 border border-blue-500/40 text-blue-300">
-                <Sparkles className="w-5 h-5" />
-              </span>
-              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                <span>{isBn ? 'সদস্য সেটিংস ও নিরাপত্তা কেন্দ্র' : 'Member Settings & Security Hub'}</span>
-              </h2>
+      {/* Top Header & Security Assurance Banner (Visible on Main Hub View) */}
+      {currentScreen === 'hub' && (
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 p-6 rounded-2xl text-white shadow-sm border border-slate-800 relative overflow-hidden">
+          <div className="absolute right-0 top-0 bottom-0 w-80 bg-gradient-to-l from-blue-600/10 to-transparent pointer-events-none"></div>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+            <div>
+              <div className="flex items-center gap-2.5 mb-1.5">
+                <span className="p-2 rounded-xl bg-blue-600/30 border border-blue-500/40 text-blue-300">
+                  <Sparkles className="w-5 h-5" />
+                </span>
+                <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                  <span>{isBn ? 'সদস্য সেটিংস ও নিরাপত্তা কেন্দ্র' : 'Member Settings & Security Hub'}</span>
+                </h2>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+                {isBn
+                  ? 'আপনার যোগাযোগ, ছবি, পাসওয়ার্ড, বায়োমেট্রিক এবং নিরাপত্তা পছন্দসমূহ সরাসরি কোনো অ্যাডমিন অনুমোদন ছাড়াই পরিচালনা করুন।'
+                  : 'Directly manage your contact details, photo, password and biometric security with no admin approval required.'}
+              </p>
             </div>
-            <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-              {isBn
-                ? 'আপনার ব্যক্তিগত তথ্য, মোবাইল, ইমেইল, ছবি এবং নিরাপত্তা পছন্দসমূহ সরাসরি কোনো অ্যাডমিন অনুমোদন ছাড়াই আপডেট করুন।'
-                : 'Directly manage your personal info, contact details, photo, password and biometric security with no admin approval required.'}
-            </p>
-          </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="px-3.5 py-1.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/10 text-xs font-mono">
-              <span className="text-slate-400 mr-1.5">{isBn ? 'আইডি:' : 'ID:'}</span>
-              <span className="font-bold text-blue-300">#{member.memberNo}</span>
-            </div>
-            <div className="px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4" />
-              <span>{isBn ? 'সরাসরি সম্পাদনযোগ্য' : 'Direct Edit Access'}</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="px-3.5 py-1.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/10 text-xs font-mono">
+                <span className="text-slate-400 mr-1.5">{isBn ? 'আইডি:' : 'ID:'}</span>
+                <span className="font-bold text-blue-300">#{member.memberNo}</span>
+              </div>
+              <div className="px-3.5 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4" />
+                <span>{isBn ? 'সরাসরি সম্পাদনযোগ্য' : 'Direct Edit Access'}</span>
+              </div>
+              {onClose && (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-3.5 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/20 text-xs font-semibold text-white flex items-center gap-1.5 cursor-pointer transition-colors"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>{isBn ? 'ড্যাশবোর্ডে ফিরুন' : 'Back to Dashboard'}</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Toast Feedback */}
       {successToast && (
@@ -561,401 +547,381 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
         </div>
       )}
 
-      {/* Main Settings Grid: Navigation on Left, Active Sub-Section on Right */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Navigation Sidebar */}
-        <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-3 sm:p-4 shadow-2xs space-y-4">
-          {/* Group 1: Profile & Identity */}
-          <div>
-            <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5" />
-              <span>{isBn ? 'ব্যক্তিগত তথ্য' : 'Profile & Identity'}</span>
+      {/* 1. Member Settings & Security Hub Main View */}
+      {currentScreen === 'hub' && (
+        <div className="space-y-6">
+          {/* Category 1: যোগাযোগ ও ছবি / Contact & Photo */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 px-1">
+              <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                {isBn ? 'যোগাযোগ ও ছবি' : 'Contact & Photo'}
+              </h3>
             </div>
-            <div className="space-y-1 mt-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Contact Info Card */}
               <button
                 type="button"
-                onClick={() => setActiveSubSection('profile')}
-                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                  activeSubSection === 'profile'
-                    ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 shadow-2xs'
-                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60'
-                }`}
+                onClick={() => setCurrentScreen('contact')}
+                className="w-full text-left p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-500/50 hover:shadow-md transition-all cursor-pointer group flex items-center justify-between gap-4"
               >
-                <div className="flex items-center gap-2.5">
-                  <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  <span>{isBn ? '১. প্রোফাইল তথ্য সম্পাদনা' : '1. Profile Info'}</span>
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition-transform shrink-0">
+                    <Phone className="w-6 h-6" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                        {isBn ? 'যোগাযোগের তথ্য ও ঠিকানা' : 'Contact Info & Address'}
+                      </h4>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                        {isBn ? 'সরাসরি' : 'Direct'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-1">
+                      {isBn ? 'মোবাইল নম্বর, ইমেইল এবং বর্তমান ও স্থায়ী ঠিকানা আপডেট করুন' : 'Update mobile number, email, and address'}
+                    </p>
+                  </div>
                 </div>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-300 font-semibold">
-                  {isBn ? 'সরাসরি' : 'Direct'}
-                </span>
+                <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 group-hover:translate-x-0.5 transition-all shrink-0">
+                  <ChevronRight className="w-5 h-5" />
+                </div>
               </button>
 
+              {/* Profile Photo Card */}
               <button
                 type="button"
-                onClick={() => setActiveSubSection('contact')}
-                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                  activeSubSection === 'contact'
-                    ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 shadow-2xs'
-                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60'
-                }`}
+                onClick={() => setCurrentScreen('photo')}
+                className="w-full text-left p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-500/50 hover:shadow-md transition-all cursor-pointer group flex items-center justify-between gap-4"
               >
-                <div className="flex items-center gap-2.5">
-                  <Phone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>{isBn ? '২. যোগাযোগ ও ঠিকানা' : '2. Contact Information'}</span>
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="p-3 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 group-hover:scale-105 transition-transform shrink-0">
+                    <Camera className="w-6 h-6" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                        {isBn ? 'প্রোফাইল ছবি পরিবর্তন' : 'Change Profile Photo'}
+                      </h4>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+                        {isBn ? 'সরাসরি' : 'Direct'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-1">
+                      {isBn ? 'ক্যামেরা বা ডিভাইস থেকে ছবি আপলোড অথবা অবতার নির্বাচন' : 'Upload photo from device or choose an avatar'}
+                    </p>
+                  </div>
                 </div>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 font-semibold">
-                  {isBn ? 'সরাসরি' : 'Direct'}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveSubSection('photo')}
-                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                  activeSubSection === 'photo'
-                    ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 shadow-2xs'
-                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Camera className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                  <span>{isBn ? '৩. প্রোফাইল ছবি পরিবর্তন' : '3. Profile Photo'}</span>
+                <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 group-hover:translate-x-0.5 transition-all shrink-0">
+                  <ChevronRight className="w-5 h-5" />
                 </div>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-300 font-semibold">
-                  {isBn ? 'সরাসরি' : 'Direct'}
-                </span>
-              </button>
-            </div>
-          </div>
-
-          {/* Group 2: Security & Authentication */}
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-            <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>{isBn ? 'নিরাপত্তা ও অথেন্টিকেশন' : 'Security & Auth'}</span>
-            </div>
-            <div className="space-y-1 mt-1">
-              <button
-                type="button"
-                onClick={() => setActiveSubSection('password')}
-                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                  activeSubSection === 'password'
-                    ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 shadow-2xs'
-                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                  <span>{isBn ? '৪. পাসওয়ার্ড পরিবর্তন' : '4. Change Password'}</span>
-                </div>
-                <ChevronRight className="w-4 h-4 text-slate-400" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveSubSection('biometric')}
-                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                  activeSubSection === 'biometric'
-                    ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 shadow-2xs'
-                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Fingerprint className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-                  <span>{isBn ? '৫. বায়োমেট্রিক লগইন' : '5. Biometric Login'}</span>
-                </div>
-                <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
-                    isBiometricActiveForMember
-                      ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                  }`}
-                >
-                  {isBiometricActiveForMember ? (isBn ? 'সক্রিয়' : 'Enabled') : (isBn ? 'নিষ্ক্রিয়' : 'Off')}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveSubSection('security')}
-                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                  activeSubSection === 'security'
-                    ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 shadow-2xs'
-                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <History className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-                  <span>{isBn ? '৯. লগইন হিস্ট্রি ও ডিভাইস' : '9. Login Activity'}</span>
-                </div>
-                <ChevronRight className="w-4 h-4 text-slate-400" />
               </button>
             </div>
           </div>
 
-          {/* Group 3: Preferences */}
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-            <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{isBn ? 'পছন্দসমূহ' : 'Preferences'}</span>
+          {/* Category 2: নিরাপত্তা ও অথেন্টিকেশন / Security & Authentication */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 px-1">
+              <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                {isBn ? 'নিরাপত্তা ও অথেন্টিকেশন' : 'Security & Authentication'}
+              </h3>
             </div>
-            <div className="space-y-1 mt-1">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Change Password Card */}
               <button
                 type="button"
-                onClick={() => setActiveSubSection('notifications')}
-                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                  activeSubSection === 'notifications'
-                    ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 shadow-2xs'
-                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60'
-                }`}
+                onClick={() => setCurrentScreen('password')}
+                className="w-full text-left p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-amber-500/50 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between gap-4"
               >
-                <div className="flex items-center gap-2.5">
-                  <Bell className="w-4 h-4 text-amber-500" />
-                  <span>{isBn ? '৬. নোটিফিকেশন নিয়ন্ত্রণ' : '6. Notifications'}</span>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 group-hover:scale-105 transition-transform">
+                    <Lock className="w-6 h-6" />
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300">
+                    {isBn ? 'এনক্রিপ্টেড' : 'Encrypted'}
+                  </span>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-400" />
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                    {isBn ? 'পাসওয়ার্ড পরিবর্তন' : 'Change Password'}
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    {isBn ? 'লগইন পাসওয়ার্ড নিরাপদভাবে পরিবর্তন করুন' : 'Safely update your login credentials'}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <span>{isBn ? 'পেজ খুলুন' : 'Open Page'}</span>
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                </div>
               </button>
 
+              {/* Biometric Login Card */}
               <button
                 type="button"
-                onClick={() => setActiveSubSection('language')}
-                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                  activeSubSection === 'language'
-                    ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 shadow-2xs'
-                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60'
-                }`}
+                onClick={() => setCurrentScreen('biometric')}
+                className="w-full text-left p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-cyan-500/50 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between gap-4"
               >
-                <div className="flex items-center gap-2.5">
-                  <Globe className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-                  <span>{isBn ? '৭. ভাষা (Language)' : '7. Language'}</span>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="p-3 rounded-2xl bg-cyan-50 dark:bg-cyan-950/60 text-cyan-600 dark:text-cyan-400 group-hover:scale-105 transition-transform">
+                    <Fingerprint className="w-6 h-6" />
+                  </div>
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                      isBiometricActiveForMember
+                        ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    {isBiometricActiveForMember ? (isBn ? 'সক্রিয়' : 'Enabled') : (isBn ? 'নিষ্ক্রিয়' : 'Off')}
+                  </span>
                 </div>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 font-bold uppercase">
-                  {language}
-                </span>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
+                    {isBn ? 'বায়োমেট্রিক লগইন' : 'Biometric Login'}
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    {isBn ? 'ফিঙ্গারপ্রিন্ট বা ফেস আইডি সক্রিয়/নিষ্ক্রিয়' : 'Fingerprint or Face ID authentication'}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <span>{isBn ? 'পেজ খুলুন' : 'Open Page'}</span>
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                </div>
               </button>
 
+              {/* Login Activity Card */}
               <button
                 type="button"
-                onClick={() => setActiveSubSection('appearance')}
-                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                  activeSubSection === 'appearance'
-                    ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 shadow-2xs'
-                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60'
-                }`}
+                onClick={() => setCurrentScreen('security')}
+                className="w-full text-left p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-violet-500/50 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between gap-4"
               >
-                <div className="flex items-center gap-2.5">
-                  <Sun className="w-4 h-4 text-orange-500" />
-                  <span>{isBn ? '৮. থিম ও ডিসপ্লে (Appearance)' : '8. Appearance'}</span>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="p-3 rounded-2xl bg-violet-50 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 group-hover:scale-105 transition-transform">
+                    <History className="w-6 h-6" />
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300">
+                    {isBn ? 'সেশন নিরীক্ষা' : 'Audit'}
+                  </span>
                 </div>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-orange-100 dark:bg-orange-950 text-orange-800 dark:text-orange-300 font-bold uppercase">
-                  {theme}
-                </span>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                    {isBn ? 'লগইন হিস্ট্রি ও নিরাপত্তা' : 'Login Activity & Security'}
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    {isBn ? 'সাম্প্রতিক ডিভাইস, আইপি ও সক্রিয় সেশন নিয়ন্ত্রণ' : 'Manage active sessions & device history'}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <span>{isBn ? 'পেজ খুলুন' : 'Open Page'}</span>
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                </div>
               </button>
             </div>
           </div>
 
-          {/* Group 4: Official & Session */}
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-            <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
-              <FileSignature className="w-3.5 h-3.5" />
-              <span>{isBn ? 'অফিসিয়াল ও একাউন্ট' : 'Official & Account'}</span>
+          {/* Category 3: পছন্দসমূহ / Preferences */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 px-1">
+              <div className="w-2 h-2 rounded-full bg-sky-500"></div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                {isBn ? 'পছন্দসমূহ' : 'Preferences'}
+              </h3>
             </div>
-            <div className="space-y-1 mt-1">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Notifications Card */}
               <button
                 type="button"
-                onClick={() => setActiveSubSection('agreement')}
-                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                  activeSubSection === 'agreement'
-                    ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 shadow-2xs'
-                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60'
-                }`}
+                onClick={() => setCurrentScreen('notifications')}
+                className="w-full text-left p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-amber-500/50 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between gap-4"
               >
-                <div className="flex items-center gap-2.5">
-                  <FileSignature className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>{isBn ? '১০. সদস্য অঙ্গীকারনামা' : '10. Member Agreement'}</span>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-500 group-hover:scale-105 transition-transform">
+                    <Bell className="w-6 h-6" />
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                    {isBn ? 'অ্যালার্ট' : 'Alerts'}
+                  </span>
                 </div>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold">
-                  {isBn ? 'শুধু পাঠ/প্রিন্ট' : 'View Only'}
-                </span>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                    {isBn ? 'নোটিফিকেশন নিয়ন্ত্রণ' : 'Notification Preferences'}
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    {isBn ? 'লেনদেন, কিস্তি ও নোটিশের এসএমএস/পুশ সেটিংস' : 'Transaction alerts and notice notifications'}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <span>{isBn ? 'পেজ খুলুন' : 'Open Page'}</span>
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                </div>
               </button>
 
+              {/* Language Preference Card */}
+              <button
+                type="button"
+                onClick={() => setCurrentScreen('language')}
+                className="w-full text-left p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-sky-500/50 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between gap-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="p-3 rounded-2xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 group-hover:scale-105 transition-transform">
+                    <Globe className="w-6 h-6" />
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300">
+                    {language === 'bn' ? 'বাংলা' : 'EN'}
+                  </span>
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
+                    {isBn ? 'ভাষা নির্বাচন' : 'Language Preference'}
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    {isBn ? 'বাংলা অথবা ইংরেজি ইন্টারফেস বেছে নিন' : 'Switch between Bengali and English'}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <span>{isBn ? 'পেজ খুলুন' : 'Open Page'}</span>
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </button>
+
+              {/* Appearance & Theme Card */}
+              <button
+                type="button"
+                onClick={() => setCurrentScreen('appearance')}
+                className="w-full text-left p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-orange-500/50 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between gap-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="p-3 rounded-2xl bg-orange-50 dark:bg-orange-950/60 text-orange-500 group-hover:scale-105 transition-transform">
+                    <Sun className="w-6 h-6" />
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold capitalize bg-orange-100 dark:bg-orange-950 text-orange-800 dark:text-orange-300">
+                    {theme}
+                  </span>
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
+                    {isBn ? 'থিম ও ডিসপ্লে' : 'Appearance & Theme'}
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    {isBn ? 'লাইট মোড, ডার্ক মোড বা সিস্টেম থিম' : 'Light, Dark or System theme preference'}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <span>{isBn ? 'পেজ খুলুন' : 'Open Page'}</span>
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Category 4: অফিসিয়াল ও একাউন্ট / Official & Account */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 px-1">
+              <div className="w-2 h-2 rounded-full bg-slate-500"></div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                {isBn ? 'অফিসিয়াল ও একাউন্ট' : 'Official & Account'}
+              </h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Member Agreement Card */}
+              <button
+                type="button"
+                onClick={() => setCurrentScreen('agreement')}
+                className="w-full text-left p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-500/50 hover:shadow-md transition-all cursor-pointer group flex items-center justify-between gap-4"
+              >
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition-transform shrink-0">
+                    <FileSignature className="w-6 h-6" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                        {isBn ? 'সদস্যপদ অঙ্গীকারনামা ও চুক্তিপত্র' : 'Membership Agreement'}
+                      </h4>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                        {isBn ? 'পাঠ/প্রিন্ট' : 'View / Print'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-1">
+                      {isBn ? 'সমিতির অফিশিয়াল নিয়মাবলী ও সদস্যপদ অঙ্গীকারনামা দেখুন বা প্রিন্ট নিন' : 'Official membership terms and undertaking doc'}
+                    </p>
+                  </div>
+                </div>
+                <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 group-hover:translate-x-0.5 transition-all shrink-0">
+                  <ChevronRight className="w-5 h-5" />
+                </div>
+              </button>
+
+              {/* Logout Card */}
               <button
                 type="button"
                 onClick={() => setShowLogoutModal(true)}
-                className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                className="w-full text-left p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-rose-500/50 hover:shadow-md transition-all cursor-pointer group flex items-center justify-between gap-4"
               >
-                <div className="flex items-center gap-2.5">
-                  <LogOut className="w-4 h-4" />
-                  <span>{isBn ? '১১. লগআউট (Logout)' : '11. Logout'}</span>
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 group-hover:scale-105 transition-transform shrink-0">
+                    <LogOut className="w-6 h-6" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="text-sm sm:text-base font-bold text-rose-600 dark:text-rose-400">
+                        {isBn ? 'একাউন্ট লগআউট' : 'Account Logout'}
+                      </h4>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300">
+                        {isBn ? 'নিরাপদ প্রস্থান' : 'Sign Out'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-1">
+                      {isBn ? 'বর্তমান ডিভাইস থেকে আপনার সেশন নিরাপদে বন্ধ করুন' : 'Safely sign out from current session'}
+                    </p>
+                  </div>
                 </div>
-                <ChevronRight className="w-4 h-4" />
+                <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 group-hover:text-rose-600 dark:group-hover:text-rose-400 group-hover:translate-x-0.5 transition-all shrink-0">
+                  <ChevronRight className="w-5 h-5" />
+                </div>
               </button>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Detail Panel */}
-        <div className="lg:col-span-8 space-y-6">
-          {/* ========================================================= */}
-          {/* 1. PROFILE SECTION (Direct Edit, No Admin Approval) */}
-          {/* ========================================================= */}
-          {activeSubSection === 'profile' && (
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-2xs space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                    <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                    <span>{isBn ? 'প্রোফাইল তথ্য সম্পাদনা' : 'Edit Profile Information'}</span>
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    {isBn
-                      ? 'অনুমোদিত প্রোফাইল তথ্য পরিবর্তন করুন। কোনো অ্যাডমিন অনুমোদনের প্রয়োজন নেই।'
-                      : 'Edit your allowed profile information directly. No admin approval required.'}
-                  </p>
-                </div>
-                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                  {isBn ? 'সরাসরি কার্যকর' : 'Direct Edit'}
-                </span>
+      {/* 2. Dedicated Single-Screen Views for Selected Option */}
+      {currentScreen !== 'hub' && (
+        <div className="space-y-6">
+          {/* Top Dedicated Navigation Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setCurrentScreen('hub')}
+                className="px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-bold transition-all flex items-center gap-2 cursor-pointer group shadow-2xs"
+              >
+                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                <span>{isBn ? 'সেটিংস ও নিরাপত্তা কেন্দ্র' : 'Back to Settings Hub'}</span>
+              </button>
+
+              <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block"></div>
+
+              {/* Breadcrumb */}
+              <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                <span>{isBn ? 'সেটিংস হাব' : 'Settings Hub'}</span>
+                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                <span className="font-bold text-slate-900 dark:text-slate-100">{getScreenTitle(currentScreen)}</span>
               </div>
-
-              {/* Editable Fields Form */}
-              <form onSubmit={handleSaveProfile} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      {isBn ? 'বাংলায় পূর্ণ নাম *' : 'Full Name (Bangla) *'}
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={profileName}
-                      onChange={(e) => setProfileName(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 outline-hidden"
-                      placeholder={isBn ? 'আপনার নাম লিখুন' : 'Enter your name'}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      {isBn ? 'ইংরেজিতে নাম (Name in English)' : 'Name in English'}
-                    </label>
-                    <input
-                      type="text"
-                      value={profileNameEn}
-                      onChange={(e) => setProfileNameEn(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 outline-hidden"
-                      placeholder="e.g. Mohammad Rahim"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      {isBn ? 'পিতার নাম' : "Father's Name"}
-                    </label>
-                    <input
-                      type="text"
-                      value={fatherName}
-                      onChange={(e) => setFatherName(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 outline-hidden"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      {isBn ? 'মাতার নাম' : "Mother's Name"}
-                    </label>
-                    <input
-                      type="text"
-                      value={motherName}
-                      onChange={(e) => setMotherName(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 outline-hidden"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      {isBn ? 'স্বামী/স্ত্রীর নাম' : "Spouse's Name"}
-                    </label>
-                    <input
-                      type="text"
-                      value={spouseName}
-                      onChange={(e) => setSpouseName(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 outline-hidden"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      {isBn ? 'জন্ম তারিখ' : 'Date of Birth'}
-                    </label>
-                    <input
-                      type="date"
-                      value={dob}
-                      onChange={(e) => setDob(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 outline-hidden"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      {isBn ? 'লিঙ্গ' : 'Gender'}
-                    </label>
-                    <select
-                      value={gender}
-                      onChange={(e) => setGender(e.target.value as any)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 outline-hidden"
-                    >
-                      <option value="male">{isBn ? 'পুরুষ (Male)' : 'Male'}</option>
-                      <option value="female">{isBn ? 'মহিলা (Female)' : 'Female'}</option>
-                      <option value="other">{isBn ? 'অন্যান্য (Other)' : 'Other'}</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      {isBn ? 'পেশা' : 'Occupation'}
-                    </label>
-                    <input
-                      type="text"
-                      value={occupation}
-                      onChange={(e) => setOccupation(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 outline-hidden"
-                      placeholder={isBn ? 'যেমন: ব্যবসা / চাকরি / শিক্ষকতা' : 'e.g. Business / Service'}
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      {isBn ? 'আনুমানিক মাসিক আয় (টাকা)' : 'Estimated Monthly Income (BDT)'}
-                    </label>
-                    <input
-                      type="number"
-                      value={monthlyIncome}
-                      onChange={(e) => setMonthlyIncome(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 outline-hidden"
-                      placeholder="e.g. 25000"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100 dark:border-slate-800">
-                  <button
-                    type="submit"
-                    disabled={savingProfile}
-                    className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-2 cursor-pointer disabled:opacity-60"
-                  >
-                    <Save className="w-4 h-4" />
-                    <span>{savingProfile ? (isBn ? 'সংরক্ষণ হচ্ছে...' : 'Saving...') : (isBn ? 'প্রোফাইল সংরক্ষণ করুন (সরাসরি)' : 'Save Profile (Direct)')}</span>
-                  </button>
-                </div>
-              </form>
             </div>
-          )}
+
+            <div className="flex items-center gap-2 self-end sm:self-center">
+              <div className="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-mono text-slate-600 dark:text-slate-400">
+                #{member.memberNo}
+              </div>
+            </div>
+          </div>
 
           {/* ========================================================= */}
-          {/* 2. CONTACT INFORMATION SECTION (Direct Edit) */}
+          {/* 1. CONTACT INFORMATION SCREEN (Direct Edit) */}
           {/* ========================================================= */}
-          {activeSubSection === 'contact' && (
+          {currentScreen === 'contact' && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-2xs space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div>
@@ -1058,9 +1024,9 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
           )}
 
           {/* ========================================================= */}
-          {/* 3. PROFILE PHOTO SECTION (Direct Upload/Change) */}
+          {/* 2. PROFILE PHOTO SCREEN (Direct Upload/Change) */}
           {/* ========================================================= */}
-          {activeSubSection === 'photo' && (
+          {currentScreen === 'photo' && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-2xs space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div>
@@ -1166,9 +1132,9 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
           )}
 
           {/* ========================================================= */}
-          {/* 4. CHANGE PASSWORD SECTION */}
+          {/* 3. CHANGE PASSWORD SCREEN */}
           {/* ========================================================= */}
-          {activeSubSection === 'password' && (
+          {currentScreen === 'password' && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-2xs space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div>
@@ -1291,9 +1257,9 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
           )}
 
           {/* ========================================================= */}
-          {/* 5. BIOMETRIC LOGIN SECTION (Secure device Auth, Never in DB) */}
+          {/* 4. BIOMETRIC LOGIN SCREEN (Secure device Auth, Never in DB) */}
           {/* ========================================================= */}
-          {activeSubSection === 'biometric' && (
+          {currentScreen === 'biometric' && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-2xs space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div>
@@ -1385,9 +1351,9 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
           )}
 
           {/* ========================================================= */}
-          {/* 6. NOTIFICATIONS SECTION */}
+          {/* 5. NOTIFICATIONS SCREEN */}
           {/* ========================================================= */}
-          {activeSubSection === 'notifications' && (
+          {currentScreen === 'notifications' && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-2xs space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div>
@@ -1528,9 +1494,9 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
           )}
 
           {/* ========================================================= */}
-          {/* 7. LANGUAGE SECTION (Bangla / English) */}
+          {/* 6. LANGUAGE SCREEN (Bangla / English) */}
           {/* ========================================================= */}
-          {activeSubSection === 'language' && (
+          {currentScreen === 'language' && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-2xs space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div>
@@ -1599,9 +1565,9 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
           )}
 
           {/* ========================================================= */}
-          {/* 8. APPEARANCE SECTION (Light / Dark / System) */}
+          {/* 7. APPEARANCE SCREEN (Light / Dark / System) */}
           {/* ========================================================= */}
-          {activeSubSection === 'appearance' && (
+          {currentScreen === 'appearance' && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-2xs space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div>
@@ -1707,9 +1673,9 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
           )}
 
           {/* ========================================================= */}
-          {/* 9. LOGIN ACTIVITY / SECURITY */}
+          {/* 8. LOGIN ACTIVITY / SECURITY SCREEN */}
           {/* ========================================================= */}
-          {activeSubSection === 'security' && (
+          {currentScreen === 'security' && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-2xs space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div>
@@ -1806,9 +1772,9 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
           )}
 
           {/* ========================================================= */}
-          {/* 10. MEMBER AGREEMENT & UNDERTAKING (View/Print only) */}
+          {/* 9. MEMBER AGREEMENT & UNDERTAKING (View/Print only) */}
           {/* ========================================================= */}
-          {activeSubSection === 'agreement' && (
+          {currentScreen === 'agreement' && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-2xs space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div>
@@ -1883,9 +1849,9 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
           )}
 
           {/* ========================================================= */}
-          {/* 11. LOGOUT SECTION */}
+          {/* 10. LOGOUT SCREEN */}
           {/* ========================================================= */}
-          {activeSubSection === 'logout' && (
+          {currentScreen === 'logout' && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-2xs space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div>
@@ -1919,7 +1885,7 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setActiveSubSection('profile')}
+                    onClick={() => setCurrentScreen('hub')}
                     className="px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer"
                   >
                     {isBn ? 'বাতিল' : 'Cancel'}
@@ -1928,8 +1894,23 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
               </div>
             </div>
           )}
+
+          {/* Bottom Back to Settings Hub Navigation */}
+          <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setCurrentScreen('hub')}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>{isBn ? 'সেটিংস ও নিরাপত্তা কেন্দ্রে ফিরুন' : 'Back to Settings Hub'}</span>
+            </button>
+            <div className="text-xs text-slate-400">
+              {getScreenTitle(currentScreen)}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Logout Confirmation Modal */}
       {showLogoutModal && (
