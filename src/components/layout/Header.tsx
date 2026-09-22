@@ -152,8 +152,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
         </div>
       </div>
 
-      {/* Center: Search input */}
-      <div ref={searchRef} className="relative flex-1 max-w-xs sm:max-w-md mx-1 sm:mx-2 min-w-0">
+      {/* Center: Search input - hidden on mobile */}
+      <div ref={searchRef} className="hidden sm:block relative flex-1 max-w-xs sm:max-w-md mx-1 sm:mx-2 min-w-0">
         <div className="relative">
           <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 absolute left-2.5 sm:left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
@@ -268,8 +268,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
           <LanguageSwitcher variant="compact" />
         </div>
 
-        {/* Quick Add Button & Dropdown */}
-        <div ref={addMenuRef} className="relative shrink-0">
+        {/* Quick Add Button & Dropdown - hidden on mobile */}
+        <div ref={addMenuRef} className="hidden sm:block relative shrink-0">
           <button
             id="quick-action-btn"
             onClick={() => setShowAddMenu(!showAddMenu)}

@@ -9,7 +9,7 @@ interface LoginPageProps {}
 
 export const LoginPage: React.FC<LoginPageProps> = () => {
   const { language, t } = useLanguage();
-  const { setActiveTab, setSelectedMemberId } = useSomiti();
+  const { setActiveTab, setSelectedMemberId, settings } = useSomiti();
   const { 
     signIn, 
     signUp, 
@@ -134,15 +134,32 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
 
       {/* Main Card */}
       <div className="w-full max-w-[400px] bg-[#0c142b] border border-slate-800/80 rounded-3xl p-7 sm:p-8 shadow-2xl relative z-10">
-        {/* Brand header */}
+        {/* Brand header with official round Somiti logo */}
         <div className="text-center mb-7">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/20 text-slate-950 font-black text-2xl mb-3">
-            ব
+          <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white p-1 ring-4 ring-emerald-500/40 shadow-xl shadow-emerald-950/50 mb-3 mx-auto overflow-hidden">
+            <img 
+              src={
+                settings?.logoUrl && settings.logoUrl !== '/logo.svg' && settings.logoUrl !== '/logo-horizontal.svg'
+                  ? settings.logoUrl
+                  : '/icon.svg'
+              } 
+              alt={settings?.somitiName || (language === 'bn' ? 'বন্ধু সমবায় সমিতি লিমিটেড' : 'Bondhu Samabay Somiti Ltd.')}
+              className="w-full h-full object-contain rounded-full"
+              referrerPolicy="no-referrer"
+            />
           </div>
           <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-            {language === 'bn' ? 'বন্ধু সমিতি লিমিটেড' : 'Bondhu Somiti Ltd.'}
+            {settings?.somitiName || (language === 'bn' ? 'বন্ধু সমবায় সমিতি লিমিটেড' : 'Bondhu Samabay Somiti Ltd.')}
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
+          <div className="mt-1 flex items-center justify-center gap-1.5">
+            <span className="text-[10px] text-emerald-400 font-extrabold tracking-wider uppercase bg-emerald-950/70 border border-emerald-500/30 px-2 py-0.5 rounded-md shadow-2xs">
+              UNITY • GROWTH • TRUST
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-400 font-medium mt-1">
+            {language === 'bn' ? 'ঐক্য • সমৃদ্ধি • বিশ্বাস' : 'Cooperative Society'}
+          </p>
+          <p className="text-xs text-slate-300/80 mt-2 font-light">
             {mode === 'signin' 
               ? (language === 'bn' ? 'ডিজিটাল একাউন্টে সাইন ইন করুন' : 'Sign in to your digital account')
               : mode === 'signup' 

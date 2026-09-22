@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Mail, Lock, User, LogIn, UserPlus, AlertCircle, CheckCircle2, Flame, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useSomiti } from '../../context/SomitiContext';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 
 interface AuthModalProps {
@@ -11,6 +12,7 @@ interface AuthModalProps {
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   useModalScrollLock(isOpen);
   const { user, signIn, signUp, logOut, error, clearError } = useAuth();
+  const { settings } = useSomiti();
   
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
@@ -86,15 +88,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           </button>
 
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-inner">
-              <Flame className="w-6 h-6 text-amber-300" />
+            <div className="w-11 h-11 rounded-full bg-white p-0.5 ring-2 ring-emerald-400/60 shadow-md flex items-center justify-center shrink-0 overflow-hidden">
+              <img 
+                src={
+                  settings?.logoUrl && settings.logoUrl !== '/logo.svg' && settings.logoUrl !== '/logo-horizontal.svg'
+                    ? settings.logoUrl
+                    : '/icon.svg'
+                } 
+                alt="বন্ধু সমিতি" 
+                className="w-full h-full object-contain rounded-full"
+                referrerPolicy="no-referrer"
+              />
             </div>
             <div>
               <h2 className="text-lg font-bold text-white tracking-wide">
                 {user ? 'ইউজার একাউন্ট প্রোফাইল' : mode === 'signin' ? 'Firebase লগইন' : 'নতুন একাউন্ট নিবন্ধন'}
               </h2>
               <p className="text-xs text-blue-100/90">
-                {user ? 'বর্তমানে সংযুক্ত আছেন' : 'বন্ধু সমিতি একাউন্টে প্রবেশ করুন'}
+                {user ? 'বর্তমানে সংযুক্ত আছেন' : (settings?.somitiName || 'বন্ধু সমবায় সমিতি একাউন্টে প্রবেশ করুন')}
               </p>
             </div>
           </div>
