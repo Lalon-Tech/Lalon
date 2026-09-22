@@ -35,6 +35,7 @@ import { useSomiti } from '../../context/SomitiContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { toBengaliNumber } from '../../utils/bengaliUtils';
+import { ThemeToggle } from '../common/ThemeToggle';
 
 interface MenuItem {
   id: string;
@@ -553,6 +554,14 @@ export const Sidebar: React.FC<{
               <span>{language === 'bn' ? 'Firebase লগইন / সাইন-আপ' : 'Firebase Login / Sign-up'}</span>
             </button>
           )}
+
+          {/* Global Theme Mode (Eye Strain Reduction) */}
+          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800">
+            <span className="text-[11px] font-bold text-slate-300">
+              {language === 'bn' ? 'থিম / ডার্ক মোড' : 'Theme Mode'}
+            </span>
+            <ThemeToggle variant="segmented" />
+          </div>
 
           <div className="flex items-center justify-between text-[11px] text-slate-500 px-1 pt-1">
             <div className="flex items-center gap-1.5">

@@ -27,6 +27,7 @@ import confetti from 'canvas-confetti';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { compressLogoImage } from '../../utils/imageUtils';
+import { ThemeToggle } from '../common/ThemeToggle';
 
 export const SettingsView: React.FC = () => {
   const { language } = useLanguage();
@@ -648,8 +649,23 @@ export const SettingsView: React.FC = () => {
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
           <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2 border-b pb-2">
             <FileCode className="w-4 h-4 text-amber-600" />
-            <span>৪. ডাটা ব্যাকআপ ও ভাষা ডিসপ্লে</span>
+            <span>৪. ডাটা ব্যাকআপ ও ডিসপ্লে সেটিংস</span>
           </h3>
+
+          {/* Global Theme / Dark Mode Setting */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+            <div>
+              <h4 className="text-sm font-bold text-slate-800">
+                {language === 'bn' ? 'সিস্টেম থিম ও চোখের আরাম (Light / Dark Mode)' : 'System Theme & Eye Comfort'}
+              </h4>
+              <p className="text-xs text-slate-500">
+                {language === 'bn' 
+                  ? 'চোখের সুরক্ষায় ডার্ক মোড ব্যবহার করুন অথবা স্ট্যান্ডার্ড লাইট মোড সিলেক্ট করুন।' 
+                  : 'Toggle dark mode to reduce eye strain or use clean light mode.'}
+              </p>
+            </div>
+            <ThemeToggle variant="segmented" />
+          </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
             <div>

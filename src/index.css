@@ -1,9 +1,249 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *, .dark, .dark *));
+
 @layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
   body {
     font-family: 'Hind Siliguri', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
+}
+
+/* ==========================================================================
+   DYNAMIC DARK MODE STYLES (EYE-STRAIN REDUCTION SYSTEM)
+   Automatically updates backgrounds, cards, borders, text, inputs, and modals
+   ========================================================================== */
+
+html.dark body,
+html.dark #root,
+html.dark .bg-slate-100 {
+  background-color: #0b1120 !important;
+  color: #f1f5f9 !important;
+}
+
+/* Surface Cards & Panels */
+html.dark .bg-white {
+  background-color: #111c33 !important;
+  color: #f1f5f9;
+}
+
+html.dark .bg-white\/95,
+html.dark .bg-white\/90,
+html.dark .bg-white\/80 {
+  background-color: rgba(17, 28, 51, 0.95) !important;
+}
+
+html.dark .bg-slate-50 {
+  background-color: #0d1527 !important;
+}
+
+/* Header & Navigation */
+html.dark header {
+  background-color: rgba(15, 23, 42, 0.95) !important;
+  border-color: #1e293b !important;
+}
+
+/* Borders and Dividers */
+html.dark .border-slate-100,
+html.dark .border-slate-200,
+html.dark .border-slate-200\/80,
+html.dark .border-slate-200\/60,
+html.dark .border-slate-200\/50,
+html.dark .border-slate-200\/90 {
+  border-color: #1e293b !important;
+}
+
+html.dark .border-slate-300 {
+  border-color: #334155 !important;
+}
+
+html.dark .divide-slate-100 > * + *,
+html.dark .divide-slate-200 > * + * {
+  border-color: #1e293b !important;
+}
+
+/* High Legibility Text Colors */
+html.dark .text-slate-900,
+html.dark .text-slate-800 {
+  color: #f8fafc !important;
+}
+
+html.dark .text-slate-700 {
+  color: #e2e8f0 !important;
+}
+
+html.dark .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+
+html.dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+html.dark .text-slate-400 {
+  color: #64748b !important;
+}
+
+/* Forms, Inputs, Selects & Textareas */
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]):not([type="range"]):not([type="submit"]):not([type="button"]),
+html.dark select,
+html.dark textarea {
+  background-color: #0b1329 !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+html.dark select option {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+/* Interactive Hovers & Action Elements */
+html.dark .hover\:bg-slate-50:hover,
+html.dark .hover\:bg-slate-100:hover,
+html.dark .hover\:bg-blue-50:hover {
+  background-color: #162444 !important;
+}
+
+html.dark .bg-slate-100:not(button):not(.badge):not(.p-1) {
+  background-color: #0f172a !important;
+}
+
+html.dark .bg-slate-200 {
+  background-color: #1e293b !important;
+}
+
+/* Tables */
+html.dark table thead th {
+  background-color: #0e172a !important;
+  color: #94a3b8 !important;
+  border-color: #1e293b !important;
+}
+
+html.dark table tbody tr {
+  border-color: #1e293b !important;
+}
+
+html.dark table tbody tr:hover {
+  background-color: rgba(30, 41, 59, 0.45) !important;
+}
+
+/* Mobile Bottom Navigation Bar */
+html.dark nav.fixed.bottom-0 {
+  background-color: rgba(15, 23, 42, 0.95) !important;
+  border-color: #1e293b !important;
+}
+
+/* Modals & Dialogs */
+html.dark [role="dialog"] .bg-white,
+html.dark [data-modal="true"] .bg-white,
+html.dark .fixed.inset-0 .bg-white,
+html.dark .modal-content {
+  background-color: #0f172a !important;
+  border-color: #1e293b !important;
+}
+
+html.dark [role="dialog"] .bg-slate-50,
+html.dark [data-modal="true"] .bg-slate-50,
+html.dark .fixed.inset-0 .bg-slate-50 {
+  background-color: #0b1329 !important;
+}
+
+html.dark [role="dialog"] .bg-slate-100,
+html.dark [data-modal="true"] .bg-slate-100,
+html.dark .fixed.inset-0 .bg-slate-100 {
+  background-color: #162444 !important;
+}
+
+/* Status Badges & Accents in Dark Mode */
+html.dark .bg-emerald-50 {
+  background-color: rgba(6, 78, 59, 0.3) !important;
+  color: #6ee7b7 !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+html.dark .bg-emerald-100 {
+  background-color: rgba(6, 78, 59, 0.45) !important;
+  color: #a7f3d0 !important;
+}
+html.dark .text-emerald-800, html.dark .text-emerald-900 {
+  color: #6ee7b7 !important;
+}
+
+html.dark .bg-blue-50 {
+  background-color: rgba(30, 58, 138, 0.3) !important;
+  color: #93c5fd !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+html.dark .bg-blue-100 {
+  background-color: rgba(30, 58, 138, 0.45) !important;
+  color: #bfdbfe !important;
+}
+html.dark .text-blue-800, html.dark .text-blue-900 {
+  color: #93c5fd !important;
+}
+
+html.dark .bg-amber-50 {
+  background-color: rgba(120, 53, 15, 0.3) !important;
+  color: #fcd34d !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+html.dark .bg-amber-100 {
+  background-color: rgba(120, 53, 15, 0.45) !important;
+  color: #fde68a !important;
+}
+html.dark .text-amber-800, html.dark .text-amber-900 {
+  color: #fcd34d !important;
+}
+
+html.dark .bg-rose-50 {
+  background-color: rgba(136, 19, 55, 0.3) !important;
+  color: #fda4af !important;
+  border-color: rgba(244, 63, 94, 0.3) !important;
+}
+html.dark .bg-rose-100 {
+  background-color: rgba(136, 19, 55, 0.45) !important;
+  color: #fecdd3 !important;
+}
+html.dark .text-rose-800, html.dark .text-rose-900 {
+  color: #fda4af !important;
+}
+
+html.dark .bg-teal-50 {
+  background-color: rgba(19, 78, 74, 0.3) !important;
+  color: #5eead4 !important;
+  border-color: rgba(20, 184, 166, 0.3) !important;
+}
+html.dark .bg-teal-100 {
+  background-color: rgba(19, 78, 74, 0.45) !important;
+  color: #99f6e4 !important;
+}
+html.dark .text-teal-800, html.dark .text-teal-900 {
+  color: #5eead4 !important;
+}
+
+html.dark .bg-indigo-50 {
+  background-color: rgba(49, 46, 129, 0.3) !important;
+  color: #a5b4fc !important;
+}
+html.dark .bg-indigo-100 {
+  background-color: rgba(49, 46, 129, 0.45) !important;
+  color: #c7d2fe !important;
+}
+html.dark .text-indigo-800, html.dark .text-indigo-900 {
+  color: #a5b4fc !important;
 }
 
 /* Universal Background Scroll Lock when any Modal/Popup is active */

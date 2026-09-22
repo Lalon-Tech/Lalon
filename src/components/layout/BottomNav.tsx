@@ -77,7 +77,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       <nav 
         id="member-bottom-navigation"
         aria-label="Member Mobile Navigation"
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-lg px-1 py-1 transition-all select-none no-print"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/90 dark:border-slate-800 shadow-lg px-1 py-1 transition-all select-none no-print"
       >
         <div className="grid grid-cols-6 items-center w-full gap-0.5">
           {/* 1. Home */}
@@ -210,7 +210,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     <nav 
       id="admin-bottom-navigation"
       aria-label="Mobile Bottom Navigation"
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-lg px-1.5 py-1 flex items-center justify-around transition-all select-none no-print"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/90 dark:border-slate-800 shadow-lg px-1.5 py-1 flex items-center justify-around transition-all select-none no-print"
     >
       {/* 1. Dashboard */}
       <button

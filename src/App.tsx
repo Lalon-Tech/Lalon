@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { ThemeProvider } from './context/ThemeContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { SomitiProvider, useSomiti } from './context/SomitiContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -40,6 +41,7 @@ import { MemberAnnualStatement } from './components/reports/MemberAnnualStatemen
 import { AuditLogViewer } from './components/audit/AuditLogViewer';
 import { BackupRestoreCenter } from './components/backup/BackupRestoreCenter';
 import { OfflineIndicator } from './components/common/OfflineIndicator';
+import { InactivityWarningModal } from './components/common/InactivityWarningModal';
 import { Loader2, ShieldAlert, Clock, AlertTriangle } from 'lucide-react';
 import { useModalScrollLock } from './hooks/useModalScrollLock';
 import { useDynamicManifest } from './hooks/useDynamicManifest';
@@ -329,7 +331,7 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-900 antialiased selection:bg-blue-600 selection:text-white w-full max-w-full overflow-x-hidden">
+    <div className="min-h-screen bg-slate-100 dark:bg-[#0b1120] flex flex-col font-sans text-slate-900 dark:text-slate-100 antialiased selection:bg-blue-600 selection:text-white w-full max-w-full overflow-x-hidden transition-colors duration-200">
       {/* Top Fixed Header */}
       <Header 
         onToggleSidebar={() => setSidebarOpen(prev => !prev)} 
@@ -391,40 +393,14 @@ const AppContent: React.FC = () => {
       <ReceiptModal />
       <OfflineIndicator />
 
-      {/* Inactivity Auto-Logout Warning (at 9 minutes) */}
-      {inactivityWarning && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-amber-200 text-center space-y-4 my-auto animate-in fade-in zoom-in-95">
-            <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto ring-8 ring-amber-50">
-              <Clock className="w-6 h-6 animate-pulse" />
-            </div>
-            <div>
-              <h4 className="text-base font-bold text-slate-900">
-                {language === 'bn' ? 'নিষ্ক্রিয়তা সতর্কতা' : 'Inactivity Warning'}
-              </h4>
-              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                {language === 'bn' 
-                  ? `আপনি দীর্ঘক্ষণ নিষ্ক্রিয় রয়েছেন। আপনার অ্যাকাউন্ট সুরক্ষার্থে আর ${inactivitySecondsRemaining} সেকেন্ড পর স্বয়ংক্রিয়ভাবে লগআউট হবে।`
-                  : `You have been inactive. For your security, you will be automatically logged out in ${inactivitySecondsRemaining} seconds.`}
-              </p>
-            </div>
-            <div className="flex items-center gap-2 pt-2">
-              <button
-                onClick={logOut}
-                className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
-              >
-                {language === 'bn' ? 'এখনই লগআউট' : 'Log Out Now'}
-              </button>
-              <button
-                onClick={stayLoggedIn}
-                className="flex-1 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer"
-              >
-                {language === 'bn' ? 'সেশন চালু রাখুন' : 'Stay Signed In'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Enhanced Inactivity Auto-Logout Warning with Circular Timer & Progress Bar */}
+      <InactivityWarningModal
+        isOpen={inactivityWarning}
+        secondsRemaining={inactivitySecondsRemaining}
+        totalSeconds={60}
+        onStayLoggedIn={stayLoggedIn}
+        onLogOut={logOut}
+      />
 
       {/* Firebase Auth Modal */}
       <AuthModal
@@ -437,12 +413,14 @@ const AppContent: React.FC = () => {
 
 export default function App() {
   return (
-    <LanguageProvider>
-      <AuthProvider>
-        <SomitiProvider>
-          <AppContent />
-        </SomitiProvider>
-      </AuthProvider>
-    </LanguageProvider>
+    <ThemeProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <SomitiProvider>
+            <AppContent />
+          </SomitiProvider>
+        </AuthProvider>
+      </LanguageProvider>
+    </ThemeProvider>
   );
 }

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { X, Mail, Lock, User, LogIn, UserPlus, AlertCircle, CheckCircle2, Flame, Loader2 } from 'lucide-react';
+import { X, Mail, Lock, User, LogIn, UserPlus, AlertCircle, CheckCircle2, Flame, Loader2, Fingerprint, Trash2, ShieldCheck, Sparkles } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSomiti } from '../../context/SomitiContext';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock';
+import { useBiometricAuth } from '../../hooks/useBiometricAuth';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -11,9 +12,23 @@ interface AuthModalProps {
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   useModalScrollLock(isOpen);
-  const { user, signIn, signUp, logOut, error, clearError } = useAuth();
+  const { user, signIn, signUp, logOut, signInWithBiometricProfile, error, clearError } = useAuth();
   const { settings } = useSomiti();
   
+  const {
+    isSupported: isBiometricSupported,
+    isEnrolled: isBiometricEnrolled,
+    enrolledCredentials,
+    registerBiometrics,
+    authenticateWithBiometrics,
+    removeCredential,
+    loading: biometricLoading,
+    error: biometricError,
+    success: biometricSuccess,
+    clearError: clearBiometricError,
+    clearSuccess: clearBiometricSuccess,
+  } = useBiometricAuth();
+
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,6 +38,42 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const [successMsg, setSuccessMsg] = useState('');
 
   if (!isOpen) return null;
+
+  const currentDeviceCredential = user
+    ? enrolledCredentials.find((c) => c.user.uid === user.uid || c.user.email === user.email)
+    : null;
+
+  const handleEnrollBiometrics = async () => {
+    if (!user) return;
+    clearBiometricError();
+    clearBiometricSuccess();
+    await registerBiometrics({
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName || user.email?.split('@')[0] || 'User',
+      photoURL: user.photoURL || null,
+    });
+  };
+
+  const handleBiometricModalLogin = async () => {
+    clearError();
+    clearBiometricError();
+    setValidationError('');
+    setSuccessMsg('');
+
+    try {
+      const res = await authenticateWithBiometrics();
+      if (res.success && res.user) {
+        signInWithBiometricProfile(res.user);
+        setSuccessMsg(`বায়োমেট্রিক সফলভাবে যাচাই হয়েছে! স্বাগতম ${res.user.displayName || res.user.email}`);
+        setTimeout(() => {
+          onClose();
+        }, 800);
+      }
+    } catch (err: any) {
+      console.warn('Biometric modal login error:', err);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,6 +220,103 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 </div>
               </div>
 
+              {/* Device Biometrics Management (WebAuthn) */}
+              {isBiometricSupported && (
+                <div className="mt-4 p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-left space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700">
+                        <Fingerprint className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-800">
+                          ডিভাইস বায়োমেট্রিক (WebAuthn)
+                        </div>
+                        <div className="text-[10px] text-slate-500">
+                          ফিঙ্গারপ্রিন্ট বা ফেস স্ক্যান দিয়ে পাসওয়ার্ডহীন দ্রুত লগইন
+                        </div>
+                      </div>
+                    </div>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        currentDeviceCredential
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-slate-200 text-slate-600'
+                      }`}
+                    >
+                      {currentDeviceCredential ? 'সক্রিয়' : 'নিষ্ক্রিয়'}
+                    </span>
+                  </div>
+
+                  {biometricSuccess && (
+                    <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-medium flex items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
+                        <span>{biometricSuccess}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={clearBiometricSuccess}
+                        className="text-emerald-700 hover:text-emerald-900 text-xs font-bold cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+
+                  {biometricError && (
+                    <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-medium flex items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                        <span>{biometricError}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={clearBiometricError}
+                        className="text-rose-700 hover:text-rose-900 text-xs font-bold cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+
+                  {currentDeviceCredential ? (
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-200/80 text-[11px]">
+                      <span className="text-slate-600 truncate max-w-[200px]">
+                        {currentDeviceCredential.deviceName}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeCredential(currentDeviceCredential.id)}
+                        className="text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>মুছে ফেলুন</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleEnrollBiometrics}
+                      disabled={biometricLoading}
+                      className="w-full mt-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-60"
+                    >
+                      {biometricLoading ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>বায়োমেট্রিক স্ক্যানার সক্রিয় হচ্ছে...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Fingerprint className="w-3.5 h-3.5" />
+                          <span>এই ডিভাইসে ফিঙ্গারপ্রিন্ট যুক্ত করুন</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              )}
+
               <div className="pt-4 border-t border-slate-100 flex gap-2 justify-center">
                 <button
                   onClick={async () => {
@@ -290,6 +438,38 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   </>
                 )}
               </button>
+
+              {/* Biometric Instant Login Option */}
+              {mode === 'signin' && isBiometricSupported && isBiometricEnrolled && (
+                <div className="pt-2">
+                  <div className="relative flex items-center justify-center my-2">
+                    <div className="border-t border-slate-200 w-full"></div>
+                    <span className="bg-white px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      অথবা
+                    </span>
+                    <div className="border-t border-slate-200 w-full"></div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleBiometricModalLogin}
+                    disabled={biometricLoading || loading}
+                    className="w-full py-2.5 px-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
+                  >
+                    {biometricLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                        <span>বায়োমেট্রিক স্ক্যান হচ্ছে...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Fingerprint className="w-4 h-4 text-emerald-600" />
+                        <span>ডিভাইস ফিঙ্গারপ্রিন্ট / ফেস আইডি দিয়ে লগইন</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </form>
           )}
         </div>

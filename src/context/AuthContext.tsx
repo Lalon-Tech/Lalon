@@ -29,6 +29,7 @@ interface AuthContextType {
   signUp: (email: string, pass: string, name?: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInAsDemo: (role?: string) => void;
+  signInWithBiometricProfile: (profile: AppAuthUser) => void;
   resetPassword: (email: string) => Promise<void>;
   logOut: () => Promise<void>;
   clearError: () => void;
@@ -143,7 +144,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Initialize activity timestamp when user is logged in
     lastActivityRef.current = Date.now();
 
-    const handleUserInteraction = () => {
+    const handleUserInteraction = (e?: Event) => {
+      // If the inactivity warning modal is actively displayed, ignore passive mouse movement
+      // so the user can clearly see the countdown timer and deliberately choose to stay or logout
+      if (inactivityWarning && e && e.type === 'mousemove') {
+        return;
+      }
+
       const now = Date.now();
       // Throttle event listener updates to every 2 seconds for optimal UI responsiveness
       if (now - lastThrottleRef.current > 2000) {
@@ -497,6 +504,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(localUser);
   };
 
+  const signInWithBiometricProfile = (profile: AppAuthUser) => {
+    setError(null);
+    const localUser: AppAuthUser = {
+      uid: profile.uid,
+      email: profile.email,
+      displayName: profile.displayName || (profile.email ? profile.email.split('@')[0] : 'Member'),
+      photoURL: profile.photoURL || null,
+    };
+    sessionStorage.setItem('somiti_session_user', JSON.stringify(localUser));
+    setUser(localUser);
+  };
+
   const resetPassword = async (email: string) => {
     setError(null);
     try {
@@ -534,6 +553,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signUp, 
       signInWithGoogle,
       signInAsDemo,
+      signInWithBiometricProfile,
       resetPassword, 
       logOut, 
       clearError,

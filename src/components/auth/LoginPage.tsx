@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, ShieldCheck, ArrowRight, Clock } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, ShieldCheck, ArrowRight, Clock, Fingerprint, ScanFace, Sparkles, KeyRound } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useSomiti } from '../../context/SomitiContext';
 import { LanguageSwitcher } from '../common/LanguageSwitcher';
+import { useBiometricAuth } from '../../hooks/useBiometricAuth';
 
 interface LoginPageProps {}
 
@@ -15,6 +16,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
     signUp, 
     signInWithGoogle, 
     signInAsDemo, 
+    signInWithBiometricProfile,
     resetPassword, 
     error, 
     clearError,
@@ -22,6 +24,18 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
     clearAutoLoggedOut
   } = useAuth();
   
+  const {
+    isSupported: isBiometricSupported,
+    isPlatformAuthenticatorAvailable,
+    isEnrolled: isBiometricEnrolled,
+    lastEnrolledUser,
+    authenticateWithBiometrics,
+    loading: biometricLoading,
+    error: biometricError,
+    clearError: clearBiometricError,
+  } = useBiometricAuth();
+
+  const [biometricInfoMsg, setBiometricInfoMsg] = useState('');
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -115,10 +129,54 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
 
   const handleQuickPresetLogin = (presetEmail: string, presetRole: string) => {
     clearError();
+    clearBiometricError();
+    setBiometricInfoMsg('');
     setSuccessMsg('');
     signInAsDemo(presetRole);
     setActiveTab('dashboard');
     setSelectedMemberId(null);
+  };
+
+  const handleBiometricLogin = async () => {
+    clearError();
+    clearBiometricError();
+    setValidationError('');
+    setBiometricInfoMsg('');
+    setSuccessMsg('');
+
+    if (!isBiometricSupported) {
+      setValidationError(
+        language === 'bn'
+          ? 'আপনার ব্রাউজার বা ডিভাইসে ওয়েব বায়োমেট্রিক অথেন্টিকেশন সমর্থিত নয়।'
+          : 'Web Biometric Authentication is not supported on this browser or device.'
+      );
+      return;
+    }
+
+    if (!isBiometricEnrolled) {
+      setBiometricInfoMsg(
+        language === 'bn'
+          ? 'এই ডিভাইসে এখনো বায়োমেট্রিক সংরক্ষিত নেই। প্রথমে আপনার আইডি/ইমেইল ও পাসওয়ার্ড দিয়ে লগইন করুন, এরপর প্রোফাইল থেকে এক ক্লিকে ফিঙ্গারপ্রিন্ট বা ফেস স্ক্যান যুক্ত করতে পারবেন।'
+          : 'No biometric credentials registered on this device yet. Please sign in with your email/UID and password first, then enable biometrics from your profile.'
+      );
+      return;
+    }
+
+    try {
+      const res = await authenticateWithBiometrics();
+      if (res.success && res.user) {
+        signInWithBiometricProfile(res.user);
+        setActiveTab('dashboard');
+        setSelectedMemberId(null);
+        setSuccessMsg(
+          language === 'bn'
+            ? `বায়োমেট্রিক যাচাই সম্পন্ন হয়েছে! স্বাগতম ${res.user.displayName || res.user.email}`
+            : `Biometric authentication verified! Welcome ${res.user.displayName || res.user.email}`
+        );
+      }
+    } catch (err: any) {
+      console.warn('Biometric login exception:', err);
+    }
   };
 
   return (
@@ -221,6 +279,72 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
           <div className="mb-4 p-3 bg-emerald-950/60 border border-emerald-500/50 rounded-xl flex items-center gap-2.5 text-xs text-emerald-300 font-medium animate-in fade-in">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             <div>{successMsg}</div>
+          </div>
+        )}
+
+        {/* Biometric Error Notification */}
+        {biometricError && (
+          <div className="mb-4 p-3 bg-rose-950/60 border border-rose-500/50 rounded-xl flex items-start gap-2.5 text-xs text-rose-300 animate-in fade-in">
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+            <div className="flex-1 leading-relaxed">{biometricError}</div>
+            <button
+              type="button"
+              onClick={clearBiometricError}
+              className="text-rose-400 hover:text-rose-200 text-xs px-1 cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Biometric Info/Setup Guide Notification */}
+        {biometricInfoMsg && (
+          <div className="mb-4 p-3 bg-cyan-950/60 border border-cyan-500/40 rounded-xl flex items-start gap-2.5 text-xs text-cyan-200 animate-in fade-in">
+            <Fingerprint className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+            <div className="flex-1 leading-relaxed">{biometricInfoMsg}</div>
+            <button
+              type="button"
+              onClick={() => setBiometricInfoMsg('')}
+              className="text-cyan-400 hover:text-cyan-200 text-xs px-1 cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Quick Biometric One-Tap Access Card (if enrolled on this browser) */}
+        {mode === 'signin' && isBiometricEnrolled && lastEnrolledUser && (
+          <div className="mb-4 p-3.5 bg-gradient-to-r from-emerald-950/90 via-teal-950/80 to-[#0e1b38] border border-emerald-500/40 rounded-2xl shadow-lg relative overflow-hidden group animate-in fade-in">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0 text-emerald-400 group-hover:scale-105 transition-transform">
+                  <Fingerprint className="w-5 h-5 animate-pulse" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[10px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" />
+                    <span>{language === 'bn' ? 'সংরক্ষিত বায়োমেট্রিক' : 'Biometric Ready'}</span>
+                  </div>
+                  <div className="text-xs font-bold text-white truncate">
+                    {lastEnrolledUser.displayName || lastEnrolledUser.email}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleBiometricLogin}
+                disabled={biometricLoading}
+                className="py-2 px-3 bg-emerald-400 hover:bg-emerald-300 text-slate-950 rounded-xl font-black text-xs transition-all shadow-md shadow-emerald-500/20 active:scale-95 flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
+              >
+                {biometricLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <ScanFace className="w-3.5 h-3.5" />
+                )}
+                <span>{language === 'bn' ? 'স্পর্শ করুন' : 'Scan'}</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -417,6 +541,32 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
                 </>
               )}
             </button>
+
+            {/* WebAuthn Biometric Button [ Continue with Fingerprint / Face ID ] */}
+            {mode === 'signin' && isBiometricSupported && (
+              <button
+                type="button"
+                onClick={handleBiometricLogin}
+                disabled={biometricLoading || loading || googleLoading}
+                className="w-full mt-2.5 py-3 px-4 bg-[#112338] hover:bg-[#162e4a] border border-cyan-500/40 hover:border-cyan-400 text-cyan-200 rounded-2xl font-bold text-xs sm:text-sm shadow-sm transition-all flex items-center justify-center gap-2.5 cursor-pointer active:scale-[0.99] disabled:opacity-60"
+              >
+                {biometricLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+                    <span>{language === 'bn' ? 'বায়োমেট্রিক স্ক্যান হচ্ছে...' : 'Scanning Biometrics...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Fingerprint className="w-4 h-4 text-cyan-400 shrink-0" />
+                    <span>
+                      {language === 'bn'
+                        ? 'ফিঙ্গারপ্রিন্ট / ফেস স্ক্যান দিয়ে লগইন'
+                        : 'Sign In with Fingerprint / Face ID'}
+                    </span>
+                  </>
+                )}
+              </button>
+            )}
           </>
         )}
 

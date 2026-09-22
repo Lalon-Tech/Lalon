@@ -21,6 +21,7 @@ import { useSomiti } from '../../context/SomitiContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { LanguageSwitcher } from '../common/LanguageSwitcher';
+import { ThemeToggle } from '../common/ThemeToggle';
 import { getAllPendingApprovals } from '../../utils/approvalRegistry';
 import { toBengaliNumber } from '../../utils/bengaliUtils';
 
@@ -93,7 +94,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
     : [];
 
   return (
-    <header className="fixed top-0 left-0 right-0 lg:left-72 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs px-2 sm:px-4 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-1 sm:gap-2.5 transition-all w-full max-w-full lg:w-auto">
+    <header className="fixed top-0 left-0 right-0 lg:left-72 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 shadow-2xs px-2 sm:px-4 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-1 sm:gap-2.5 transition-all w-full max-w-full lg:w-auto">
       {/* Left: Hamburger menu on mobile + User Profile badge */}
       <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
         {onToggleSidebar && (
@@ -165,13 +166,13 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
               setShowSearchResults(true);
             }}
             onFocus={() => setShowSearchResults(true)}
-            className="w-full pl-7 sm:pl-9.5 pr-2 sm:pr-4 py-1.5 sm:py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all truncate"
+            className="w-full pl-7 sm:pl-9.5 pr-2 sm:pr-4 py-1.5 sm:py-2 bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-lg text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-slate-800 transition-all truncate"
           />
         </div>
 
         {/* Live Search dropdown */}
         {showSearchResults && filteredMembers.length > 0 && (
-          <div className="absolute top-full mt-1.5 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden py-1">
+          <div className="absolute top-full mt-1.5 left-0 right-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 overflow-hidden py-1">
             <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 border-b border-slate-100">
               {t('search_results')} ({filteredMembers.length})
             </div>
@@ -267,6 +268,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
         <div className="sm:hidden shrink-0">
           <LanguageSwitcher variant="compact" />
         </div>
+
+        {/* Global Dark / Light Theme Toggle */}
+        <ThemeToggle />
 
         {/* Quick Add Button & Dropdown - hidden on mobile */}
         <div ref={addMenuRef} className="hidden sm:block relative shrink-0">
