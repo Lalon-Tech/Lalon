@@ -228,7 +228,8 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
   // Section 11: Logout confirmation modal
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  // Intercept mobile Back button when logout modal is open or when viewing a sub-screen
+  // Intercept mobile Back button when logout modal is open, when viewing a sub-screen,
+  // or when on the Settings Hub (navigate back to Dashboard cleanly without closing app)
   useEffect(() => {
     if (showLogoutModal) {
       return registerBackHandler(() => {
@@ -243,7 +244,14 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
         return true;
       });
     }
-  }, [showLogoutModal, currentScreen]);
+
+    if (onClose) {
+      return registerBackHandler(() => {
+        onClose();
+        return true;
+      });
+    }
+  }, [showLogoutModal, currentScreen, onClose]);
 
   // Handler 2: Save Contact Information (Direct - No Admin Approval Required)
   const handleSaveContact = async (e: React.FormEvent) => {

@@ -23,20 +23,36 @@ export const registerBackHandler = (handler: BackHandler): (() => void) => {
   };
 };
 
+let isExecutingBackHandler = false;
+
+/**
+ * Returns true if a registered back handler is currently executing.
+ */
+export const isBackHandlerExecuting = (): boolean => isExecutingBackHandler;
+
 /**
  * Executes the topmost registered back handler.
  * Returns true if a handler consumed the event, false otherwise.
+ * Protected against re-entrant calls.
  */
 export const executeTopBackHandler = (): boolean => {
-  for (let i = handlers.length - 1; i >= 0; i--) {
-    try {
-      const handled = handlers[i]();
-      if (handled) {
-        return true;
-      }
-    } catch (error) {
-      console.error('Error executing back handler:', error);
-    }
+  if (isExecutingBackHandler) {
+    return false;
   }
-  return false;
+  isExecutingBackHandler = true;
+  try {
+    for (let i = handlers.length - 1; i >= 0; i--) {
+      try {
+        const handled = handlers[i]();
+        if (handled) {
+          return true;
+        }
+      } catch (error) {
+        console.error('Error executing back handler:', error);
+      }
+    }
+    return false;
+  } finally {
+    isExecutingBackHandler = false;
+  }
 };

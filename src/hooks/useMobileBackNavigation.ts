@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { executeTopBackHandler } from '../utils/backHandlerRegistry';
+import { executeTopBackHandler, isBackHandlerExecuting } from '../utils/backHandlerRegistry';
 
 export interface UseMobileBackNavigationOptions {
   user: any;
@@ -113,10 +113,21 @@ export const useMobileBackNavigation = ({
     if (!user) return;
 
     const handlePopState = (event: PopStateEvent) => {
+      const viewBeforeHandler = { ...currentViewRef.current };
+
       // A. Overlays interception (modals, drawers, settings sub-screens)
       const handled = executeTopBackHandler();
       if (handled) {
-        // Overlay consumed back action.
+        // If the handler navigated to a different screen (e.g., called onClose / navigateBack to return to Dashboard),
+        // do NOT replenish the old screen's history state!
+        if (
+          currentViewRef.current.tab !== viewBeforeHandler.tab ||
+          currentViewRef.current.memberId !== viewBeforeHandler.memberId
+        ) {
+          return;
+        }
+
+        // Overlay consumed back action within current view (e.g. closed a modal or returned to settings hub).
         // Re-push current state to replenish consumed browser history entry:
         try {
           const cur = currentViewRef.current;
@@ -311,10 +322,10 @@ export const useMobileBackNavigation = ({
     };
   }, [user, ensureHistoryAnchor]);
 
-  // 5. In-app programmatic back navigation (for Back buttons in UI)
+  // 5. In-app programmatic back navigation (for Back buttons in UI and back handler actions)
   const navigateBack = useCallback((fallbackTab: string = 'dashboard') => {
-    // 1. If an overlay is active, let it handle the back action
-    if (executeTopBackHandler()) {
+    // 1. If an overlay is active and we are NOT already executing a back handler, let it handle the back action
+    if (!isBackHandlerExecuting() && executeTopBackHandler()) {
       return;
     }
 
@@ -324,7 +335,37 @@ export const useMobileBackNavigation = ({
       return;
     }
 
-    // 3. If we have in-app history entries, trigger window.history.back() to keep history synchronized
+    // 3. If called during popstate or while a back handler is executing (e.g. mobile back button pressed),
+    // the browser has ALREADY popped history! Do NOT call window.history.back() again to avoid double pop / exit!
+    if (isBackHandlerExecuting() || isPoppingRef.current) {
+      let targetTab = fallbackTab;
+      let targetMemberId: string | null = null;
+      if (inAppHistoryRef.current.length > 0) {
+        const prev = inAppHistoryRef.current.pop()!;
+        targetTab = prev.tab;
+        targetMemberId = prev.memberId;
+      }
+      isPoppingRef.current = true;
+      currentViewRef.current = { tab: targetTab, memberId: targetMemberId };
+      setActiveTab(targetTab);
+      setSelectedMemberId(targetMemberId);
+      if (targetTab === 'dashboard' && !targetMemberId) {
+        inAppHistoryRef.current = [];
+        try {
+          window.history.replaceState(
+            { app: 'somiti', role: 'home_active', tab: 'dashboard', memberId: null },
+            '',
+            '#home'
+          );
+        } catch {}
+      }
+      setTimeout(() => {
+        isPoppingRef.current = false;
+      }, 60);
+      return;
+    }
+
+    // 4. Triggered programmatically via UI button (e.g. Back button in page header)
     if (inAppHistoryRef.current.length > 0) {
       window.history.back();
     } else {
