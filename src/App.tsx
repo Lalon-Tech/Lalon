@@ -47,6 +47,7 @@ import { Loader2, ShieldAlert, Clock, AlertTriangle } from 'lucide-react';
 import { useModalScrollLock } from './hooks/useModalScrollLock';
 import { useDynamicManifest } from './hooks/useDynamicManifest';
 import { useMobileBackNavigation } from './hooks/useMobileBackNavigation';
+import { usePullToRefreshControl } from './hooks/usePullToRefreshControl';
 import { registerBackHandler } from './utils/backHandlerRegistry';
 
 const AppContent: React.FC = () => {
@@ -100,6 +101,16 @@ const AppContent: React.FC = () => {
     selectedMemberId,
     setSelectedMemberId,
     isBn: language === 'bn'
+  });
+
+  // Mobile & Tablet Pull-to-Refresh Control:
+  // - Home/Dashboard: Pull-to-Refresh remains enabled
+  // - All other pages: Pull-to-Refresh is completely disabled
+  // - Normal vertical scrolling continues without interruption on every page
+  // - Desktop behavior remains unchanged
+  usePullToRefreshControl({
+    activeTab,
+    selectedMemberId
   });
 
   // Intercept mobile Back button for all root overlays (mobile drawer and modals)

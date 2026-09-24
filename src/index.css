@@ -283,6 +283,26 @@ body.modal-open {
   overscroll-behavior: none !important;
 }
 
+/* Responsive Mobile & Tablet Pull-to-Refresh Control:
+   - Home/Dashboard: Pull-to-refresh remains enabled (overscroll-behavior-y: auto)
+   - All other pages: Pull-to-refresh is completely disabled (overscroll-behavior-y: contain)
+   - Desktop: Existing behavior remains unchanged
+   - Normal vertical scrolling continues without interruption on every page
+*/
+@media (max-width: 1023.98px), ((pointer: coarse) and (max-width: 1366px)) {
+  html.disable-ptr,
+  html.disable-ptr body,
+  body.disable-ptr {
+    overscroll-behavior-y: contain !important;
+  }
+
+  html.enable-ptr,
+  html.enable-ptr body,
+  body.enable-ptr {
+    overscroll-behavior-y: auto !important;
+  }
+}
+
 /* Ensure modal overlays and their scrollable children can scroll freely without leaking to background */
 .modal-overlay,
 .modal-overlay *,
