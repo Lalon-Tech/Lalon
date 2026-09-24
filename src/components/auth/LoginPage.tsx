@@ -209,7 +209,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
         if (res.user.email) {
           rememberLoginId(res.user.email);
         }
-        signInWithBiometricProfile(res.user);
+        await signInWithBiometricProfile(res.user);
         // Always open Home/Dashboard upon login
         setActiveTab('dashboard');
         setSelectedMemberId(null);
@@ -229,22 +229,8 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
     }
   };
 
-  const isAuthProcessing = loading || googleLoading || biometricLoading;
-  const authLoadingMsg = biometricLoading
-    ? (language === 'bn' ? 'বায়োমেট্রিক তথ্য যাচাই করা হচ্ছে...' : 'Verifying biometric credentials...')
-    : googleLoading
-    ? (language === 'bn' ? 'গুগল দিয়ে সাইন ইন হচ্ছে...' : 'Signing in with Google...')
-    : (language === 'bn' ? 'লগইন যাচাই করা হচ্ছে...' : 'Verifying credentials...');
-
   return (
     <div className="min-h-screen w-full bg-[#0c142b] sm:bg-[#070d1e] flex flex-col items-center justify-center p-0 sm:p-6 text-slate-100 font-sans relative overflow-x-hidden">
-      {/* Brand animated overlay during authentication processing */}
-      {isAuthProcessing && (
-        <SomitiLogoLoader 
-          variant="overlay" 
-          message={authLoadingMsg} 
-        />
-      )}
       {/* Background glow accents */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 sm:w-96 h-72 sm:h-96 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-10 right-10 w-64 sm:w-80 h-64 sm:h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -350,39 +336,6 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             <div>{successMsg}</div>
           </div>
-        )}
-
-        {/* One-Tap Biometric Sign In Card for Enrolled Devices (Mobile, Tablet, Touch ID/Windows Hello) */}
-        {mode === 'signin' && isBiometricSupported && isBiometricEnrolled && (
-          <button
-            type="button"
-            id="btn-quick-biometric-banner"
-            onClick={handleBiometricLogin}
-            disabled={biometricLoading || loading || googleLoading}
-            className="w-full mb-3 sm:mb-4 py-2.5 px-3.5 bg-gradient-to-r from-cyan-950/80 via-[#0e1a38] to-blue-950/80 hover:from-cyan-900/90 hover:to-blue-900/90 border border-cyan-500/50 rounded-2xl flex items-center justify-between text-xs text-cyan-200 transition-all cursor-pointer group shadow-lg active:scale-[0.99]"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-400 group-hover:scale-110 transition-transform shadow-xs shrink-0">
-                {biometricLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
-                ) : (
-                  <Fingerprint className="w-4 h-4 text-cyan-400" />
-                )}
-              </div>
-              <div className="text-left min-w-0">
-                <p className="font-bold text-cyan-300 text-xs flex items-center gap-1.5 truncate">
-                  <span>{language === 'bn' ? 'ফিঙ্গারপ্রিন্ট / বায়োমেট্রিক লগইন' : 'Biometric / Fingerprint Login'}</span>
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                </p>
-                <p className="text-[10px] text-slate-400 truncate">
-                  {lastEnrolledUser?.displayName || lastEnrolledUser?.email || (language === 'bn' ? 'এক ক্লিকে নিরাপদ প্রবেশ' : 'One-tap secure sign in')}
-                </p>
-              </div>
-            </div>
-            <span className="text-[11px] font-bold text-cyan-300 bg-cyan-500/20 px-2.5 py-1 rounded-lg border border-cyan-400/30 group-hover:bg-cyan-400 group-hover:text-slate-950 transition-colors shrink-0">
-              {language === 'bn' ? 'লগইন' : 'Sign In'}
-            </span>
-          </button>
         )}
 
         {/* Form elements identical to user screenshot */}
@@ -541,7 +494,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
             <button
               type="submit"
               disabled={loading || googleLoading}
-              className={`${mode === 'signin' && isBiometricSupported ? 'flex-1' : 'w-full'} py-3 sm:py-3.5 px-4 bg-cyan-400 hover:bg-cyan-300 active:scale-[0.99] text-slate-950 rounded-xl sm:rounded-2xl font-black text-sm tracking-wide shadow-lg shadow-cyan-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60`}
+              className={`${mode === 'signin' && isBiometricSupported ? 'flex-1' : 'w-full'} py-3 sm:py-3.5 px-4 bg-cyan-400 hover:bg-cyan-300 active:scale-[0.99] text-slate-950 rounded-xl sm:rounded-2xl font-black text-sm tracking-wide shadow-lg shadow-cyan-500/25 transition-colors duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60`}
             >
               {loading ? (
                 <>
@@ -565,7 +518,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
                 disabled={biometricLoading || loading || googleLoading}
                 title={language === 'bn' ? 'বায়োমেট্রিক দিয়ে লগইন (ফিঙ্গারপ্রিন্ট / ফেস আইডি)' : 'Sign In with Biometrics (Fingerprint / Face ID)'}
                 aria-label="Sign In with Biometrics"
-                className="w-12 sm:w-14 shrink-0 bg-[#131d36] hover:bg-[#1b2b4f] active:scale-95 border border-cyan-500/40 hover:border-cyan-400 text-cyan-400 hover:text-cyan-300 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg transition-all cursor-pointer disabled:opacity-50 group"
+                className="w-12 sm:w-14 shrink-0 bg-[#131d36] hover:bg-[#1b2b4f] active:scale-95 border border-cyan-500/40 hover:border-cyan-400 text-cyan-400 hover:text-cyan-300 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg transition-colors duration-150 cursor-pointer disabled:opacity-50 group"
               >
                 {biometricLoading ? (
                   <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-cyan-400" />

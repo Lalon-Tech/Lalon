@@ -57,10 +57,33 @@ function detectPlatformDeviceName(): string {
 }
 
 export function useBiometricAuth() {
-  const [isSupported, setIsSupported] = useState<boolean>(false);
-  const [isPlatformAuthenticatorAvailable, setIsPlatformAuthenticatorAvailable] = useState<boolean>(false);
-  const [isChecking, setIsChecking] = useState<boolean>(true);
-  const [enrolledCredentials, setEnrolledCredentials] = useState<BiometricCredential[]>([]);
+  const [isSupported, setIsSupported] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return Boolean(
+      window.PublicKeyCredential &&
+      navigator.credentials &&
+      typeof navigator.credentials.create === 'function' &&
+      typeof navigator.credentials.get === 'function'
+    );
+  });
+  const [isPlatformAuthenticatorAvailable, setIsPlatformAuthenticatorAvailable] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return Boolean(window.PublicKeyCredential);
+  });
+  const [isChecking, setIsChecking] = useState<boolean>(false);
+  const [enrolledCredentials, setEnrolledCredentials] = useState<BiometricCredential[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      }
+    } catch {}
+    return [];
+  });
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);

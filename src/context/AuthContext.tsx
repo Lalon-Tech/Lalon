@@ -24,12 +24,13 @@ export interface AppAuthUser {
 interface AuthContextType {
   user: User | AppAuthUser | null;
   loading: boolean;
+  isLoginTransitioning: boolean;
   error: string | null;
   signIn: (email: string, pass: string) => Promise<void>;
   signUp: (email: string, pass: string, name?: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInAsDemo: (role?: string) => void;
-  signInWithBiometricProfile: (profile: AppAuthUser) => void;
+  signInWithBiometricProfile: (profile: AppAuthUser) => Promise<void> | void;
   resetPassword: (email: string) => Promise<void>;
   logOut: () => Promise<void>;
   clearError: () => void;
@@ -85,6 +86,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | AppAuthUser | null>(() => getStoredUser());
   const [loading, setLoading] = useState<boolean>(() => !getStoredUser());
+  const [isLoginTransitioning, setIsLoginTransitioning] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   // Auto-logout state
@@ -282,8 +284,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       const cred = await signInWithEmailAndPassword(auth, cleanEmail, pass);
+      setIsLoginTransitioning(true);
       persistUser(cred.user);
       setUser(cred.user);
+      // Exactly 3 seconds branded logo animation delay before dashboard navigation
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      setIsLoginTransitioning(false);
     } catch (err: any) {
       console.warn("Firebase signIn info:", err?.code, err?.message);
 
@@ -295,9 +301,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           displayName: resolvedUser?.name || cleanEmail.split('@')[0],
           photoURL: resolvedUser?.avatarUrl || null,
         };
+        setIsLoginTransitioning(true);
         persistUser(localUser);
         setUser(localUser);
         setError(null);
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        setIsLoginTransitioning(false);
         return;
       }
 
@@ -305,8 +314,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (err.code === 'auth/user-not-found') {
         try {
           const cred = await createUserWithEmailAndPassword(auth, cleanEmail, pass);
+          setIsLoginTransitioning(true);
           persistUser(cred.user);
           setUser(cred.user);
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          setIsLoginTransitioning(false);
           return;
         } catch (createErr: any) {
           console.warn("Auto-signup attempt on signIn:", createErr?.code);
@@ -505,7 +517,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signInAsDemo = (role: string = 'Super Admin') => {
+  const signInAsDemo = async (role: string = 'Super Admin') => {
     setError(null);
     const isMemberRole = role.toLowerCase().includes('member') || role.toLowerCase().includes('সদস্য');
     const localUser: AppAuthUser = {
@@ -514,11 +526,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       displayName: isMemberRole ? 'মোঃ রফিকুল ইসলাম (সদস্য)' : `মোঃ আব্দুল্লাহ (${role})`,
       photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
     };
+    setIsLoginTransitioning(true);
     persistUser(localUser);
     setUser(localUser);
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    setIsLoginTransitioning(false);
   };
 
-  const signInWithBiometricProfile = (profile: AppAuthUser) => {
+  const signInWithBiometricProfile = async (profile: AppAuthUser) => {
     setError(null);
     const localUser: AppAuthUser = {
       uid: profile.uid,
@@ -526,8 +541,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       displayName: profile.displayName || (profile.email ? profile.email.split('@')[0] : 'Member'),
       photoURL: profile.photoURL || null,
     };
+    setIsLoginTransitioning(true);
     persistUser(localUser);
     setUser(localUser);
+    // Exactly 3 seconds branded logo animation delay after successful biometric authentication
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    setIsLoginTransitioning(false);
   };
 
   const resetPassword = async (email: string) => {
@@ -548,6 +567,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logOut = async () => {
     setError(null);
+    setIsLoginTransitioning(false);
     persistUser(null);
     try {
       await signOut(auth);
@@ -562,6 +582,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider value={{ 
       user, 
       loading, 
+      isLoginTransitioning,
       error, 
       signIn, 
       signUp, 

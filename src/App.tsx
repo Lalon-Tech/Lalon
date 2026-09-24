@@ -58,6 +58,7 @@ const AppContent: React.FC = () => {
   const { 
     user, 
     loading, 
+    isLoginTransitioning,
     inactivityWarning, 
     inactivitySecondsRemaining, 
     stayLoggedIn, 
@@ -231,12 +232,17 @@ const AppContent: React.FC = () => {
 
   const isMember = currentUser?.role === 'member';
 
-  // Loading state (only for initial auth check, never locks UI indefinitely)
-  if (loading) {
+  // Loading state (initial auth check or 3-second branded login transition)
+  if (loading || isLoginTransitioning) {
     return (
       <SomitiLogoLoader 
         variant="full" 
-        message={language === 'bn' ? 'তথ্য লোড হচ্ছে...' : 'Loading Bondhu Somiti...'} 
+        message={
+          isLoginTransitioning
+            ? (language === 'bn' ? 'স্বাগতম! ড্যাশবোর্ডে প্রবেশ করা হচ্ছে...' : 'Welcome! Loading dashboard...')
+            : (language === 'bn' ? 'তথ্য লোড হচ্ছে...' : 'Loading Bondhu Somiti...')
+        }
+        subMessage={language === 'bn' ? 'ঐক্য • সমৃদ্ধি • বিশ্বাস' : 'Bondhu Samabay Somiti Ltd.'}
       />
     );
   }
