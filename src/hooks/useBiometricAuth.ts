@@ -56,15 +56,38 @@ function detectPlatformDeviceName(): string {
   return 'Device Platform Authenticator';
 }
 
+/**
+ * Checks whether WebAuthn publickey credentials creation is permitted by the document / iframe permissions policy
+ */
+export function checkWebAuthnFeatureAllowed(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (!window.PublicKeyCredential || !navigator.credentials) return false;
+  if (
+    typeof navigator.credentials.create !== 'function' ||
+    typeof navigator.credentials.get !== 'function'
+  ) {
+    return false;
+  }
+
+  try {
+    const doc = document as any;
+    if (doc.permissionsPolicy && typeof doc.permissionsPolicy.allowsFeature === 'function') {
+      if (!doc.permissionsPolicy.allowsFeature('publickey-credentials-create')) {
+        return false;
+      }
+    } else if (doc.featurePolicy && typeof doc.featurePolicy.allowsFeature === 'function') {
+      if (!doc.featurePolicy.allowsFeature('publickey-credentials-create')) {
+        return false;
+      }
+    }
+  } catch {}
+
+  return true;
+}
+
 export function useBiometricAuth() {
   const [isSupported, setIsSupported] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return Boolean(
-      window.PublicKeyCredential &&
-      navigator.credentials &&
-      typeof navigator.credentials.create === 'function' &&
-      typeof navigator.credentials.get === 'function'
-    );
+    return checkWebAuthnFeatureAllowed();
   });
   const [isPlatformAuthenticatorAvailable, setIsPlatformAuthenticatorAvailable] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
@@ -110,12 +133,8 @@ export function useBiometricAuth() {
 
     async function checkAvailability() {
       setIsChecking(true);
-      // 1. Check if Web Authentication API is supported in window & navigator
-      const supported = typeof window !== 'undefined' &&
-        Boolean(window.PublicKeyCredential) &&
-        Boolean(navigator.credentials) &&
-        typeof navigator.credentials.create === 'function' &&
-        typeof navigator.credentials.get === 'function';
+      // 1. Check if Web Authentication API is supported and allowed by permissions policy
+      const supported = checkWebAuthnFeatureAllowed();
 
       if (!isMounted) return;
       setIsSupported(supported);
@@ -172,8 +191,8 @@ export function useBiometricAuth() {
       clearSuccess();
       setLoading(true);
 
-      if (!isSupported) {
-        const msg = 'আপনার ব্রাউজার বা ডিভাইসে Web Authentication (বায়োমেট্রিক) সমর্থিত নয়।';
+      if (!isSupported || !checkWebAuthnFeatureAllowed()) {
+        const msg = 'আপনার ব্রাউজার বা আইফ্রেম পরিবেশে Web Authentication (বায়োমেট্রিক) সমর্থিত নয়। নতুন ট্যাবে অ্যাপটি ওপেন করে চেষ্টা করুন।';
         setError(msg);
         setLoading(false);
         return { success: false, error: msg };
@@ -256,13 +275,18 @@ export function useBiometricAuth() {
         setLoading(false);
         return { success: true, credential: newBiometricCred };
       } catch (err: any) {
-        console.error('Biometric registration error:', err);
+        console.warn('Biometric registration notice:', err?.name, err?.message);
         let errorMsg = 'বায়োমেট্রিক নিবন্ধন সম্পন্ন করা যায়নি।';
 
-        if (err.name === 'NotAllowedError') {
+        const errMsg = String(err?.message || '');
+        if (
+          errMsg.includes('publickey-credentials-create') ||
+          errMsg.includes('Permissions Policy') ||
+          err.name === 'SecurityError'
+        ) {
+          errorMsg = 'ব্রাউজার সিকিউরিটি পলিসির কারণে আইফ্রেম প্রিভিউতে বায়োমেট্রিক নিবন্ধন সীমিত। নতুন ট্যাবে বা পূর্ণ উইন্ডোতে অ্যাপটি ওপেন করুন।';
+        } else if (err.name === 'NotAllowedError') {
           errorMsg = 'বায়োমেট্রিক স্ক্যান বাতিল করা হয়েছে অথবা সময় শেষ হয়ে গেছে।';
-        } else if (err.name === 'SecurityError') {
-          errorMsg = 'সুরক্ষা বিধিনিষেধের কারণে আইফ্রেমে বায়োমেট্রিক কাজ নাও করতে পারে। অনুগ্রহ করে নতুন ট্যাবে খুলে চেষ্টা করুন।';
         } else if (err.name === 'InvalidStateError') {
           errorMsg = 'এই ডিভাইসে আপনার বায়োমেট্রিক ইতিমধ্যে নিবন্ধিত রয়েছে।';
         } else if (err.name === 'NotSupportedError') {
@@ -292,8 +316,8 @@ export function useBiometricAuth() {
     clearSuccess();
     setLoading(true);
 
-    if (!isSupported) {
-      const msg = 'আপনার ব্রাউজার বা ডিভাইসে Web Authentication (বায়োমেট্রিক) সমর্থিত নয়।';
+    if (!isSupported || !checkWebAuthnFeatureAllowed()) {
+      const msg = 'আপনার ব্রাউজার বা আইফ্রেম পরিবেশে Web Authentication (বায়োমেট্রিক) সমর্থিত নয়। নতুন ট্যাবে অ্যাপটি ওপেন করে চেষ্টা করুন।';
       setError(msg);
       setLoading(false);
       return { success: false, error: msg };
@@ -355,13 +379,18 @@ export function useBiometricAuth() {
         credentialId: assertionId,
       };
     } catch (err: any) {
-      console.error('Biometric authentication error:', err);
+      console.warn('Biometric authentication notice:', err?.name, err?.message);
       let errorMsg = 'বায়োমেট্রিক লগইন সম্পন্ন করা যায়নি।';
 
-      if (err.name === 'NotAllowedError') {
+      const errMsg = String(err?.message || '');
+      if (
+        errMsg.includes('publickey-credentials-get') ||
+        errMsg.includes('Permissions Policy') ||
+        err.name === 'SecurityError'
+      ) {
+        errorMsg = 'ব্রাউজার সিকিউরিটি পলিসির কারণে আইফ্রেম প্রিভিউতে বায়োমেট্রিক যাচাই সীমিত। নতুন ট্যাবে বা পূর্ণ উইন্ডোতে অ্যাপটি ওপেন করুন।';
+      } else if (err.name === 'NotAllowedError') {
         errorMsg = 'বায়োমেট্রিক স্ক্যান বাতিল করা হয়েছে বা আঙুলের ছাপ মেলেনি।';
-      } else if (err.name === 'SecurityError') {
-        errorMsg = 'আইফ্রেমে বায়োমেট্রিক সীমাবদ্ধ থাকতে পারে। অ্যাপটি ব্রাউজারের মূল ট্যাবে খুলে চেষ্টা করুন।';
       } else if (err.name === 'NotSupportedError') {
         errorMsg = 'এই ব্রাউজার বা ডিভাইসে বায়োমেট্রিক অথেন্টিকেশন সমর্থিত নয়।';
       } else if (err.message) {

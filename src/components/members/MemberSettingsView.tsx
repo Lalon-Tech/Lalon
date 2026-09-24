@@ -466,6 +466,8 @@ export const MemberSettingsView: React.FC<MemberSettingsViewProps> = ({
             ? 'বায়োমেট্রিক (ফিঙ্গারপ্রিন্ট / ফেস আইডি) সফলভাবে সক্রিয় করা হয়েছে!'
             : 'Biometric authentication registered successfully!'
         );
+      } else if (res.error) {
+        setErrorToast(res.error);
       }
     }
   };

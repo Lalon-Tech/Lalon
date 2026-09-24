@@ -201,7 +201,10 @@ export interface Transaction {
   billingPeriod?: string;       // e.g. "মার্চ ২০২৬" / "March 2026"
   category?: string;
   notes?: string;
-  status: 'completed' | 'pending' | 'cancelled';
+  status: 'completed' | 'pending' | 'cancelled' | 'rejected';
+  rejectedBy?: string;
+  rejectedAt?: string;
+  rejectionReason?: string;
   createdAt?: string;
 }
 

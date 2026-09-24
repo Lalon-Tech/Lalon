@@ -16,7 +16,8 @@ import {
   Plus,
   Check,
   User,
-  ShieldCheck
+  ShieldCheck,
+  XCircle
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -85,6 +86,7 @@ export const MemberDepositView: React.FC = () => {
   
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'approved' | 'pending' | 'rejected'>('all');
 
   // Active shares calculation for current member
   const activeShareCount = useMemo(() => {
@@ -638,7 +640,7 @@ export const MemberDepositView: React.FC = () => {
 
       {/* Member's Deposit Request History */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-7 space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-slate-500" />
             <h3 className="text-sm font-bold text-slate-900">
@@ -650,69 +652,164 @@ export const MemberDepositView: React.FC = () => {
           </span>
         </div>
 
+        {/* Filter Tabs */}
+        {memberDeposits.length > 0 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+            <button
+              type="button"
+              onClick={() => setHistoryFilter('all')}
+              className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer shrink-0 ${
+                historyFilter === 'all'
+                  ? 'bg-slate-900 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {isBn ? 'সব' : 'All'} ({isBn ? toBengaliNumber(memberDeposits.length) : memberDeposits.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setHistoryFilter('approved')}
+              className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer shrink-0 ${
+                historyFilter === 'approved'
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+              }`}
+            >
+              {isBn ? 'অনুমোদিত' : 'Approved'} ({isBn ? toBengaliNumber(memberDeposits.filter(t => t.status === 'completed' || (!t.status || (t.status !== 'pending' && t.status !== 'cancelled' && (t.status as string) !== 'rejected'))).length) : memberDeposits.filter(t => t.status === 'completed' || (!t.status || (t.status !== 'pending' && t.status !== 'cancelled' && (t.status as string) !== 'rejected'))).length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setHistoryFilter('pending')}
+              className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer shrink-0 ${
+                historyFilter === 'pending'
+                  ? 'bg-amber-600 text-white'
+                  : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
+              }`}
+            >
+              {isBn ? 'অপেক্ষমাণ' : 'Pending'} ({isBn ? toBengaliNumber(memberDeposits.filter(t => t.status === 'pending').length) : memberDeposits.filter(t => t.status === 'pending').length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setHistoryFilter('rejected')}
+              className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer shrink-0 ${
+                historyFilter === 'rejected'
+                  ? 'bg-rose-600 text-white'
+                  : 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
+              }`}
+            >
+              {isBn ? 'বাতিলকৃত' : 'Rejected'} ({isBn ? toBengaliNumber(memberDeposits.filter(t => t.status === 'cancelled' || (t.status as string) === 'rejected').length) : memberDeposits.filter(t => t.status === 'cancelled' || (t.status as string) === 'rejected').length})
+            </button>
+          </div>
+        )}
+
         {memberDeposits.length === 0 ? (
           <div className="text-center py-8 text-slate-400 text-xs">
             {isBn ? 'এখনও কোনো জমার রেকর্ড নেই।' : 'No deposit records found.'}
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {memberDeposits.slice(0, 10).map((tx) => {
-              const isPending = tx.status === 'pending';
-              const shareInfo = tx.selectedShares && tx.selectedShares.length > 0 
-                ? (isBn ? `শেয়ার #${toBengaliNumber(tx.selectedShares[0])}` : `Share #${tx.selectedShares[0]}`)
-                : '';
+            {memberDeposits
+              .filter(tx => {
+                const isPending = tx.status === 'pending';
+                const isRejected = tx.status === 'cancelled' || (tx.status as string) === 'rejected';
+                const isApproved = tx.status === 'completed' || (!isPending && !isRejected);
+                if (historyFilter === 'pending') return isPending;
+                if (historyFilter === 'rejected') return isRejected;
+                if (historyFilter === 'approved') return isApproved;
+                return true;
+              })
+              .slice(0, 15)
+              .map((tx) => {
+                const isPending = tx.status === 'pending';
+                const isRejected = tx.status === 'cancelled' || (tx.status as string) === 'rejected';
+                const isApproved = tx.status === 'completed' || (!isPending && !isRejected);
+                const shareInfo = tx.selectedShares && tx.selectedShares.length > 0 
+                  ? (isBn ? `শেয়ার #${toBengaliNumber(tx.selectedShares[0])}` : `Share #${tx.selectedShares[0]}`)
+                  : '';
 
-              return (
-                <div key={tx.id} className="py-3 flex items-center justify-between gap-3 text-xs">
-                  <div className="space-y-0.5 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-slate-900">
-                        {tx.type === 'dps_deposit' 
-                          ? (isBn ? 'ডিপিএস জমা' : 'DPS Deposit')
-                          : tx.type === 'fdr_deposit'
-                            ? (isBn ? 'এফডিআর জমা' : 'FDR Deposit')
-                            : (isBn ? 'সাধারণ সঞ্চয় জমা' : 'General Savings')}
-                      </span>
-                      {shareInfo && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                          {shareInfo}
+                return (
+                  <div key={tx.id} className={`py-3 flex items-center justify-between gap-3 text-xs transition-colors ${isRejected ? 'bg-rose-50/40 px-2 rounded-lg' : ''}`}>
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`font-bold ${isRejected ? 'text-slate-700' : 'text-slate-900'}`}>
+                          {tx.type === 'dps_deposit' 
+                            ? (isBn ? 'ডিপিএস জমা' : 'DPS Deposit')
+                            : tx.type === 'fdr_deposit'
+                              ? (isBn ? 'এফডিআর জমা' : 'FDR Deposit')
+                              : tx.type === 'share_purchase'
+                                ? (isBn ? 'শেয়ার ক্রয় জমা' : 'Share Purchase')
+                                : (isBn ? 'সাধারণ সঞ্চয় জমা' : 'General Savings')}
                         </span>
-                      )}
-                      {isPending ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
-                          <Clock className="w-3 h-3" />
-                          {isBn ? 'অনুমোদনের অপেক্ষায়' : 'Pending Approval'}
+                        {shareInfo && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                            {shareInfo}
+                          </span>
+                        )}
+                        {isPending ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
+                            <Clock className="w-3 h-3" />
+                            {isBn ? 'অনুমোদনের অপেক্ষায়' : 'Pending Approval'}
+                          </span>
+                        ) : isRejected ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                            <XCircle className="w-3 h-3 text-rose-600" />
+                            {isBn ? 'বাতিল / প্রত্যাখ্যাত' : 'Rejected'}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            <CheckCircle2 className="w-3 h-3" />
+                            {isBn ? 'অনুমোদিত' : 'Approved'}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-400">
+                        {formatBengaliDate(tx.date, isBn)} • {tx.paymentMethod.toUpperCase()}
+                        {tx.notes && (
+                          <span className={isRejected ? 'text-rose-600 font-medium ml-1' : 'ml-1'}>
+                            • {tx.notes}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      {isRejected ? (
+                        <span className="text-sm font-bold text-rose-500 line-through block" title={isBn ? 'বাতিলকৃত লেনদেন' : 'Rejected Transaction'}>
+                          {formatCurrency(tx.amount, isBn && useBengaliDigits)}
+                        </span>
+                      ) : isPending ? (
+                        <span className="text-sm font-bold text-amber-700 block">
+                          +{formatCurrency(tx.amount, isBn && useBengaliDigits)}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                          <CheckCircle2 className="w-3 h-3" />
-                          {isBn ? 'অনুমোদিত' : 'Approved'}
+                        <span className="text-sm font-bold text-emerald-700 block">
+                          +{formatCurrency(tx.amount, isBn && useBengaliDigits)}
+                        </span>
+                      )}
+
+                      {isApproved && (
+                        <button
+                          type="button"
+                          onClick={() => openReceiptForTx(tx)}
+                          className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 underline cursor-pointer mt-0.5 inline-block"
+                        >
+                          {isBn ? 'রসিদ দেখুন' : 'View Receipt'}
+                        </button>
+                      )}
+                      {isPending && (
+                        <span className="text-[10px] font-medium text-amber-600 block mt-0.5">
+                          {isBn ? 'অপেক্ষমাণ' : 'Pending'}
+                        </span>
+                      )}
+                      {isRejected && (
+                        <span className="text-[10px] font-semibold text-rose-600 block mt-0.5">
+                          {isBn ? 'বাতিলকৃত' : 'Rejected'}
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-400">
-                      {formatBengaliDate(tx.date, isBn)} • {tx.paymentMethod.toUpperCase()}
-                      {tx.notes && ` • ${tx.notes}`}
-                    </p>
                   </div>
-
-                  <div className="text-right shrink-0">
-                    <span className="text-sm font-bold text-emerald-700 block">
-                      +{formatCurrency(tx.amount, isBn && useBengaliDigits)}
-                    </span>
-                    {!isPending && (
-                      <button
-                        type="button"
-                        onClick={() => openReceiptForTx(tx)}
-                        className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 underline cursor-pointer mt-0.5"
-                      >
-                        {isBn ? 'রসিদ দেখুন' : 'View Receipt'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         )}
       </div>

@@ -66,6 +66,7 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
           runtimeCaching: [
             {
@@ -118,6 +119,7 @@ export default defineConfig(() => {
             vendor: ['react', 'react-dom'],
             firebase: ['firebase/app', 'firebase/firestore', 'firebase/auth'],
             ui: ['lucide-react', 'canvas-confetti', 'xlsx'],
+            pdf: ['jspdf', 'html-to-image'],
           },
         },
       },

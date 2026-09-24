@@ -15,7 +15,8 @@ import {
   CheckSquare, 
   ArrowRight,
   ShieldCheck,
-  Percent
+  Percent,
+  XCircle
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -644,13 +645,16 @@ export const MemberLoanPaymentView: React.FC = () => {
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {memberLoanTransactions.slice(0, 10).map((tx) => {
+            {memberLoanTransactions.slice(0, 15).map((tx) => {
               const isPending = tx.status === 'pending';
+              const isRejected = tx.status === 'cancelled' || (tx.status as string) === 'rejected';
+              const isApproved = tx.status === 'completed' || (!isPending && !isRejected);
+
               return (
-                <div key={tx.id} className="py-3 flex items-center justify-between gap-3 text-xs">
+                <div key={tx.id} className={`py-3 flex items-center justify-between gap-3 text-xs transition-colors ${isRejected ? 'bg-rose-50/40 px-2 rounded-lg' : ''}`}>
                   <div className="space-y-0.5 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-slate-900">
+                      <span className={`font-bold ${isRejected ? 'text-slate-700' : 'text-slate-900'}`}>
                         {isBn ? 'ঋণ কিস্তি পরিশোধ' : 'Loan Payment'}
                       </span>
                       {isPending ? (
@@ -658,31 +662,61 @@ export const MemberLoanPaymentView: React.FC = () => {
                           <Clock className="w-3 h-3" />
                           {isBn ? 'অনুমোদনের অপেক্ষায়' : 'Pending Approval'}
                         </span>
+                      ) : isRejected ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                          <XCircle className="w-3 h-3 text-rose-600" />
+                          {isBn ? 'বাতিল / প্রত্যাখ্যাত' : 'Rejected'}
+                        </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                          <CheckCircle2 className="w-3 h-3" />
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                           {isBn ? 'অনুমোদিত' : 'Approved'}
                         </span>
                       )}
                     </div>
                     <p className="text-[11px] text-slate-400">
                       {formatBengaliDate(tx.date, isBn)} • {tx.paymentMethod.toUpperCase()}
-                      {tx.notes && ` • ${tx.notes}`}
+                      {tx.notes && (
+                        <span className={isRejected ? 'text-rose-600 font-medium ml-1' : 'ml-1'}>
+                          • {tx.notes}
+                        </span>
+                      )}
                     </p>
                   </div>
 
                   <div className="text-right shrink-0">
-                    <span className="text-sm font-bold text-indigo-700 block">
-                      {formatCurrency(tx.amount, isBn && useBengaliDigits)}
-                    </span>
-                    {!isPending && (
+                    {isRejected ? (
+                      <span className="text-sm font-bold text-rose-500 line-through block" title={isBn ? 'বাতিলকৃত লেনদেন' : 'Rejected Transaction'}>
+                        {formatCurrency(tx.amount, isBn && useBengaliDigits)}
+                      </span>
+                    ) : isPending ? (
+                      <span className="text-sm font-bold text-amber-700 block">
+                        {formatCurrency(tx.amount, isBn && useBengaliDigits)}
+                      </span>
+                    ) : (
+                      <span className="text-sm font-bold text-indigo-700 block">
+                        {formatCurrency(tx.amount, isBn && useBengaliDigits)}
+                      </span>
+                    )}
+
+                    {isApproved && (
                       <button
                         type="button"
                         onClick={() => openReceiptForTx(tx)}
-                        className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 underline cursor-pointer mt-0.5"
+                        className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 underline cursor-pointer mt-0.5 inline-block"
                       >
                         {isBn ? 'রসিদ দেখুন' : 'View Receipt'}
                       </button>
+                    )}
+                    {isPending && (
+                      <span className="text-[10px] font-medium text-amber-600 block mt-0.5">
+                        {isBn ? 'অপেক্ষমাণ' : 'Pending'}
+                      </span>
+                    )}
+                    {isRejected && (
+                      <span className="text-[10px] font-semibold text-rose-600 block mt-0.5">
+                        {isBn ? 'বাতিলকৃত' : 'Rejected'}
+                      </span>
                     )}
                   </div>
                 </div>

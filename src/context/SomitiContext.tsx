@@ -3597,6 +3597,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updatedTx: Transaction = {
       ...tx,
       status: 'cancelled',
+      rejectedBy: currentUser?.name || 'অ্যাডমিন',
+      rejectedAt: new Date().toISOString(),
+      rejectionReason: reason || 'প্রশাসনিক সিদ্ধান্তে প্রত্যাখ্যাত',
       verifiedBy: currentUser?.name || 'অ্যাডমিন',
       notes: `${tx.notes || ''} [বাতিলকৃত: ${reason || 'প্রশাসনিক সিদ্ধান্তে প্রত্যাখ্যাত'}]`,
     };
