@@ -2,6 +2,23 @@
 <html lang="bn">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Suppress harmless Vite dev server WebSocket/HMR disconnect messages in iFrame preview
+      (function() {
+        const origError = console.error;
+        console.error = function(...args) {
+          if (args.length > 0 && typeof args[0] === 'string' && (
+            args[0].includes('[vite] send was called before connect') ||
+            args[0].includes('failed to connect to websocket') ||
+            args[0].includes('WebSocket connection to') ||
+            args[0].includes('[vite] server connection lost')
+          )) {
+            return;
+          }
+          origError.apply(console, args);
+        };
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
