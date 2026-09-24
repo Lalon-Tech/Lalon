@@ -72,6 +72,8 @@ const persistUser = (u: any) => {
     } else {
       localStorage.removeItem('somiti_auth_user');
       sessionStorage.removeItem('somiti_session_user');
+      localStorage.removeItem('somiti_current_app_user');
+      sessionStorage.removeItem('somiti_current_app_user');
     }
   } catch (err) {
     console.warn("User persistence error:", err);

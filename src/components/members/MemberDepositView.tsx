@@ -60,13 +60,17 @@ export const MemberDepositView: React.FC = () => {
   // If Admin is browsing, allow selecting any member
   const [selectedMemberId, setSelectedMemberId] = useState<string>(() => {
     if (loggedInMember) return loggedInMember.id;
+    if (currentUser?.role === 'member') return '';
     if (contextMemberId) return contextMemberId;
     return members[0]?.id || '';
   });
 
   const currentMember = useMemo(() => {
+    if (currentUser?.role === 'member') {
+      return loggedInMember;
+    }
     return members.find(m => m.id === selectedMemberId) || loggedInMember || members[0] || null;
-  }, [selectedMemberId, members, loggedInMember]);
+  }, [selectedMemberId, members, loggedInMember, currentUser?.role]);
 
   // Form states
   const [schemeType, setSchemeType] = useState<'general' | 'dps' | 'fdr'>('general');

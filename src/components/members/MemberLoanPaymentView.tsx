@@ -39,8 +39,16 @@ export const MemberLoanPaymentView: React.FC = () => {
 
   // Identify current member
   const currentMember = useMemo(() => {
-    if (!currentUser?.memberId) return null;
-    return members.find(m => m.id === currentUser.memberId) || null;
+    if (!currentUser) return null;
+    if (currentUser.memberId) {
+      const found = members.find(m => m.id === currentUser.memberId);
+      if (found) return found;
+    }
+    const authEmail = (currentUser.email || '').toLowerCase().trim();
+    return members.find(m => 
+      (authEmail && m.email && m.email.toLowerCase() === authEmail) ||
+      (currentUser.phone && m.phone && m.phone === currentUser.phone)
+    ) || null;
   }, [currentUser, members]);
 
   // Active loans of this member

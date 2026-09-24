@@ -49,6 +49,7 @@ import { useDynamicManifest } from './hooks/useDynamicManifest';
 import { useMobileBackNavigation } from './hooks/useMobileBackNavigation';
 import { usePullToRefreshControl } from './hooks/usePullToRefreshControl';
 import { registerBackHandler } from './utils/backHandlerRegistry';
+import { SomitiLogoLoader } from './components/common/SomitiLogoLoader';
 
 const AppContent: React.FC = () => {
   // Synchronize browser icon, apple-touch-icon, and PWA manifest dynamically when settings.logoUrl changes
@@ -90,7 +91,8 @@ const AppContent: React.FC = () => {
     updateMember,
     useBengaliDigits,
     activeReceipt,
-    closeReceiptModal
+    closeReceiptModal,
+    syncAllFromFirestore
   } = useSomiti();
 
   // Mobile Back Navigation with persistent history stack, overlay interception & Home protection
@@ -104,13 +106,24 @@ const AppContent: React.FC = () => {
   });
 
   // Mobile & Tablet Pull-to-Refresh Control:
-  // - Home/Dashboard: Pull-to-Refresh remains enabled
+  // - Home/Dashboard: Pull-to-Refresh remains smoothly enabled
+  // - Displays subtle animated Bondhu Somiti logo indicator
+  // - Keeps existing dashboard content stable during refresh without blank screen or reload
   // - All other pages: Pull-to-Refresh is completely disabled
   // - Normal vertical scrolling continues without interruption on every page
   // - Desktop behavior remains unchanged
-  usePullToRefreshControl({
+  const handleDashboardRefresh = async () => {
+    try {
+      await syncAllFromFirestore();
+    } catch (e) {
+      console.warn('Dashboard pull-to-refresh sync notice:', e);
+    }
+  };
+
+  const { isRefreshing, pullDistance, pullProgress } = usePullToRefreshControl({
     activeTab,
-    selectedMemberId
+    selectedMemberId,
+    onRefresh: handleDashboardRefresh,
   });
 
   // Intercept mobile Back button for all root overlays (mobile drawer and modals)
@@ -221,10 +234,10 @@ const AppContent: React.FC = () => {
   // Loading state (only for initial auth check, never locks UI indefinitely)
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#070d1e] flex flex-col items-center justify-center text-cyan-400 gap-3">
-        <Loader2 className="w-8 h-8 animate-spin" />
-        <p className="text-xs font-semibold text-slate-400 tracking-wider">লোড হচ্ছে...</p>
-      </div>
+      <SomitiLogoLoader 
+        variant="full" 
+        message={language === 'bn' ? 'তথ্য লোড হচ্ছে...' : 'Loading Bondhu Somiti...'} 
+      />
     );
   }
 
@@ -254,8 +267,12 @@ const AppContent: React.FC = () => {
   const renderActiveView = () => {
     // If member accesses settings or member_settings, directly display MemberSettingsView
     if (isMember && (activeTab === 'settings' || activeTab === 'member_settings' || activeTab === 'settings_member')) {
-      const targetMemberId = currentUser?.memberId || (members.length > 0 ? members[0].id : '');
-      const targetMember = members.find(m => m.id === targetMemberId);
+      const authEmail = (currentUser?.email || '').toLowerCase().trim();
+      const targetMember = members.find(m => 
+        (currentUser?.memberId && m.id === currentUser.memberId) ||
+        (authEmail && m.email && m.email.toLowerCase().trim() === authEmail) ||
+        (currentUser?.phone && m.phone && m.phone.trim() === currentUser.phone.trim())
+      );
       if (targetMember) {
         return (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -329,9 +346,15 @@ const AppContent: React.FC = () => {
         );
 
       case 'members_profile':
-      case 'member_profile':
-        const targetMemberId = (isMember && currentUser?.memberId)
-          ? currentUser.memberId
+      case 'member_profile': {
+        const authEmail = (currentUser?.email || '').toLowerCase().trim();
+        const currentMember = isMember ? members.find(m => 
+          (currentUser?.memberId && m.id === currentUser.memberId) ||
+          (authEmail && m.email && m.email.toLowerCase().trim() === authEmail) ||
+          (currentUser?.phone && m.phone && m.phone.trim() === currentUser.phone.trim())
+        ) : null;
+        const targetMemberId = (isMember && currentMember)
+          ? currentMember.id
           : (selectedMemberId || (members.length > 0 ? members[0].id : ''));
         return (
           <MemberProfileView 
@@ -345,6 +368,7 @@ const AppContent: React.FC = () => {
             }} 
           />
         );
+      }
 
       case 'nominees':
       case 'nominee':
@@ -496,8 +520,12 @@ const AppContent: React.FC = () => {
 
       case 'settings':
         if (isMember) {
-          const targetMId = currentUser?.memberId || (members.length > 0 ? members[0].id : '');
-          const targetMember = members.find(m => m.id === targetMId) || members[0];
+          const authEmail = (currentUser?.email || '').toLowerCase().trim();
+          const targetMember = members.find(m => 
+            (currentUser?.memberId && m.id === currentUser.memberId) ||
+            (authEmail && m.email && m.email.toLowerCase().trim() === authEmail) ||
+            (currentUser?.phone && m.phone && m.phone.trim() === currentUser.phone.trim())
+          );
           if (targetMember) {
             return (
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -539,6 +567,21 @@ const AppContent: React.FC = () => {
         {/* Dynamic Main Workspace Container */}
         <main className="flex-1 lg:pl-72 p-3 sm:p-6 lg:p-8 pb-24 lg:pb-8 w-full min-w-0 transition-all">
           <div className="max-w-7xl mx-auto w-full min-w-0">
+            {/* Smooth Mobile/Tablet Pull-to-Refresh Indicator with official Bondhu Somiti Logo */}
+            {(pullDistance > 0 || isRefreshing) && (
+              <div 
+                className="lg:hidden flex justify-center items-center w-full transition-all duration-200 overflow-hidden mb-2"
+                style={{
+                  height: `${Math.max(pullDistance, isRefreshing ? 48 : 0)}px`,
+                }}
+              >
+                <SomitiLogoLoader
+                  variant="pull-to-refresh"
+                  isRefreshing={isRefreshing}
+                  pullProgress={pullProgress}
+                />
+              </div>
+            )}
             {renderActiveView()}
           </div>
         </main>

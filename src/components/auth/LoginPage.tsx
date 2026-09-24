@@ -5,6 +5,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useSomiti } from '../../context/SomitiContext';
 import { LanguageSwitcher } from '../common/LanguageSwitcher';
 import { useBiometricAuth } from '../../hooks/useBiometricAuth';
+import { SomitiLogoLoader } from '../common/SomitiLogoLoader';
 
 interface LoginPageProps {}
 
@@ -228,8 +229,22 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
     }
   };
 
+  const isAuthProcessing = loading || googleLoading || biometricLoading;
+  const authLoadingMsg = biometricLoading
+    ? (language === 'bn' ? 'বায়োমেট্রিক তথ্য যাচাই করা হচ্ছে...' : 'Verifying biometric credentials...')
+    : googleLoading
+    ? (language === 'bn' ? 'গুগল দিয়ে সাইন ইন হচ্ছে...' : 'Signing in with Google...')
+    : (language === 'bn' ? 'লগইন যাচাই করা হচ্ছে...' : 'Verifying credentials...');
+
   return (
     <div className="min-h-screen w-full bg-[#0c142b] sm:bg-[#070d1e] flex flex-col items-center justify-center p-0 sm:p-6 text-slate-100 font-sans relative overflow-x-hidden">
+      {/* Brand animated overlay during authentication processing */}
+      {isAuthProcessing && (
+        <SomitiLogoLoader 
+          variant="overlay" 
+          message={authLoadingMsg} 
+        />
+      )}
       {/* Background glow accents */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 sm:w-96 h-72 sm:h-96 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-10 right-10 w-64 sm:w-80 h-64 sm:h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>

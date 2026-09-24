@@ -98,14 +98,18 @@ export const MemberPassbookView: React.FC = () => {
   // Selected member ID for display
   const [selectedMemberId, setSelectedMemberId] = useState<string>(() => {
     if (loggedInMember) return loggedInMember.id;
+    if (currentUser?.role === 'member') return '';
     if (contextMemberId) return contextMemberId;
     return members[0]?.id || 'all';
   });
 
   const activeMember = useMemo(() => {
+    if (currentUser?.role === 'member') {
+      return loggedInMember;
+    }
     if (selectedMemberId === 'all') return null;
     return members.find(m => m.id === selectedMemberId) || loggedInMember || members[0] || null;
-  }, [selectedMemberId, members, loggedInMember]);
+  }, [selectedMemberId, members, loggedInMember, currentUser?.role]);
 
   const [filterType, setFilterType] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');

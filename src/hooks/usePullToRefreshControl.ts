@@ -1,8 +1,16 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 
 interface PullToRefreshControlOptions {
   activeTab: string;
   selectedMemberId?: string | null;
+  onRefresh?: () => Promise<void>;
+}
+
+export interface PullToRefreshState {
+  isRefreshing: boolean;
+  pullDistance: number;
+  pullProgress: number; // 0 to 1
+  isHomeDashboard: boolean;
 }
 
 /**
@@ -27,33 +35,59 @@ export const isMobileOrTabletLayout = (): boolean => {
 /**
  * usePullToRefreshControl
  * 
- * Controls mobile and tablet Pull-to-Refresh / Swipe-to-Refresh behavior:
- * - Home/Dashboard: Pull-to-Refresh remains enabled.
- * - All other pages: Pull-to-Refresh is completely disabled.
+ * Smooth in-app Mobile and Tablet Pull-to-Refresh controller:
+ * - Home/Dashboard: Pull-to-Refresh remains smoothly enabled without harsh browser full-page reload or blinking.
+ * - Displays subtle Bondhu Somiti animated logo indicator while keeping existing dashboard content stable.
+ * - All other pages: Pull-to-Refresh is completely disabled (overscroll prevented).
  * - Normal vertical scrolling continues to work seamlessly on every page.
- * - Swiping down on other pages does NOT reload, refresh, or reset the page.
- * - Desktop: Keeps existing behavior unchanged.
- * - Applies only to responsive Mobile and Tablet layouts.
+ * - Desktop: Keeps existing desktop behavior completely unchanged.
  */
 export const usePullToRefreshControl = ({
   activeTab,
   selectedMemberId = null,
-}: PullToRefreshControlOptions) => {
+  onRefresh,
+}: PullToRefreshControlOptions): PullToRefreshState => {
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [pullDistance, setPullDistance] = useState<number>(0);
+
+  const isHomeDashboard = (activeTab === 'dashboard' || activeTab === 'home') && !selectedMemberId;
+
+  // Refs for tracking active touches
+  const touchStartYRef = useRef<number>(0);
+  const touchStartXRef = useRef<number>(0);
+  const isDraggingRef = useRef<boolean>(false);
+  const isAtTopRef = useRef<boolean>(false);
+  const isRefreshingRef = useRef<boolean>(false);
+  isRefreshingRef.current = isRefreshing;
+
+  const handleRefresh = useCallback(async () => {
+    if (isRefreshingRef.current) return;
+    setIsRefreshing(true);
+    setPullDistance(52); // Keep indicator smoothly visible during refresh
+
+    try {
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch (err) {
+      console.warn('Dashboard smooth refresh error:', err);
+    } finally {
+      // Graceful delay for soft pulse animation completion
+      setTimeout(() => {
+        setIsRefreshing(false);
+        setPullDistance(0);
+      }, 550);
+    }
+  }, [onRefresh]);
+
   useEffect(() => {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
-
-    // Determine if on Home/Dashboard (without a specific member profile or sub-route)
-    const isHomeDashboard = (activeTab === 'dashboard' || activeTab === 'home') && !selectedMemberId;
-
-    let touchStartY = 0;
-    let touchStartX = 0;
-    let isAtTopOnTouchStart = false;
 
     const applyState = () => {
       const isMobileTablet = isMobileOrTabletLayout();
 
       if (!isMobileTablet) {
-        // Desktop: Keep existing behavior unchanged. Clean up any mobile-specific classes/styles
+        // Desktop: Keep existing behavior unchanged.
         document.documentElement.classList.remove('disable-ptr', 'enable-ptr');
         document.body.classList.remove('disable-ptr', 'enable-ptr');
         document.documentElement.style.overscrollBehaviorY = '';
@@ -61,102 +95,122 @@ export const usePullToRefreshControl = ({
         return;
       }
 
-      if (isHomeDashboard) {
-        // Home/Dashboard on Mobile/Tablet: Enable native Pull-to-Refresh
-        document.documentElement.classList.remove('disable-ptr');
-        document.body.classList.remove('disable-ptr');
-        document.documentElement.classList.add('enable-ptr');
-        document.body.classList.add('enable-ptr');
+      // Mobile/Tablet: Prevent browser native full page reload/flicker
+      // On Home/Dashboard, we handle Pull-to-Refresh smoothly via gesture!
+      document.documentElement.classList.remove('disable-ptr');
+      document.body.classList.remove('disable-ptr');
+      document.documentElement.classList.add('enable-ptr');
+      document.body.classList.add('enable-ptr');
 
-        document.documentElement.style.overscrollBehaviorY = 'auto';
-        document.body.style.overscrollBehaviorY = 'auto';
-      } else {
-        // All other pages on Mobile/Tablet: Completely disable Pull-to-Refresh
-        document.documentElement.classList.remove('enable-ptr');
-        document.body.classList.remove('enable-ptr');
-        document.documentElement.classList.add('disable-ptr');
-        document.body.classList.add('disable-ptr');
-
-        document.documentElement.style.overscrollBehaviorY = 'contain';
-        document.body.style.overscrollBehaviorY = 'contain';
-      }
+      // Use contain on mobile/tablet to eliminate white-screen browser refresh flicker
+      document.documentElement.style.overscrollBehaviorY = 'contain';
+      document.body.style.overscrollBehaviorY = 'contain';
     };
 
-    // Initial state application
     applyState();
 
-    // Event listener for touchstart to detect scroll boundary on non-dashboard mobile pages
     const handleTouchStart = (e: TouchEvent) => {
-      if (!isMobileOrTabletLayout() || isHomeDashboard) return;
+      if (!isMobileOrTabletLayout()) return;
       if (e.touches.length !== 1) return;
 
-      touchStartY = e.touches[0].clientY;
-      touchStartX = e.touches[0].clientX;
-
-      // Check if page is currently at the top
       const currentScrollTop = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
-      isAtTopOnTouchStart = currentScrollTop <= 1;
+      isAtTopRef.current = currentScrollTop <= 1;
+      touchStartYRef.current = e.touches[0].clientY;
+      touchStartXRef.current = e.touches[0].clientX;
+      isDraggingRef.current = false;
     };
 
-    // Event listener for touchmove: prevent pull-to-refresh reload when dragging down at the top of non-dashboard pages
     const handleTouchMove = (e: TouchEvent) => {
-      if (!isMobileOrTabletLayout() || isHomeDashboard) return;
-      if (!isAtTopOnTouchStart || e.touches.length !== 1) return;
+      if (!isMobileOrTabletLayout()) return;
+      if (e.touches.length !== 1) return;
 
       const currentY = e.touches[0].clientY;
       const currentX = e.touches[0].clientX;
-      const deltaY = currentY - touchStartY;
-      const deltaX = currentX - touchStartX;
+      const deltaY = currentY - touchStartYRef.current;
+      const deltaX = currentX - touchStartXRef.current;
 
-      // Only intercept downward drag (deltaY > 0) where vertical movement exceeds horizontal movement
-      if (deltaY > 5 && Math.abs(deltaY) > Math.abs(deltaX)) {
-        // Verify current scroll position is still at the top
-        const currentScrollTop = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
-        if (currentScrollTop <= 1) {
-          // Check if user is scrolling inside an internal scrollable element that is scrolled down
-          let target = e.target as HTMLElement | null;
-          let hasScrolledInternalAncestor = false;
+      // Vertical drag downward at the very top of page
+      if (isAtTopRef.current && deltaY > 0 && Math.abs(deltaY) > Math.abs(deltaX)) {
+        // Check if an inner container has its own scroll
+        let target = e.target as HTMLElement | null;
+        let hasScrolledInternalAncestor = false;
 
-          while (target && target !== document.body && target !== document.documentElement) {
-            if (target.scrollTop > 0) {
-              hasScrolledInternalAncestor = true;
-              break;
-            }
-            target = target.parentElement;
+        while (target && target !== document.body && target !== document.documentElement) {
+          if (target.scrollTop > 0) {
+            hasScrolledInternalAncestor = true;
+            break;
           }
+          target = target.parentElement;
+        }
 
-          // If no internal container is scrolled down, swiping down at top of page would trigger
-          // a browser pull-to-refresh reload. Intercept and prevent the reload!
-          if (!hasScrolledInternalAncestor && e.cancelable) {
-            e.preventDefault();
+        if (!hasScrolledInternalAncestor) {
+          if (isHomeDashboard) {
+            // Home/Dashboard on Mobile/Tablet: Smooth in-app pull-down calculation
+            if (e.cancelable) {
+              e.preventDefault();
+            }
+            isDraggingRef.current = true;
+            // Rubber-band resistance: max ~75px
+            const dampedDistance = Math.min(75, Math.pow(deltaY, 0.85) * 1.5);
+            setPullDistance(dampedDistance);
+          } else {
+            // Other pages on Mobile/Tablet: Prevent browser reload
+            if (e.cancelable) {
+              e.preventDefault();
+            }
           }
         }
       }
     };
 
-    // Window resize / orientation change listener to dynamically react to layout shifts
+    const handleTouchEnd = () => {
+      if (!isMobileOrTabletLayout()) return;
+
+      if (isHomeDashboard && isDraggingRef.current) {
+        isDraggingRef.current = false;
+        // Trigger threshold: 48px
+        if (pullDistance >= 48 && !isRefreshingRef.current) {
+          handleRefresh();
+        } else if (!isRefreshingRef.current) {
+          setPullDistance(0);
+        }
+      } else {
+        isDraggingRef.current = false;
+      }
+    };
+
     const handleResize = () => {
       applyState();
     };
 
     window.addEventListener('resize', handleResize, { passive: true });
     window.addEventListener('orientationchange', handleResize, { passive: true });
-
-    // Attach touch listeners with passive: false for touchmove to allow preventing reload if needed
     window.addEventListener('touchstart', handleTouchStart, { passive: true });
     window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+    window.addEventListener('touchcancel', handleTouchEnd, { passive: true });
 
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleResize);
       window.removeEventListener('touchstart', handleTouchStart);
       window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('touchcancel', handleTouchEnd);
 
-      // Clean up styles and classes
       document.documentElement.classList.remove('disable-ptr', 'enable-ptr');
       document.body.classList.remove('disable-ptr', 'enable-ptr');
       document.documentElement.style.overscrollBehaviorY = '';
       document.body.style.overscrollBehaviorY = '';
     };
-  }, [activeTab, selectedMemberId]);
+  }, [isHomeDashboard, pullDistance, handleRefresh]);
+
+  const pullProgress = Math.min(1, Math.max(0, pullDistance / 48));
+
+  return {
+    isRefreshing,
+    pullDistance,
+    pullProgress,
+    isHomeDashboard,
+  };
 };

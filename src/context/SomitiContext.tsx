@@ -849,6 +849,66 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [members, transactions, shareClosures, settings?.sharePricePerUnit]);
 
   const [currentUser, setCurrentUser] = useState<AppUser>(() => {
+    // 1. Prioritize reading the actively authenticated cached user profile to prevent any flash of another member
+    try {
+      if (typeof window !== 'undefined') {
+        const cachedAppUser = localStorage.getItem('somiti_current_app_user') || sessionStorage.getItem('somiti_current_app_user');
+        if (cachedAppUser) {
+          const parsed = JSON.parse(cachedAppUser);
+          if (parsed && parsed.email) {
+            return sanitizeUser(parsed);
+          }
+        }
+        const cachedAuth = localStorage.getItem('somiti_auth_user') || sessionStorage.getItem('somiti_session_user');
+        if (cachedAuth) {
+          const parsedAuth = JSON.parse(cachedAuth);
+          if (parsedAuth && (parsedAuth.email || parsedAuth.uid)) {
+            const authEmail = (parsedAuth.email || '').toLowerCase().trim();
+            const authUid = parsedAuth.uid;
+            
+            // Check if matches a member
+            const rawMembers = safeParse('bondhu_members', initialMembers, true);
+            const matchedMember = rawMembers.find((m: any) => 
+              (parsedAuth.memberId && m.id === parsedAuth.memberId) ||
+              (authEmail && m.email && m.email.toLowerCase() === authEmail)
+            );
+
+            // Check if matches an administrative or existing user
+            const rawUsers = safeParse('bondhu_users', initialUsers, true);
+            const matchedUser = rawUsers.find((u: any) => 
+              (u.email && u.email.toLowerCase() === authEmail) || 
+              (u.id && u.id === authUid)
+            );
+
+            if (matchedUser) {
+              return sanitizeUser(matchedUser);
+            }
+
+            if (matchedMember) {
+              const isAdmin = authEmail === 'admin@bondhusomiti.com' || authEmail === 'sin4.riyas.lalon.dc@gmail.com';
+              return sanitizeUser({
+                id: authUid || 'usr_' + matchedMember.id,
+                name: matchedMember.name,
+                phone: matchedMember.phone || '',
+                email: authEmail || matchedMember.email || 'member@bondhusomiti.com',
+                role: isAdmin ? 'admin' : (parsedAuth.role || 'member'),
+                roleTitle: isAdmin ? 'প্রধান প্রশাসক (Super Admin)' : 'সদস্য (Member)',
+                avatarUrl: matchedMember.photoUrl,
+                assignedArea: matchedMember.presentAddress || 'সাধারণ সদস্য',
+                dailyTarget: 0,
+                collectedToday: 0,
+                status: matchedMember.status || 'active',
+                memberId: matchedMember.id,
+                memberNo: matchedMember.memberNo,
+                createdAt: matchedMember.joiningDate || new Date().toISOString()
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Failed initializing currentUser from cache:", e);
+    }
     return (users[0] ? sanitizeUser(users[0]) : sanitizeUser(initialUsers[0]));
   });
 
@@ -869,6 +929,15 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           name: matched.name || authName,
           avatarUrl: authUser.photoURL || matched.avatarUrl,
         });
+
+        // Persist matched user so page reloads/pull-to-refreshes never flash another profile
+        try {
+          localStorage.setItem('somiti_current_app_user', JSON.stringify(sanitized));
+          sessionStorage.setItem('somiti_current_app_user', JSON.stringify(sanitized));
+        } catch {
+          // ignore storage error
+        }
+
         setCurrentUser(prev => {
           if (
             prev &&
@@ -904,6 +973,15 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           memberNo: matchedMember?.memberNo,
           createdAt: new Date().toISOString()
         };
+
+        // Persist dynamic user so page reloads/pull-to-refreshes never flash another profile
+        try {
+          localStorage.setItem('somiti_current_app_user', JSON.stringify(dynamicUser));
+          sessionStorage.setItem('somiti_current_app_user', JSON.stringify(dynamicUser));
+        } catch {
+          // ignore storage error
+        }
+
         setCurrentUser(prev => {
           if (
             prev &&
@@ -920,7 +998,13 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
       }
     } else {
-      if (users.length > 0) {
+      // PREVENT FLASHING: Only fall back to users[0] if there is genuinely no stored user session!
+      // During Pull-to-Refresh or page reload, authUser is temporarily null while Firebase
+      // initializes auth token. Do NOT wipe or replace currentUser during that window!
+      const hasStoredAuth = typeof window !== 'undefined' && 
+        (localStorage.getItem('somiti_auth_user') || sessionStorage.getItem('somiti_session_user'));
+
+      if (!hasStoredAuth && users.length > 0) {
         const sanitized = sanitizeUser(users[0]);
         setCurrentUser(prev => {
           if (prev && prev.id === sanitized.id && prev.role === sanitized.role && prev.status === sanitized.status) {

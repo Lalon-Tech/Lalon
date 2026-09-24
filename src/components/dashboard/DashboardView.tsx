@@ -27,6 +27,7 @@ import {
   toBengaliNumber 
 } from '../../utils/bengaliUtils';
 import { ApprovalNotificationCenter } from './ApprovalNotificationCenter';
+import { SomitiLogoLoader } from '../common/SomitiLogoLoader';
 
 export const DashboardView: React.FC = () => {
   const { language, t } = useLanguage();
@@ -65,11 +66,31 @@ export const DashboardView: React.FC = () => {
 
   // Rule 7: Dedicated personalized Member Dashboard
   if (currentUser?.role === 'member') {
-    const myMember = members.find(m => m.id === currentUser.memberId);
-    const myTransactions = transactions.filter(t => t.memberId === currentUser.memberId && t.status === 'completed');
-    const myLoans = loans.filter(l => l.memberId === currentUser.memberId);
+    const authEmail = (currentUser?.email || '').toLowerCase().trim();
+    const myMember = members.find(m => 
+      (currentUser?.memberId && m.id === currentUser.memberId) ||
+      (authEmail && m.email && m.email.toLowerCase().trim() === authEmail) ||
+      (currentUser?.phone && m.phone && m.phone.trim() === currentUser.phone.trim())
+    );
+
+    // If member profile is still hydrating or syncing from Firestore, display the elegant logo loader
+    // NEVER show another member or flash incorrect data!
+    if (!myMember) {
+      return (
+        <div className="py-12 flex justify-center items-center">
+          <SomitiLogoLoader 
+            variant="inline" 
+            message={isBn ? 'আপনার প্রোফাইল তথ্য লোড হচ্ছে...' : 'Loading your profile...'} 
+          />
+        </div>
+      );
+    }
+
+    const effectiveMemberId = myMember.id;
+    const myTransactions = transactions.filter(t => t.memberId === effectiveMemberId && t.status === 'completed');
+    const myLoans = loans.filter(l => l.memberId === effectiveMemberId);
     const myActiveLoans = myLoans.filter(l => l.status === 'active');
-    const mySavings = savingsSchemes.filter(s => s.memberId === currentUser.memberId);
+    const mySavings = savingsSchemes.filter(s => s.memberId === effectiveMemberId);
 
     const mySharesCount = Number(myMember?.shareCount ?? (myMember as any)?.sharesCount ?? 0);
     const myShareAmount = mySharesCount === 0 ? 0 : Number(myMember?.shareValue ?? (mySharesCount * 1000));
