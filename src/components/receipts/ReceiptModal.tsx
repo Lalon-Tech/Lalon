@@ -409,13 +409,13 @@ ${tx.billingPeriod ? `বিলিং কিস্তি  : ${tx.billingPeriod}\
   return (
     <div 
       id="receipt-modal-backdrop"
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-950/80 backdrop-blur-xs animate-fadeIn"
+      className="fixed inset-0 z-50 overflow-y-auto p-2 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-xs flex justify-center items-start sm:items-center"
       onClick={(e) => {
         if (e.target === e.currentTarget) handleClose();
       }}
     >
       <div 
-        className="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-2xl flex flex-col h-[92vh] h-[92dvh] max-h-[92vh] max-h-[92dvh] overflow-hidden my-auto animate-in fade-in-50 zoom-in-95 relative"
+        className="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-2xl flex flex-col h-[94vh] sm:h-[90vh] max-h-[96dvh] overflow-hidden my-auto animate-in fade-in-50 zoom-in-95 relative pointer-events-auto"
         onClick={(e) => e.stopPropagation()}
       >
         
@@ -562,10 +562,10 @@ ${tx.billingPeriod ? `বিলিং কিস্তি  : ${tx.billingPeriod}\
         <div 
           ref={scrollContainerRef}
           id="receipt-modal-scroll-area"
-          className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 sm:p-5 md:p-6 bg-slate-100/60"
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 sm:p-5 md:p-6 bg-slate-100/60 select-text touch-pan-y"
           style={{
             WebkitOverflowScrolling: 'touch',
-            overscrollBehavior: 'contain',
+            overscrollBehaviorY: 'contain',
             touchAction: 'pan-y',
           }}
           tabIndex={0}
@@ -574,7 +574,7 @@ ${tx.billingPeriod ? `বিলিং কিস্তি  : ${tx.billingPeriod}\
           <div 
             ref={printableReceiptRef}
             id="printable-receipt"
-            className="w-full max-w-2xl mx-auto bg-white text-slate-800 space-y-4 sm:space-y-5 relative rounded-2xl border border-slate-200 p-4 sm:p-6 md:p-8 shadow-xs pb-10"
+            className="w-full max-w-2xl mx-auto bg-white text-slate-800 space-y-4 sm:space-y-5 relative rounded-2xl border border-slate-200 p-4 sm:p-6 md:p-8 shadow-xs pb-10 select-text touch-pan-y"
           >
             {/* Subtle Security Watermark */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] select-none">
@@ -590,10 +590,13 @@ ${tx.billingPeriod ? `বিলিং কিস্তি  : ${tx.billingPeriod}\
             <div className="text-center pb-3 border-b-2 border-slate-800 relative">
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-2">
                 <img
-                  src={settings.logoUrl === '/logo.svg' ? '/icon.svg' : (settings.logoUrl || '/icon.svg')}
-                  alt="বন্ধু সমবায় সমিতি"
+                  src={settings.logoUrl || '/logo.svg'}
+                  alt={somitiTitle}
                   className="w-14 h-14 sm:w-16 sm:h-16 object-contain bg-white rounded-2xl p-1 border border-slate-200 shadow-2xs"
                   crossOrigin="anonymous"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = '/logo.svg';
+                  }}
                 />
                 <div className="text-center sm:text-left">
                   <div className="inline-flex items-center gap-1.5 border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-emerald-800 shadow-2xs mb-1">

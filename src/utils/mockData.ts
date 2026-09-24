@@ -1,8 +1,8 @@
 import { Member, Loan, SavingsScheme, Transaction, IncomeExpenseItem, BankAccount, AppUser, SomitiSettings } from '../types';
 
 export const initialSettings: SomitiSettings = {
-  somitiName: 'বন্ধু সমবায় সমিতি',
-  somitiNameEn: 'Bondhu Samabay Somiti',
+  somitiName: 'বন্ধু সমবায় সমিতি লিমিটেড',
+  somitiNameEn: 'Bondhu Samabay Somiti Ltd.',
   registrationNo: 'রেজি নং: ১৯৩৮/ঢাকা/২০১৮',
   establishedDate: '২০১৮-০১-০১',
   address: 'বাড়ি # ৪২, রোড # ০৭, সেক্টর # ৩, উত্তরা, ঢাকা-১২৩০',

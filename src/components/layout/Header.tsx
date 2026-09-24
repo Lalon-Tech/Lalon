@@ -113,16 +113,15 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
           onClick={() => setActiveTab('dashboard')}
           className="flex items-center gap-2 lg:hidden cursor-pointer"
         >
-          <div className="w-9 h-9 rounded-full bg-white p-0.5 ring-2 ring-emerald-500/30 shadow-xs flex items-center justify-center shrink-0 overflow-hidden">
+          <div className="w-9 h-9 rounded-lg bg-white p-0.5 ring-2 ring-emerald-500/30 shadow-xs flex items-center justify-center shrink-0 overflow-hidden">
             <img
-              src={
-                settings.logoUrl && settings.logoUrl !== '/logo.svg' && settings.logoUrl !== '/logo-horizontal.svg'
-                  ? settings.logoUrl
-                  : '/icon.svg'
-              }
+              src={settings.logoUrl || '/logo.svg'}
               alt={settings.somitiName || "বন্ধু সমবায় সমিতি"}
-              className="w-full h-full object-contain rounded-full"
+              className="w-full h-full object-contain"
               referrerPolicy="no-referrer"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = '/logo.svg';
+              }}
             />
           </div>
           <div className="hidden min-[380px]:block text-left">

@@ -761,19 +761,14 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     // Cleanse oversized logoUrl (> 500,000 chars) that causes Firestore 1,048,487 bytes limit errors
     const isOversized = typeof loaded.logoUrl === 'string' && loaded.logoUrl.length > 500000;
-    const isInvalid = !loaded.logoUrl || loaded.logoUrl.includes('unsplash.com') || isOversized;
+    const finalLogo = isOversized ? '/logo.svg' : (loaded.logoUrl || '/logo.svg');
 
-    if (isInvalid) {
-      return { 
-        ...loaded, 
-        logoUrl: '/logo.svg',
-        somitiName: resolvedName,
-        somitiNameEn: loaded.somitiNameEn || 'Bondhu Samabay Somiti Ltd.'
-      };
-    }
-    return {
-      ...loaded,
-      somitiName: resolvedName
+    return { 
+      ...initialSettings,
+      ...loaded, 
+      logoUrl: finalLogo,
+      somitiName: resolvedName,
+      somitiNameEn: loaded.somitiNameEn || 'Bondhu Samabay Somiti Ltd.'
     };
   });
 
@@ -1241,7 +1236,14 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // 1. Settings listener
         const unsubSettings = onSnapshot(doc(db, 'settings', 'general'), (snap) => {
           if (snap.exists()) {
-            setSettings(snap.data() as SomitiSettings);
+            const data = snap.data() as Partial<SomitiSettings>;
+            setSettings(prev => {
+              const merged = { ...prev, ...data };
+              try {
+                localStorage.setItem('bondhu_settings', JSON.stringify(merged));
+              } catch (_) {}
+              return merged;
+            });
             setFirestoreConnected(true);
           } else {
             // Seed settings to Firestore if not present
@@ -1830,6 +1832,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.warn('Oversized logoUrl detected in updateSettings, resetting to /logo.svg to protect Firestore doc limits.');
         updated.logoUrl = '/logo.svg';
       }
+      try {
+        localStorage.setItem('bondhu_settings', JSON.stringify(updated));
+      } catch (_) {}
       safeSetDoc(doc(db, 'settings', 'general'), updated).catch(console.error);
       return updated;
     });
@@ -4943,9 +4948,14 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setVouchers(sampleDemoVouchers);
     setBankAccounts(sampleDemoBankAccounts);
     setUsers(sampleDemoUsers);
-    setSettings(initialSettings);
+    // Keep user's customized somiti settings intact!
     try {
-      localStorage.clear();
+      localStorage.setItem('bondhu_members', JSON.stringify(sampleDemoMembers));
+      localStorage.setItem('bondhu_loans', JSON.stringify(sampleDemoLoans));
+      localStorage.setItem('bondhu_savings', JSON.stringify(sampleDemoSavingsSchemes));
+      localStorage.setItem('bondhu_transactions', JSON.stringify(sampleDemoTransactions));
+      localStorage.setItem('bondhu_bank_accounts', JSON.stringify(sampleDemoBankAccounts));
+      localStorage.setItem('bondhu_users', JSON.stringify(sampleDemoUsers));
     } catch (_) {}
     syncAllToFirestore();
   };

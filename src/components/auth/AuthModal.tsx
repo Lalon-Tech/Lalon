@@ -170,16 +170,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           </button>
 
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-full bg-white p-0.5 ring-2 ring-emerald-400/60 shadow-md flex items-center justify-center shrink-0 overflow-hidden">
+            <div className="w-11 h-11 rounded-xl bg-white p-0.5 ring-2 ring-emerald-400/60 shadow-md flex items-center justify-center shrink-0 overflow-hidden">
               <img 
-                src={
-                  settings?.logoUrl && settings.logoUrl !== '/logo.svg' && settings.logoUrl !== '/logo-horizontal.svg'
-                    ? settings.logoUrl
-                    : '/icon.svg'
-                } 
+                src={settings?.logoUrl || '/logo.svg'} 
                 alt="বন্ধু সমিতি" 
-                className="w-full h-full object-contain rounded-full"
+                className="w-full h-full object-contain"
                 referrerPolicy="no-referrer"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = '/logo.svg';
+                }}
               />
             </div>
             <div>

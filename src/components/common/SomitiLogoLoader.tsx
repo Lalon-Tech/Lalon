@@ -30,10 +30,7 @@ export const SomitiLogoLoader: React.FC<SomitiLogoLoaderProps> = ({
   const isBn = language === 'bn';
 
   // Use the existing Bondhu Somiti logo exactly as it is
-  const logoSrc =
-    settings?.logoUrl && settings.logoUrl !== '/logo.svg' && settings.logoUrl !== '/logo-horizontal.svg'
-      ? settings.logoUrl
-      : '/icon.svg';
+  const logoSrc = settings?.logoUrl || '/logo.svg';
 
   const somitiTitle = settings?.somitiName || (isBn ? 'বন্ধু সমবায় সমিতি' : 'Bondhu Somiti');
   const defaultMsg = message || (isBn ? 'তথ্য লোড হচ্ছে...' : 'Loading...');

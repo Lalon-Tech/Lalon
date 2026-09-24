@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Settings, 
   Save, 
@@ -69,6 +69,28 @@ export const SettingsView: React.FC = () => {
   const [logoUrl, setLogoUrl] = useState(settings.logoUrl || '/logo.svg');
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync settings when loaded from Firestore or updated
+  useEffect(() => {
+    if (settings) {
+      setSomitiName(settings.somitiName || '');
+      setSomitiNameEn(settings.somitiNameEn || '');
+      setRegistrationNo(settings.registrationNo || '');
+      setAddress(settings.address || '');
+      setPhone(settings.phone || '');
+      setEmail(settings.email || '');
+      setPresidentName(settings.presidentName || '');
+      setSecretaryName(settings.secretaryName || '');
+      setCashierName(settings.cashierName || '');
+      setSharePricePerUnit(settings.sharePricePerUnit ?? 100);
+      setDefaultAdmissionFee(settings.defaultAdmissionFee ?? 50);
+      setDefaultLoanInterestRate(settings.defaultLoanInterestRate ?? 10);
+      setDefaultDpsInterestRate(settings.defaultDpsInterestRate ?? 8);
+      if (!logoPreview) {
+        setLogoUrl(settings.logoUrl || '/logo.svg');
+      }
+    }
+  }, [settings]);
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -170,10 +192,15 @@ export const SettingsView: React.FC = () => {
     });
 
     setIsSaved(true);
+    setActionFeedback({
+      type: 'success',
+      message: language === 'bn' ? 'সমিতি সেটিংস ও লোগো সফলভাবে সংরক্ষিত ও ক্লাউডে সিঙ্ক করা হয়েছে!' : 'Settings and logo saved & synced successfully!'
+    });
     try {
       confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
     } catch (_) {}
-    setTimeout(() => setIsSaved(false), 3000);
+    setTimeout(() => setIsSaved(false), 4000);
+    setTimeout(() => setActionFeedback(null), 5000);
   };
 
   const exportBackupJson = () => {
@@ -342,30 +369,113 @@ export const SettingsView: React.FC = () => {
           </h3>
 
           {/* Logo Management */}
-          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 flex flex-col sm:flex-row items-center gap-4">
-            <div className="relative shrink-0">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white p-2 border-2 border-slate-200 shadow-xs flex items-center justify-center overflow-hidden">
+          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 sm:p-5 flex flex-col md:flex-row items-center md:items-start gap-5">
+            <div className="relative shrink-0 flex flex-col items-center">
+              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white p-2.5 border-2 border-emerald-500/30 shadow-md flex items-center justify-center overflow-hidden">
                 <img
                   src={logoPreview || logoUrl || '/logo.svg'}
                   alt="সমিতির লোগো"
                   className="w-full h-full object-contain"
                   referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = '/logo.svg';
+                  }}
                 />
               </div>
+              <span className="mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                {logoUrl === '/logo.svg' 
+                  ? 'অফিসিয়াল এমব্লেম' 
+                  : logoUrl === '/logo-horizontal.svg' 
+                    ? 'হরাইজন্টাল লোগো' 
+                    : logoUrl === '/icon.svg' 
+                      ? 'সার্কুলার আইকন' 
+                      : 'কাস্টম লোগো'}
+              </span>
             </div>
 
-            <div className="flex-1 text-center sm:text-left space-y-2">
+            <div className="flex-1 text-center md:text-left space-y-3 w-full">
               <div>
-                <h4 className="text-sm font-bold text-slate-900 flex items-center justify-center sm:justify-start gap-1.5">
+                <h4 className="text-sm font-bold text-slate-900 flex items-center justify-center md:justify-start gap-1.5">
                   <ImageIcon className="w-4 h-4 text-emerald-600" />
-                  <span>সমিতির অফিসিয়াল লোগো (App & Receipt Logo)</span>
+                  <span>সমিতির অফিসিয়াল লোগো (App, Header & Receipt Logo)</span>
                 </h4>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  এই লোগোটি অ্যাপের হেডার, সাইডবার, মোবাইল অ্যাপ আইকন এবং সকল মানি রসিদে প্রিন্ট হবে।
+                  এই লোগোটি অ্যাপের সাইডবার, হেডার, লগইন স্ক্রিন, ড্যাশবোর্ড এবং সকল মানি রসিদে প্রদর্শিত হয়।
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
+              {/* Quick Preset Selector */}
+              <div>
+                <p className="text-[11px] font-bold text-slate-700 mb-1.5 text-center md:text-left">
+                  দ্রুত নির্বাচন করুন অথবা নিজস্ব লোগো আপলোড করুন:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLogoUrl('/logo.svg');
+                      setLogoPreview(null);
+                    }}
+                    className={`flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                      logoUrl === '/logo.svg' && !logoPreview
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-500/20 shadow-xs'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-white p-0.5 border border-slate-200 shrink-0 flex items-center justify-center overflow-hidden">
+                      <img src="/logo.svg" alt="Emblem" className="w-full h-full object-contain" />
+                    </div>
+                    <div className="text-left min-w-0">
+                      <p className="truncate leading-tight">অফিসিয়াল এমব্লেম</p>
+                      <p className="text-[10px] text-slate-400 font-normal">রসিদ ও সিলের জন্য</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLogoUrl('/logo-horizontal.svg');
+                      setLogoPreview(null);
+                    }}
+                    className={`flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                      logoUrl === '/logo-horizontal.svg' && !logoPreview
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-500/20 shadow-xs'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-white p-0.5 border border-slate-200 shrink-0 flex items-center justify-center overflow-hidden">
+                      <img src="/logo-horizontal.svg" alt="Banner" className="w-full h-full object-contain" />
+                    </div>
+                    <div className="text-left min-w-0">
+                      <p className="truncate leading-tight">হরাইজন্টাল ব্যানার</p>
+                      <p className="text-[10px] text-slate-400 font-normal">প্রশস্ত হেডারের জন্য</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLogoUrl('/icon.svg');
+                      setLogoPreview(null);
+                    }}
+                    className={`flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                      logoUrl === '/icon.svg' && !logoPreview
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-500/20 shadow-xs'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-white p-0.5 border border-slate-200 shrink-0 flex items-center justify-center overflow-hidden">
+                      <img src="/icon.svg" alt="Icon" className="w-full h-full object-contain" />
+                    </div>
+                    <div className="text-left min-w-0">
+                      <p className="truncate leading-tight">সার্কুলার আইকন</p>
+                      <p className="text-[10px] text-slate-400 font-normal">অ্যাপ আইকন ব্যাজ</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 pt-1">
                 <input
                   ref={logoInputRef}
                   type="file"
@@ -380,7 +490,7 @@ export const SettingsView: React.FC = () => {
                   className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  <span>নতুন লোগো আপলোড করুন</span>
+                  <span>গ্যালারি থেকে নিজস্ব লোগো আপলোড</span>
                 </button>
 
                 {(logoUrl !== '/logo.svg' || logoPreview) && (

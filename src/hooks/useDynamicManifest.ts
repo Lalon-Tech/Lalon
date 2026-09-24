@@ -11,7 +11,7 @@ export function useDynamicManifest() {
   const { settings } = useSomiti();
 
   useEffect(() => {
-    const currentLogo = settings?.logoUrl === '/logo.svg' ? '/icon.svg' : (settings?.logoUrl || '/icon.svg');
+    const currentLogo = settings?.logoUrl || '/icon.svg';
     const somitiName = settings?.somitiName || 'বন্ধু সমবায় সমিতি লিমিটেড';
     const shortName = settings?.somitiName?.split(' ')?.[0] || 'বন্ধু সমিতি';
 

@@ -381,17 +381,16 @@ export const Sidebar: React.FC<{
             className="flex items-center gap-3 w-full pr-8 lg:pr-0 cursor-pointer group select-none"
             title={settings.somitiName || (language === 'bn' ? 'বন্ধু সমবায় সমিতি লিমিটেড' : 'Bondhu Samabay Somiti Ltd.')}
           >
-            {/* Round Shape Logo */}
-            <div className="w-12 h-12 rounded-full bg-white p-1 ring-2 ring-emerald-500/40 shadow-md flex items-center justify-center shrink-0 overflow-hidden transition-transform duration-200 group-hover:scale-105">
+            {/* Somiti Logo */}
+            <div className="w-12 h-12 rounded-xl bg-white p-1 ring-2 ring-emerald-500/40 shadow-md flex items-center justify-center shrink-0 overflow-hidden transition-transform duration-200 group-hover:scale-105">
               <img 
-                src={
-                  settings.logoUrl && settings.logoUrl !== '/logo.svg' && settings.logoUrl !== '/logo-horizontal.svg'
-                    ? settings.logoUrl
-                    : '/icon.svg'
-                } 
-                alt="বন্ধু সমবায় সমিতি" 
-                className="w-full h-full object-contain rounded-full"
+                src={settings.logoUrl || '/logo.svg'} 
+                alt={settings.somitiName || "বন্ধু সমবায় সমিতি"} 
+                className="w-full h-full object-contain"
                 referrerPolicy="no-referrer"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = '/logo.svg';
+                }}
               />
             </div>
 
