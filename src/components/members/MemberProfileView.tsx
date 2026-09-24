@@ -1879,46 +1879,6 @@ export const MemberProfileView: React.FC<{
                     </div>
                   </div>
 
-                  {/* Share-wise Quick Summary Cards Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
-                    {shareWiseBreakdown.map(s => (
-                      <div 
-                        key={s.shareNo} 
-                        className="bg-gradient-to-br from-slate-50 to-blue-50/30 border border-slate-200/90 rounded-xl p-3.5 space-y-2 shadow-2xs hover:border-blue-300 transition-all"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-blue-600 text-white font-mono text-xs font-bold shadow-2xs">
-                            {isBn ? `শেয়ার #${toBengaliNumber(s.shareNo)}` : `Share #${s.shareNo}`}
-                          </span>
-                          <span className="text-[11px] font-semibold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
-                            {isBn ? `ওজন: ${toBengaliNumber(s.depositPercentage)}%` : `Weight: ${s.depositPercentage}%`}
-                          </span>
-                        </div>
-
-                        <div className="space-y-1.5 text-xs pt-1">
-                          <div className="flex justify-between items-center text-slate-700">
-                            <span className="text-slate-500">{isBn ? 'মোট জমা (Deposit):' : 'Total Deposit:'}</span>
-                            <span className="font-bold font-mono text-slate-900">
-                              ৳{formatCurrency(s.totalDeposit, isBn && useBengaliDigits)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center text-emerald-700">
-                            <span className="text-emerald-700 font-medium">{isBn ? 'অর্জিত মুনাফা (Profit):' : 'Total Profit:'}</span>
-                            <span className="font-black font-mono text-emerald-700">
-                              +৳{formatCurrency(s.totalProfit, isBn && useBengaliDigits)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center pt-2 border-t border-slate-200/80">
-                            <span className="font-bold text-indigo-950">{isBn ? 'মোট সঞ্চয় স্থিতি (Total):' : 'Total Savings:'}</span>
-                            <span className="font-black text-indigo-900 text-sm font-mono">
-                              ৳{formatCurrency(s.totalSavings, isBn && useBengaliDigits)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
                   {/* Share-wise Detailed Ledger Table */}
                   <div className="overflow-x-auto border border-slate-200 rounded-xl">
                     <table className="w-full text-left text-xs border-collapse min-w-[720px]">
