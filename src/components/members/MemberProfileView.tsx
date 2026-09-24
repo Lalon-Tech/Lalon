@@ -70,7 +70,8 @@ import {
 import { 
   calculateMemberBaseDeposit, 
   calculateMemberRemainingShares, 
-  recalculateMemberShareFinancials 
+  recalculateMemberShareFinancials,
+  calculateMemberShareWiseProfits
 } from '../../utils/shareCalculation';
 
 export const MemberProfileView: React.FC<{ 
@@ -377,59 +378,20 @@ export const MemberProfileView: React.FC<{
     ? totalMemberProfitFromPool
     : totalProfitFromTxs;
 
-  // Share-wise breakdown computation for member's active shares
+  // Share-wise breakdown computation for member's active shares with separate Deposit, Profit & Total Savings
+  const memberShareWiseSummary = useMemo(() => {
+    if (!member) return null;
+    return calculateMemberShareWiseProfits(
+      member,
+      memberTransactions,
+      shareClosures,
+      totalMemberProfitEarned
+    );
+  }, [member, memberTransactions, shareClosures, totalMemberProfitEarned]);
+
   const shareWiseBreakdown = useMemo(() => {
-    if (!member) return [];
-    const count = member.shareCount || 0;
-    if (count <= 0) return [];
-
-    const completedTxs = memberTransactions.filter(t => t.status === 'completed');
-    const sharePurchaseTxs = completedTxs.filter(t => t.type === 'share_purchase');
-    const depositTxs = completedTxs.filter(t => t.type === 'deposit');
-
-    return Array.from({ length: count }, (_, i) => {
-      const shareNo = i + 1;
-
-      // 1. Find initial deposit for this share from share_purchase transactions
-      let initialDeposit = 0;
-      let purchaseTx: Transaction | undefined;
-
-      for (const tx of sharePurchaseTxs) {
-        if (tx.shareAmounts && tx.shareAmounts[shareNo] !== undefined) {
-          initialDeposit = Number(tx.shareAmounts[shareNo]) || 0;
-          purchaseTx = tx;
-          break;
-        } else if (tx.selectedShares && tx.selectedShares.includes(shareNo)) {
-          initialDeposit = Number(tx.unitPrice) || (Number(tx.amount) / (tx.selectedShares.length || 1));
-          purchaseTx = tx;
-          break;
-        }
-      }
-
-      // Initial deposit must ONLY come from explicit, verified transactions recorded by an authorized user.
-      // If not yet paid/recorded, initialDeposit remains 0 (marked as Due/Pending).
-
-      // 2. Accumulated monthly savings deposits assigned to this share
-      let monthlyDepositsTotal = 0;
-      depositTxs.forEach(tx => {
-        if (tx.shareAmounts && tx.shareAmounts[shareNo] !== undefined) {
-          monthlyDepositsTotal += Number(tx.shareAmounts[shareNo]) || 0;
-        } else if (tx.selectedShares && tx.selectedShares.includes(shareNo)) {
-          const rate = tx.shareRate || (tx.amount / (tx.selectedShares.length || 1));
-          monthlyDepositsTotal += rate;
-        }
-      });
-
-      return {
-        shareNo,
-        initialDeposit,
-        monthlyDepositsTotal,
-        totalAccumulated: initialDeposit + monthlyDepositsTotal,
-        purchaseDate: purchaseTx?.date,
-        voucherNo: purchaseTx?.voucherNo,
-      };
-    });
-  }, [member, memberTransactions]);
+    return memberShareWiseSummary?.shares || [];
+  }, [memberShareWiseSummary]);
 
   // Pure principal deposit (Total deposit collected minus withdrawals, excluding any distributed profit)
   const pureBaseDeposit = useMemo(() => {
@@ -1601,6 +1563,55 @@ export const MemberProfileView: React.FC<{
                 </div>
               </div>
 
+              {/* Share-wise Profit & Savings Summary under Savings Tab */}
+              {shareWiseBreakdown.length > 0 && (
+                <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-blue-100 text-blue-700 rounded-lg">
+                        <Layers className="w-4 h-4" />
+                      </div>
+                      <h4 className="text-xs font-bold text-slate-800">
+                        {isBn ? 'শেয়ারভিত্তিক সঞ্চয় ও লভ্যাংশ সংক্ষিপ্ত বিবরণী' : 'Share-wise Savings & Profit Overview'}
+                      </h4>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab('shares')}
+                      className="text-xs font-bold text-blue-700 hover:text-blue-800 hover:underline cursor-pointer"
+                    >
+                      {isBn ? 'বিস্তারিত লেজার দেখুন →' : 'View Detailed Ledger →'}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {shareWiseBreakdown.map(s => (
+                      <div key={s.shareNo} className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-1.5 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-900 font-mono">
+                            {isBn ? `শেয়ার #${toBengaliNumber(s.shareNo)}` : `Share #${s.shareNo}`}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {toBengaliNumber(s.depositPercentage)}%
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-slate-600">
+                          <span>{isBn ? 'আমানত জমা:' : 'Deposit:'}</span>
+                          <span className="font-semibold font-mono text-slate-900">৳{formatCurrency(s.totalDeposit, isBn && useBengaliDigits)}</span>
+                        </div>
+                        <div className="flex justify-between text-emerald-700">
+                          <span>{isBn ? 'অর্জিত মুনাফা:' : 'Profit:'}</span>
+                          <span className="font-black font-mono">+৳{formatCurrency(s.totalProfit, isBn && useBengaliDigits)}</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-1.5 border-t border-slate-100 font-bold text-indigo-900">
+                          <span>{isBn ? 'মোট সঞ্চয়:' : 'Total Savings:'}</span>
+                          <span className="font-black font-mono">৳{formatCurrency(s.totalSavings, isBn && useBengaliDigits)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-4">
                 <h4 className="text-sm font-bold text-slate-800">
                   {isBn ? 'চলমান সঞ্চয় ও ডিপিএস হিসাবসমূহ' : 'Active Savings & DPS Accounts'}
@@ -1842,7 +1853,7 @@ export const MemberProfileView: React.FC<{
                 </div>
               </div>
 
-              {/* Active Shares & Share-wise Initial & Accumulated Deposits */}
+              {/* Active Shares & Share-wise Initial & Accumulated Deposits, Profit & Total Savings */}
               {shareWiseBreakdown.length > 0 && (
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 space-y-4">
                   <div className="flex items-center justify-between flex-wrap gap-2">
@@ -1852,10 +1863,10 @@ export const MemberProfileView: React.FC<{
                       </div>
                       <div>
                         <h4 className="text-sm font-bold text-slate-900">
-                          {isBn ? 'সক্রিয় শেয়ার ও শেয়ারভিত্তিক পৃথক প্রাথমিক ও মোট জমা বিবরণী' : 'Active Shares & Share-wise Deposits Ledger'}
+                          {isBn ? 'সক্রিয় শেয়ারভিত্তিক পৃথক আমানত, অর্জিত মুনাফা ও মোট সঞ্চয় বিবরণী' : 'Share-wise Deposits, Profit & Total Savings Ledger'}
                         </h4>
                         <p className="text-xs text-slate-500">
-                          {isBn ? 'প্রতিটি শেয়ারের পৃথক জমা ও অর্জিত সঞ্চয়ের বিবরণ' : 'Separate deposits and accumulated balance per share'}
+                          {isBn ? 'প্রতিটি শেয়ারের পৃথক মোট জমা, আনুপাতিক অর্জিত মুনাফা এবং সর্বমোট সঞ্চয় স্থিতি (জমা + লাভ)' : 'Separate Total Deposit, Total Profit, and Total Savings (Deposit + Profit) per share'}
                         </p>
                       </div>
                     </div>
@@ -1868,14 +1879,56 @@ export const MemberProfileView: React.FC<{
                     </div>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse min-w-[650px]">
+                  {/* Share-wise Quick Summary Cards Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+                    {shareWiseBreakdown.map(s => (
+                      <div 
+                        key={s.shareNo} 
+                        className="bg-gradient-to-br from-slate-50 to-blue-50/30 border border-slate-200/90 rounded-xl p-3.5 space-y-2 shadow-2xs hover:border-blue-300 transition-all"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-blue-600 text-white font-mono text-xs font-bold shadow-2xs">
+                            {isBn ? `শেয়ার #${toBengaliNumber(s.shareNo)}` : `Share #${s.shareNo}`}
+                          </span>
+                          <span className="text-[11px] font-semibold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
+                            {isBn ? `ওজন: ${toBengaliNumber(s.depositPercentage)}%` : `Weight: ${s.depositPercentage}%`}
+                          </span>
+                        </div>
+
+                        <div className="space-y-1.5 text-xs pt-1">
+                          <div className="flex justify-between items-center text-slate-700">
+                            <span className="text-slate-500">{isBn ? 'মোট জমা (Deposit):' : 'Total Deposit:'}</span>
+                            <span className="font-bold font-mono text-slate-900">
+                              ৳{formatCurrency(s.totalDeposit, isBn && useBengaliDigits)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center text-emerald-700">
+                            <span className="text-emerald-700 font-medium">{isBn ? 'অর্জিত মুনাফা (Profit):' : 'Total Profit:'}</span>
+                            <span className="font-black font-mono text-emerald-700">
+                              +৳{formatCurrency(s.totalProfit, isBn && useBengaliDigits)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center pt-2 border-t border-slate-200/80">
+                            <span className="font-bold text-indigo-950">{isBn ? 'মোট সঞ্চয় স্থিতি (Total):' : 'Total Savings:'}</span>
+                            <span className="font-black text-indigo-900 text-sm font-mono">
+                              ৳{formatCurrency(s.totalSavings, isBn && useBengaliDigits)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Share-wise Detailed Ledger Table */}
+                  <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                    <table className="w-full text-left text-xs border-collapse min-w-[720px]">
                       <thead>
                         <tr className="bg-slate-50 text-slate-700 border-b border-slate-200 font-bold">
                           <th className="py-2.5 px-3">{isBn ? 'শেয়ার নং' : 'Share No.'}</th>
-                          <th className="py-2.5 px-3 text-right">{isBn ? 'শেয়ার ক্রয় মূল্য (৳)' : 'Purchase Price (৳)'}</th>
-                          <th className="py-2.5 px-3 text-right">{isBn ? 'মাসিক কিস্তি সঞ্চয় (৳)' : 'Monthly Savings (৳)'}</th>
-                          <th className="py-2.5 px-3 text-right">{isBn ? 'মোট জমা (৳)' : 'Total Balance (৳)'}</th>
+                          <th className="py-2.5 px-3 text-right">{isBn ? 'মোট জমা / আমানত (৳)' : 'Total Deposit (৳)'}</th>
+                          <th className="py-2.5 px-3 text-right text-emerald-700">{isBn ? 'অর্জিত মুনাফা (৳)' : 'Total Profit (৳)'}</th>
+                          <th className="py-2.5 px-3 text-right text-indigo-900">{isBn ? 'মোট সঞ্চয় স্থিতি (৳)' : 'Total Savings (৳)'}</th>
+                          <th className="py-2.5 px-3 text-center">{isBn ? 'অংশীদারিত্ব ওজন' : 'Weight %'}</th>
                           <th className="py-2.5 px-3 text-center">{isBn ? 'ক্রয় তারিখ / ভাউচার' : 'Date / Voucher'}</th>
                           <th className="py-2.5 px-3 text-center">{isBn ? 'অবস্থা' : 'Status'}</th>
                         </tr>
@@ -1884,18 +1937,26 @@ export const MemberProfileView: React.FC<{
                         {shareWiseBreakdown.map(s => (
                           <tr key={s.shareNo} className="hover:bg-slate-50 transition-colors">
                             <td className="py-2.5 px-3 font-bold text-slate-900">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100/70 text-blue-900 font-mono text-xs font-bold">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-blue-100 text-blue-900 font-mono text-xs font-bold">
                                 {isBn ? `শেয়ার #${toBengaliNumber(s.shareNo)}` : `Share #${s.shareNo}`}
                               </span>
                             </td>
-                            <td className="py-2.5 px-3 text-right font-black text-blue-700 font-mono">
-                              {formatCurrency(s.initialDeposit, isBn && useBengaliDigits)}
+                            <td className="py-2.5 px-3 text-right">
+                              <div className="font-bold text-slate-900 font-mono text-xs">
+                                ৳{formatCurrency(s.totalDeposit, isBn && useBengaliDigits)}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                {isBn ? `ক্রয়: ৳${formatCurrency(s.initialDeposit, isBn && useBengaliDigits)} + কিস্তি: ৳${formatCurrency(s.monthlyDeposits, isBn && useBengaliDigits)}` : `Buy: ৳${s.initialDeposit} + Monthly: ৳${s.monthlyDeposits}`}
+                              </div>
                             </td>
-                            <td className="py-2.5 px-3 text-right font-semibold text-slate-600 font-mono">
-                              {formatCurrency(s.monthlyDepositsTotal, isBn && useBengaliDigits)}
+                            <td className="py-2.5 px-3 text-right font-black text-emerald-700 font-mono text-xs">
+                              +৳{formatCurrency(s.totalProfit, isBn && useBengaliDigits)}
                             </td>
-                            <td className="py-2.5 px-3 text-right font-black text-emerald-700 font-mono">
-                              {formatCurrency(s.totalAccumulated, isBn && useBengaliDigits)}
+                            <td className="py-2.5 px-3 text-right font-black text-indigo-900 font-mono text-xs bg-indigo-50/40">
+                              ৳{formatCurrency(s.totalSavings, isBn && useBengaliDigits)}
+                            </td>
+                            <td className="py-2.5 px-3 text-center font-semibold text-slate-600 font-mono text-xs">
+                              {toBengaliNumber(s.depositPercentage)}%
                             </td>
                             <td className="py-2.5 px-3 text-center text-slate-500">
                               {s.voucherNo ? (
@@ -1942,21 +2003,39 @@ export const MemberProfileView: React.FC<{
                         ))}
                       </tbody>
                       <tfoot>
-                        <tr className="bg-slate-100/70 font-black text-slate-900 border-t border-slate-200">
-                          <td className="py-2.5 px-3">{isBn ? 'সর্বমোট' : 'Grand Total'}</td>
-                          <td className="py-2.5 px-3 text-right text-blue-700 font-mono">
-                            {formatCurrency(shareWiseBreakdown.reduce((sum, s) => sum + s.initialDeposit, 0), isBn && useBengaliDigits)}
+                        <tr className="bg-slate-100/90 font-black text-slate-900 border-t-2 border-slate-300">
+                          <td className="py-2.5 px-3">
+                            <div>{isBn ? 'সর্বমোট (Grand Total)' : 'Grand Total'}</div>
+                            <span className="text-[10px] font-normal text-slate-500 block">
+                              {isBn ? `${toBengaliNumber(shareWiseBreakdown.length)}টি শেয়ারের সমষ্টি` : `Sum of ${shareWiseBreakdown.length} shares`}
+                            </span>
                           </td>
-                          <td className="py-2.5 px-3 text-right text-slate-700 font-mono">
-                            {formatCurrency(shareWiseBreakdown.reduce((sum, s) => sum + s.monthlyDepositsTotal, 0), isBn && useBengaliDigits)}
+                          <td className="py-2.5 px-3 text-right text-slate-900 font-mono text-xs">
+                            ৳{formatCurrency(memberShareWiseSummary?.totalDeposit || 0, isBn && useBengaliDigits)}
                           </td>
-                          <td className="py-2.5 px-3 text-right text-emerald-700 font-mono">
-                            {formatCurrency(shareWiseBreakdown.reduce((sum, s) => sum + s.totalAccumulated, 0), isBn && useBengaliDigits)}
+                          <td className="py-2.5 px-3 text-right text-emerald-700 font-mono text-xs">
+                            +৳{formatCurrency(memberShareWiseSummary?.totalProfit || 0, isBn && useBengaliDigits)}
+                          </td>
+                          <td className="py-2.5 px-3 text-right text-indigo-900 font-mono text-xs bg-indigo-100/60">
+                            ৳{formatCurrency(memberShareWiseSummary?.totalSavings || 0, isBn && useBengaliDigits)}
+                          </td>
+                          <td className="py-2.5 px-3 text-center text-slate-700 font-mono text-xs">
+                            {isBn ? '১০০%' : '100%'}
                           </td>
                           <td colSpan={2}></td>
                         </tr>
                       </tfoot>
                     </table>
+                  </div>
+
+                  {/* Clarification Box */}
+                  <div className="bg-blue-50/60 border border-blue-200 rounded-xl p-3 text-xs text-blue-900 flex items-start gap-2.5">
+                    <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                    <p className="text-[11px] leading-relaxed">
+                      {isBn
+                        ? 'নীতিমালা অনুযায়ী প্রতিটি শেয়ারের জমাকৃত আমানতের আনুপাতিক হারে অর্জিত লভ্যাংশ আলাদাভাবে হিসেব করা হয়েছে। প্রতিটি শেয়ারের মোট জমা ও মোট লভ্যাংশ যোগ করে মোট সঞ্চয় স্থিতি প্রদর্শিত এবং সর্বমোট হিসাব সকল শেয়ারের সমষ্টির সমান।'
+                        : 'According to accounting principles, profit is allocated proportionally to each share based on its deposit balance. Each share\'s Total Savings equals its Total Deposit plus Total Profit, and the grand total strictly matches the sum of all individual shares.'}
+                    </p>
                   </div>
                 </div>
               )}

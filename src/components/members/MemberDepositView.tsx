@@ -23,7 +23,10 @@ import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { PaymentMethod } from '../../types';
 import { formatCurrency, toBengaliNumber, formatBengaliDate } from '../../utils/bengaliUtils';
-import { calculateMemberRemainingShares } from '../../utils/shareCalculation';
+import { 
+  calculateMemberRemainingShares,
+  calculateMemberShareWiseProfits 
+} from '../../utils/shareCalculation';
 
 export const MemberDepositView: React.FC = () => {
   const { 
@@ -92,6 +95,12 @@ export const MemberDepositView: React.FC = () => {
   const activeShareCount = useMemo(() => {
     if (!currentMember) return 0;
     return calculateMemberRemainingShares(currentMember, transactions, shareClosures);
+  }, [currentMember, transactions, shareClosures]);
+
+  // Share-wise Profit & Deposit tracking for current member
+  const shareWiseSummary = useMemo(() => {
+    if (!currentMember) return null;
+    return calculateMemberShareWiseProfits(currentMember, transactions, shareClosures);
   }, [currentMember, transactions, shareClosures]);
 
   // Active savings schemes for this member
@@ -191,6 +200,7 @@ export const MemberDepositView: React.FC = () => {
         date: depositDate,
         depositMonth: String(new Date(depositDate).getMonth() + 1).padStart(2, '0'),
         depositYear: new Date(depositDate).getFullYear(),
+        status: 'pending',
       });
 
       setFeedback({
@@ -302,6 +312,79 @@ export const MemberDepositView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Share-wise Profit & Deposit Cards Strip */}
+      {shareWiseSummary && shareWiseSummary.totalShares > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-4 sm:p-5 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-blue-50 text-blue-700 rounded-lg">
+                <Layers className="w-4 h-4" />
+              </div>
+              <h3 className="text-xs font-bold text-slate-800">
+                {isBn ? 'শেয়ারভিত্তিক বর্তমান আমানত ও অর্জিত লভ্যাংশ ট্র্যাকিং' : 'Share-wise Current Deposits & Profit Tracking'}
+              </h3>
+            </div>
+            <span className="text-[11px] text-slate-500 font-mono">
+              {isBn ? `${toBengaliNumber(shareWiseSummary.totalShares)}টি শেয়ার` : `${shareWiseSummary.totalShares} Shares`}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {shareWiseSummary.shares.map(s => {
+              const isSelected = schemeType === 'general' && selectedShareNo === s.shareNo;
+              return (
+                <div 
+                  key={s.shareNo} 
+                  onClick={() => {
+                    setSchemeType('general');
+                    setSelectedShareNo(s.shareNo);
+                  }}
+                  className={`p-3 rounded-xl border text-xs cursor-pointer transition-all ${
+                    isSelected
+                      ? 'border-blue-600 bg-blue-50/60 ring-2 ring-blue-500/20 shadow-2xs'
+                      : 'border-slate-200 bg-slate-50 hover:bg-slate-100/80 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between font-bold mb-1.5">
+                    <span className="px-2 py-0.5 rounded bg-blue-600 text-white font-mono text-[11px] font-bold">
+                      {isBn ? `শেয়ার #${toBengaliNumber(s.shareNo)}` : `Share #${s.shareNo}`}
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                      {toBengaliNumber(s.depositPercentage)}%
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-slate-600">
+                      <span>{isBn ? 'মোট জমা:' : 'Deposit:'}</span>
+                      <span className="font-bold font-mono text-slate-900">৳{formatCurrency(s.totalDeposit, isBn && useBengaliDigits)}</span>
+                    </div>
+                    <div className="flex justify-between text-emerald-700">
+                      <span>{isBn ? 'অর্জিত লাভ:' : 'Profit:'}</span>
+                      <span className="font-black font-mono">+৳{formatCurrency(s.totalProfit, isBn && useBengaliDigits)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-indigo-950 font-bold border-t border-slate-200/80 pt-1">
+                      <span>{isBn ? 'মোট সঞ্চয়:' : 'Total:'}</span>
+                      <span className="font-black font-mono text-indigo-900">৳{formatCurrency(s.totalSavings, isBn && useBengaliDigits)}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+            <span className="text-slate-600 font-medium">
+              {isBn ? 'সর্বমোট (Grand Total):' : 'Grand Total:'}
+            </span>
+            <span className="text-slate-900">
+              {isBn ? 'মোট জমা:' : 'Dep:'} <strong>৳{formatCurrency(shareWiseSummary.totalDeposit, isBn && useBengaliDigits)}</strong> |{' '}
+              {isBn ? 'মোট লাভ:' : 'Profit:'} <strong className="text-emerald-700">+৳{formatCurrency(shareWiseSummary.totalProfit, isBn && useBengaliDigits)}</strong> |{' '}
+              {isBn ? 'সর্বমোট সঞ্চয়:' : 'Total:'} <strong className="text-indigo-950">৳{formatCurrency(shareWiseSummary.totalSavings, isBn && useBengaliDigits)}</strong>
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Main Submission Card */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-7">
@@ -797,9 +880,13 @@ export const MemberDepositView: React.FC = () => {
                         </button>
                       )}
                       {isPending && (
-                        <span className="text-[10px] font-medium text-amber-600 block mt-0.5">
-                          {isBn ? 'অপেক্ষমাণ' : 'Pending'}
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => openReceiptForTx(tx)}
+                          className="text-[10px] font-semibold text-amber-700 hover:text-amber-800 underline cursor-pointer mt-0.5 inline-block"
+                        >
+                          {isBn ? 'অপেক্ষমাণ রসিদ' : 'Pending Receipt'}
+                        </button>
                       )}
                       {isRejected && (
                         <span className="text-[10px] font-semibold text-rose-600 block mt-0.5">

@@ -97,58 +97,69 @@ export const ReceiptModal: React.FC = () => {
     return false;
   };
 
-  // Determine actual Collector/Cashier who processed the transaction
+  // Transaction status
+  const isTxPending = tx.status === 'pending';
+  const isTxRejected = tx.status === 'cancelled' || (tx.status as string) === 'rejected';
+  const isTxApproved = !isTxPending && !isTxRejected;
+
+  // Determine actual Collector/Cashier who processed the transaction ONLY when approved
   let collectorFullName = '';
 
-  // 1. Transaction's collectedBy if not pointing to member
-  if (tx.collectedBy && !isMemberReference(tx.collectedBy)) {
-    collectorFullName = tx.collectedBy.trim();
-  }
-  // 2. Transaction's verifiedBy if not pointing to member
-  else if (tx.verifiedBy && !isMemberReference(tx.verifiedBy)) {
-    collectorFullName = tx.verifiedBy.trim();
-  }
-  // 3. Member's assigned collector
-  else if (member?.assignedCollectorId) {
-    const assignedUser = users.find(u => u.id === member.assignedCollectorId || u.userUid === member.assignedCollectorId);
-    const assignedMem = members.find(m => m.id === member.assignedCollectorId || m.memberNo === member.assignedCollectorId);
-    if (assignedUser?.name && !isMemberReference(assignedUser.name)) {
-      collectorFullName = assignedUser.name.trim();
-    } else if (assignedMem?.name && !isMemberReference(assignedMem.name)) {
-      collectorFullName = assignedMem.name.trim();
+  if (isTxApproved) {
+    // 1. Transaction's verifiedBy if not pointing to member
+    if (tx.verifiedBy && !isMemberReference(tx.verifiedBy)) {
+      collectorFullName = tx.verifiedBy.trim();
     }
-  }
+    // 2. Transaction's collectedBy if not pointing to member
+    else if (tx.collectedBy && !isMemberReference(tx.collectedBy)) {
+      collectorFullName = tx.collectedBy.trim();
+    }
+    // 3. Member's assigned collector
+    else if (member?.assignedCollectorId) {
+      const assignedUser = users.find(u => u.id === member.assignedCollectorId || u.userUid === member.assignedCollectorId);
+      const assignedMem = members.find(m => m.id === member.assignedCollectorId || m.memberNo === member.assignedCollectorId);
+      if (assignedUser?.name && !isMemberReference(assignedUser.name)) {
+        collectorFullName = assignedUser.name.trim();
+      } else if (assignedMem?.name && !isMemberReference(assignedMem.name)) {
+        collectorFullName = assignedMem.name.trim();
+      }
+    }
 
-  // 4. Default to settings Cashier or active Cashier / Admin in system
-  if (!collectorFullName || isMemberReference(collectorFullName)) {
-    if (settings.cashierName && !isMemberReference(settings.cashierName)) {
-      collectorFullName = settings.cashierName.trim();
-    } else {
-      const cashierUser = users.find(u => u.role === 'cashier' && u.status === 'active' && !isMemberReference(u.name));
-      if (cashierUser?.name) {
-        collectorFullName = cashierUser.name.trim();
+    // 4. Default to settings Cashier or active Cashier / Admin in system
+    if (!collectorFullName || isMemberReference(collectorFullName)) {
+      if (settings.cashierName && !isMemberReference(settings.cashierName)) {
+        collectorFullName = settings.cashierName.trim();
       } else {
-        const adminUser = users.find(u => u.role === 'admin' && u.status === 'active' && !isMemberReference(u.name));
-        if (adminUser?.name) {
-          collectorFullName = adminUser.name.trim();
-        } else if (settings.secretaryName && !isMemberReference(settings.secretaryName)) {
-          collectorFullName = settings.secretaryName.trim();
+        const cashierUser = users.find(u => u.role === 'cashier' && u.status === 'active' && !isMemberReference(u.name));
+        if (cashierUser?.name) {
+          collectorFullName = cashierUser.name.trim();
         } else {
-          collectorFullName = 'আজিজুর রহমান (ক্যাশিয়ার)';
+          const adminUser = users.find(u => u.role === 'admin' && u.status === 'active' && !isMemberReference(u.name));
+          if (adminUser?.name) {
+            collectorFullName = adminUser.name.trim();
+          } else if (settings.secretaryName && !isMemberReference(settings.secretaryName)) {
+            collectorFullName = settings.secretaryName.trim();
+          } else {
+            collectorFullName = 'আজিজুর রহমান (ক্যাশিয়ার)';
+          }
         }
       }
     }
   }
 
   // Approver Name for metadata
-  const approverFullName = (tx.verifiedBy && !isMemberReference(tx.verifiedBy))
-    ? tx.verifiedBy.trim()
-    : (settings.secretaryName && !isMemberReference(settings.secretaryName))
-      ? settings.secretaryName.trim()
-      : collectorFullName;
+  const approverFullName = isTxApproved
+    ? ((tx.verifiedBy && !isMemberReference(tx.verifiedBy))
+        ? tx.verifiedBy.trim()
+        : (settings.secretaryName && !isMemberReference(settings.secretaryName))
+          ? settings.secretaryName.trim()
+          : collectorFullName)
+    : '';
 
-  // Search for Collector/Cashier's saved digital signature
+  // Search for Collector/Cashier's saved digital signature ONLY when approved
   let collectorSignatureUrl: string | null = null;
+
+  if (isTxApproved && collectorFullName) {
 
   // Check in members list (many staff/collectors are members with signatureUrl)
   const matchedCollectorMember = members.find(m => {
@@ -182,10 +193,9 @@ export const ReceiptModal: React.FC = () => {
       if (localSig) collectorSignatureUrl = localSig;
     } catch {}
   }
+  }
 
   // Structured Plaintext Receipt for Sharing & Downloading
-  const isTxPending = tx.status === 'pending';
-  const isTxRejected = tx.status === 'cancelled' || (tx.status as string) === 'rejected';
 
   const plainTextReceipt = `
 ========================================
@@ -209,8 +219,8 @@ ${tx.billingPeriod ? `বিলিং কিস্তি  : ${tx.billingPeriod}\
 মোট পরিমাণ   : ৳ ${tx.amount.toLocaleString('en-IN')} /-
 কথায়        : ${amountInWords}
 ----------------------------------------
-আদায়কারী / ক্যাশিয়ার : ${collectorFullName}
-অনুমোদনকারী কর্মকর্তা : ${approverFullName}
+আদায়কারী / ক্যাশিয়ার : ${isTxPending ? '(অনুমোদনের পর প্রযোজ্য)' : isTxRejected ? '(বাতিলকৃত)' : (collectorFullName || 'অফিস ক্যাশিয়ার')}
+অনুমোদনকারী কর্মকর্তা : ${isTxPending ? '(অনুমোদনের পর প্রযোজ্য)' : isTxRejected ? '(বাতিলকৃত)' : (approverFullName || 'প্রধান প্রশাসক')}
 ========================================
 * ডিজিটাল সমবায় সফটওয়্যার দ্বারা স্বয়ংক্রিয়ভাবে তৈরি।
 `;
@@ -398,18 +408,19 @@ ${tx.billingPeriod ? `বিলিং কিস্তি  : ${tx.billingPeriod}\
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-950/80 backdrop-blur-xs overscroll-none animate-fadeIn"
+      id="receipt-modal-backdrop"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-950/80 backdrop-blur-xs animate-fadeIn"
       onClick={(e) => {
         if (e.target === e.currentTarget) handleClose();
       }}
     >
       <div 
-        className="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-2xl flex flex-col max-h-[92vh] max-h-[92dvh] overflow-hidden my-auto animate-in fade-in-50 zoom-in-95"
+        className="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-2xl flex flex-col h-[92vh] h-[92dvh] max-h-[92vh] max-h-[92dvh] overflow-hidden my-auto animate-in fade-in-50 zoom-in-95 relative"
         onClick={(e) => e.stopPropagation()}
       >
         
-        {/* Top Control Action Bar (Hidden on Print) */}
-        <div className="no-print bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white px-3 sm:px-6 py-2.5 sm:py-3 border-b border-slate-800 shrink-0 z-10 select-none">
+        {/* Top Control Action Bar (Fixed at Top of Modal) */}
+        <div className="no-print bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white px-3 sm:px-6 py-2.5 sm:py-3 border-b border-slate-800 shrink-0 select-none shadow-md z-10">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
@@ -547,11 +558,11 @@ ${tx.billingPeriod ? `বিলিং কিস্তি  : ${tx.billingPeriod}\
           )}
         </div>
 
-        {/* Dedicated Smooth Scroll Viewport Container */}
+        {/* Dedicated Smooth Scrollable Viewport Container */}
         <div 
           ref={scrollContainerRef}
           id="receipt-modal-scroll-area"
-          className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y [webkit-overflow-scrolling:touch] p-3 sm:p-5 md:p-6 bg-slate-100/60"
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 sm:p-5 md:p-6 bg-slate-100/60"
           style={{
             WebkitOverflowScrolling: 'touch',
             overscrollBehavior: 'contain',
@@ -833,21 +844,35 @@ ${tx.billingPeriod ? `বিলিং কিস্তি  : ${tx.billingPeriod}\
                       {isTxRejected ? 'বাতিলকৃত সিলমোহর' : isTxPending ? 'অপেক্ষমাণ সিলমোহর' : 'অনুমোদিত সিলমোহর'}
                     </span>
 
-                    {/* Collector/Cashier's Full Name prominently visible in Stamp */}
-                    <div className={`w-full my-0.5 px-1 py-0.5 rounded border shadow-2xs ${
-                      isTxRejected
-                        ? 'bg-rose-100/90 border-rose-400/80 text-rose-900'
-                        : isTxPending
-                          ? 'bg-amber-100/90 border-amber-400/80 text-amber-900'
-                          : 'bg-emerald-100/90 border-emerald-400/80 text-emerald-900'
-                    }`}>
-                      <span className="text-[6.5px] sm:text-[7px] font-bold uppercase tracking-wider block leading-none">
-                        আদায়কারী / ক্যাশিয়ার
-                      </span>
-                      <span className="text-[8.5px] sm:text-[9.5px] font-black block leading-tight px-0.5 mt-0.5 break-words">
-                        {collectorFullName}
-                      </span>
-                    </div>
+                    {/* Collector/Cashier's Full Name in Stamp only when approved */}
+                    {isTxPending ? (
+                      <div className="w-full my-0.5 px-1 py-0.5 rounded border shadow-2xs bg-amber-100/90 border-amber-400/80 text-amber-900">
+                        <span className="text-[6.5px] sm:text-[7px] font-bold uppercase tracking-wider block leading-none">
+                          যাচাই ও অনুমোদন
+                        </span>
+                        <span className="text-[8px] sm:text-[9px] font-bold text-amber-950 block leading-tight px-0.5 mt-0.5">
+                          অনুমোদনের অপেক্ষায়
+                        </span>
+                      </div>
+                    ) : isTxRejected ? (
+                      <div className="w-full my-0.5 px-1 py-0.5 rounded border shadow-2xs bg-rose-100/90 border-rose-400/80 text-rose-900">
+                        <span className="text-[6.5px] sm:text-[7px] font-bold uppercase tracking-wider block leading-none">
+                          লেনদেন অবস্থা
+                        </span>
+                        <span className="text-[8px] sm:text-[9px] font-bold text-rose-950 block leading-tight px-0.5 mt-0.5">
+                          বাতিল / প্রত্যাখ্যাত
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="w-full my-0.5 px-1 py-0.5 rounded border shadow-2xs bg-emerald-100/90 border-emerald-400/80 text-emerald-900">
+                        <span className="text-[6.5px] sm:text-[7px] font-bold uppercase tracking-wider block leading-none">
+                          আদায়কারী / ক্যাশিয়ার
+                        </span>
+                        <span className="text-[8.5px] sm:text-[9.5px] font-black block leading-tight px-0.5 mt-0.5 break-words">
+                          {collectorFullName}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Seal Verification Date */}
                     <span className={`text-[6.5px] font-semibold leading-none ${
@@ -859,10 +884,23 @@ ${tx.billingPeriod ? `বিলিং কিস্তি  : ${tx.billingPeriod}\
                 </div>
               </div>
 
-              {/* Collector / Cashier Signature (NEVER Member's Name) */}
+              {/* Collector / Cashier Signature (NEVER Member's Name, ONLY when Approved!) */}
               <div className="flex flex-col items-center">
                 <div className="w-full min-h-12 border-b border-slate-400 flex flex-col items-center justify-end pb-1 px-1">
-                  {collectorSignatureUrl ? (
+                  {isTxPending ? (
+                    <div className="py-1 text-center w-full">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                        <Clock className="w-3 h-3 text-amber-600" />
+                        অনুমোদনের পর স্বাক্ষর
+                      </span>
+                    </div>
+                  ) : isTxRejected ? (
+                    <div className="py-1 text-center w-full">
+                      <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                        বাতিলকৃত
+                      </span>
+                    </div>
+                  ) : collectorSignatureUrl ? (
                     <img
                       src={collectorSignatureUrl}
                       alt={collectorFullName}
@@ -875,10 +913,12 @@ ${tx.billingPeriod ? `বিলিং কিস্তি  : ${tx.billingPeriod}\
                   )}
                 </div>
                 <span className="text-[10px] text-slate-500 font-medium block mt-1">
-                  কালেক্টর / ক্যাশিয়ারের স্বাক্ষর
+                  {isTxPending ? 'অনুমোদনকারী কর্মকর্তার স্বাক্ষর' : 'কালেক্টর / ক্যাশিয়ারের স্বাক্ষর'}
                 </span>
-                <span className="text-[9px] text-emerald-700 font-semibold block">
-                  (অনুমোদিত কর্মকর্তা)
+                <span className={`text-[9px] font-semibold block ${
+                  isTxPending ? 'text-amber-600' : isTxRejected ? 'text-rose-600' : 'text-emerald-700'
+                }`}>
+                  {isTxPending ? '(অনুমোদনের পর প্রযোজ্য)' : isTxRejected ? '(বাতিলকৃত লেনদেন)' : '(অনুমোদিত কর্মকর্তা)'}
                 </span>
               </div>
             </div>

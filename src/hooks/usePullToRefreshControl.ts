@@ -111,6 +111,10 @@ export const usePullToRefreshControl = ({
 
     const handleTouchStart = (e: TouchEvent) => {
       if (!isMobileOrTabletLayout()) return;
+      // If any modal is active or touch is inside a modal/dialog, never interfere
+      if (document.body.classList.contains('modal-open') || document.documentElement.classList.contains('modal-open')) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.('.fixed, [role="dialog"], [data-modal="true"], #receipt-modal-backdrop, #receipt-modal-scroll-area, #receipt-modal-content-area, .modal-open')) return;
       if (e.touches.length !== 1) return;
 
       const currentScrollTop = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
@@ -122,6 +126,10 @@ export const usePullToRefreshControl = ({
 
     const handleTouchMove = (e: TouchEvent) => {
       if (!isMobileOrTabletLayout()) return;
+      // If any modal is active or touch is inside a modal/dialog, never interfere
+      if (document.body.classList.contains('modal-open') || document.documentElement.classList.contains('modal-open')) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.('.fixed, [role="dialog"], [data-modal="true"], #receipt-modal-backdrop, #receipt-modal-scroll-area, #receipt-modal-content-area, .modal-open')) return;
       if (e.touches.length !== 1) return;
 
       const currentY = e.touches[0].clientY;

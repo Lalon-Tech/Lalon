@@ -446,6 +446,7 @@ interface SomitiContextType {
     depositMonth?: string;
     depositYear?: number;
     billingPeriod?: string;
+    status?: 'pending' | 'completed';
   }) => Transaction;
   
   addWithdrawal: (params: {
@@ -2484,13 +2485,17 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     depositMonth?: string;
     depositYear?: number;
     billingPeriod?: string;
+    status?: 'pending' | 'completed';
   }): Transaction => {
     const member = members.find(m => m.id === params.memberId);
     const voucherNo = `V-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const txType: TransactionType = params.schemeType === 'dps' ? 'dps_deposit' : params.schemeType === 'fdr' ? 'fdr_deposit' : 'deposit';
 
     const isMemberRole = currentUser?.role === 'member';
-    const txStatus: 'pending' | 'completed' = isMemberRole ? 'pending' : 'completed';
+    const txStatus: 'pending' | 'completed' = params.status !== undefined 
+      ? params.status 
+      : (isMemberRole ? 'pending' : 'completed');
+    const isPending = txStatus === 'pending';
 
     const newTx: Transaction = {
       id: `tx-${Date.now()}`,
@@ -2505,8 +2510,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       time: getCurrentTimeStr(),
       paymentMethod: params.paymentMethod,
       bankAccountId: params.bankAccountId,
-      collectedBy: currentUser?.name || 'Admin',
-      verifiedBy: isMemberRole ? undefined : (currentUser?.name || 'Admin'),
+      collectedBy: isPending ? (member?.name || currentUser?.name || 'সদস্য') : (currentUser?.name || 'Admin'),
+      verifiedBy: isPending ? undefined : (currentUser?.name || 'Admin'),
       savingsSchemeId: params.schemeId,
       selectedShares: params.selectedShares,
       totalMemberShares: params.totalMemberShares,
@@ -2516,7 +2521,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       depositMonth: params.depositMonth,
       depositYear: params.depositYear,
       billingPeriod: params.billingPeriod,
-      notes: (params.notes || (params.schemeType === 'dps' ? 'ডিপিএস কিস্তি জমা' : params.schemeType === 'fdr' ? 'এফডিআর জমা' : 'সাধারণ সঞ্চয় জমা')) + (isMemberRole ? ' [অনুমোদন অপেক্ষমাণ]' : ''),
+      notes: (params.notes || (params.schemeType === 'dps' ? 'ডিপিএস কিস্তি জমা' : params.schemeType === 'fdr' ? 'এফডিআর জমা' : 'সাধারণ সঞ্চয় জমা')) + (isPending ? ' [অনুমোদন অপেক্ষমাণ]' : ''),
       status: txStatus,
     };
 
@@ -2524,7 +2529,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setTransactions(nextTxs);
     safeSetDoc(doc(db, 'transactions', newTx.id), newTx).catch(console.error);
 
-    if (isMemberRole) {
+    if (isPending) {
       setActiveReceipt(newTx);
       return newTx;
     }

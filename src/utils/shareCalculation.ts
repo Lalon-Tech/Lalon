@@ -226,3 +226,279 @@ export function recalculateMemberShareFinancials(
     totalSavings: breakdown.totalSavings,
   };
 }
+
+/**
+ * Interface representing tracking data for a single Share
+ */
+export interface ShareWiseProfitItem {
+  shareNo: number;
+  initialDeposit: number;       // Share purchase / initial equity deposit (৳)
+  monthlyDeposits: number;      // Monthly savings deposits accumulated on this share (৳)
+  totalDeposit: number;         // Total Deposit for this share (৳)
+  depositPercentage: number;    // Share's proportion of member's total deposit (%)
+  totalProfit: number;          // Total Profit allocated to this share (৳)
+  profitPercentage: number;     // Share's proportion of member's total profit (%)
+  totalSavings: number;         // Total Savings = Total Deposit + Total Profit (৳)
+  purchaseDate?: string;
+  voucherNo?: string;
+  status: 'active' | 'closed';
+}
+
+/**
+ * Interface representing a member's complete share-wise profit and deposit summary
+ */
+export interface MemberShareWiseSummary {
+  memberId: string;
+  memberNo: string;
+  memberName: string;
+  totalShares: number;
+  shares: ShareWiseProfitItem[];
+  totalDeposit: number;         // Sum of all shares' deposits
+  totalProfit: number;          // Sum of all shares' profits
+  totalSavings: number;         // Sum of all shares' total savings (deposit + profit)
+}
+
+/**
+ * Calculates share-wise Deposit, Profit, and Total Savings (Deposit + Profit) separately
+ * for each individual share of a member.
+ * 
+ * Rules:
+ * 1. Uses verified share-wise deposit records (tx.shareAmounts / tx.selectedShares / tx.shareRate).
+ * 2. Allocates profit proportionally based on each share's deposit weight (or explicit share profit).
+ * 3. Exact 2-decimal rounding with final-share adjustment ensures:
+ *    Sum of All Shares' Deposits === Member Total Deposit
+ *    Sum of All Shares' Profits === Member Total Profit
+ *    Sum of All Shares' Savings === Member Total Savings (Deposit + Profit)
+ * 
+ * Example:
+ * Share #1 → Deposit ৳6,000 | Profit ৳1,500 | Total ৳7,500
+ * Share #2 → Deposit ৳4,000 | Profit ৳1,000 | Total ৳5,000
+ */
+export function calculateMemberShareWiseProfits(
+  member: Member,
+  transactions: Transaction[] = [],
+  shareClosures: ShareClosure[] = [],
+  totalProfitOverride?: number
+): MemberShareWiseSummary {
+  if (!member) {
+    return {
+      memberId: '',
+      memberNo: '',
+      memberName: '',
+      totalShares: 0,
+      shares: [],
+      totalDeposit: 0,
+      totalProfit: 0,
+      totalSavings: 0,
+    };
+  }
+
+  const remainingShares = calculateMemberRemainingShares(member, transactions, shareClosures);
+
+  // If member has 0 active shares, return empty
+  if (remainingShares <= 0) {
+    return {
+      memberId: member.id,
+      memberNo: member.memberNo || '',
+      memberName: member.name || '',
+      totalShares: 0,
+      shares: [],
+      totalDeposit: 0,
+      totalProfit: 0,
+      totalSavings: 0,
+    };
+  }
+
+  const completedTxs = (transactions || []).filter(t => t.memberId === member.id && t.status === 'completed');
+  const sharePurchaseTxs = completedTxs.filter(t => t.type === 'share_purchase');
+  const depositTxs = completedTxs.filter(t => t.type === 'deposit');
+  const profitTxs = completedTxs.filter(t => t.type === 'profit_share');
+
+  // 1. Calculate each share's Deposit (Initial + Monthly)
+  interface RawShareData {
+    shareNo: number;
+    initialDeposit: number;
+    monthlyDeposits: number;
+    totalDeposit: number;
+    explicitProfit: number;
+    purchaseDate?: string;
+    voucherNo?: string;
+  }
+
+  const rawShares: RawShareData[] = [];
+
+  for (let shareNo = 1; shareNo <= remainingShares; shareNo++) {
+    // Initial deposit from share purchase
+    let initialDeposit = 0;
+    let purchaseDate: string | undefined;
+    let voucherNo: string | undefined;
+
+    for (const tx of sharePurchaseTxs) {
+      if (tx.shareAmounts && tx.shareAmounts[shareNo] !== undefined) {
+        initialDeposit = Number(tx.shareAmounts[shareNo]) || 0;
+        purchaseDate = tx.date;
+        voucherNo = tx.voucherNo;
+        break;
+      } else if (tx.selectedShares && tx.selectedShares.includes(shareNo)) {
+        initialDeposit = Number(tx.unitPrice) || (Number(tx.amount) / (tx.selectedShares.length || 1));
+        purchaseDate = tx.date;
+        voucherNo = tx.voucherNo;
+        break;
+      }
+    }
+
+    // Monthly deposits assigned to this share
+    let monthlyDeposits = 0;
+    depositTxs.forEach(tx => {
+      if (tx.shareAmounts && tx.shareAmounts[shareNo] !== undefined) {
+        monthlyDeposits += Number(tx.shareAmounts[shareNo]) || 0;
+      } else if (tx.selectedShares && tx.selectedShares.includes(shareNo)) {
+        const rate = tx.shareRate || (tx.amount / (tx.selectedShares.length || 1));
+        monthlyDeposits += rate;
+      }
+    });
+
+    // Check for any explicit profit recorded specifically for this share
+    let explicitProfit = 0;
+    profitTxs.forEach(tx => {
+      if (tx.shareAmounts && tx.shareAmounts[shareNo] !== undefined) {
+        explicitProfit += Number(tx.shareAmounts[shareNo]) || 0;
+      } else if (tx.selectedShares && tx.selectedShares.includes(shareNo) && tx.selectedShares.length === 1) {
+        explicitProfit += Number(tx.amount) || 0;
+      }
+    });
+
+    const totalDeposit = Number((initialDeposit + monthlyDeposits).toFixed(2));
+
+    rawShares.push({
+      shareNo,
+      initialDeposit: Number(initialDeposit.toFixed(2)),
+      monthlyDeposits: Number(monthlyDeposits.toFixed(2)),
+      totalDeposit,
+      explicitProfit: Number(explicitProfit.toFixed(2)),
+      purchaseDate,
+      voucherNo,
+    });
+  }
+
+  // Sum of deposits across all shares
+  let totalDepositSum = Number(
+    rawShares.reduce((sum, s) => sum + s.totalDeposit, 0).toFixed(2)
+  );
+
+  // If no share-wise transactions exist yet, fallback to member's base deposit divided equally
+  if (totalDepositSum <= 0) {
+    const fallbackBaseDeposit = calculateMemberBaseDeposit(member, transactions, shareClosures);
+    if (fallbackBaseDeposit > 0) {
+      const perShareDeposit = Number((fallbackBaseDeposit / remainingShares).toFixed(2));
+      let runningDeposit = 0;
+      rawShares.forEach((s, idx) => {
+        if (idx === rawShares.length - 1) {
+          s.totalDeposit = Number((fallbackBaseDeposit - runningDeposit).toFixed(2));
+        } else {
+          s.totalDeposit = perShareDeposit;
+          runningDeposit = Number((runningDeposit + perShareDeposit).toFixed(2));
+        }
+        s.monthlyDeposits = s.totalDeposit;
+      });
+      totalDepositSum = fallbackBaseDeposit;
+    }
+  }
+
+  // 2. Determine member's total profit earned
+  let totalMemberProfit = 0;
+  if (totalProfitOverride !== undefined && totalProfitOverride !== null && !isNaN(totalProfitOverride)) {
+    totalMemberProfit = Math.max(0, Number(Number(totalProfitOverride).toFixed(2)));
+  } else {
+    // Sum from completed profit_share transactions
+    const txProfitSum = profitTxs
+      .filter(t => t.category !== 'business_profit_member_share')
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    totalMemberProfit = Number(Math.max(0, txProfitSum).toFixed(2));
+  }
+
+  // 3. Allocate profit across shares
+  const totalExplicitProfit = Number(
+    rawShares.reduce((sum, s) => sum + s.explicitProfit, 0).toFixed(2)
+  );
+
+  const unallocatedProfit = Math.max(0, Number((totalMemberProfit - totalExplicitProfit).toFixed(2)));
+
+  let runningProfitSum = 0;
+  const finalShares: ShareWiseProfitItem[] = rawShares.map((s, idx) => {
+    const isLast = idx === rawShares.length - 1;
+    let shareProfit = s.explicitProfit;
+
+    if (unallocatedProfit > 0) {
+      if (totalDepositSum > 0) {
+        // Proportional distribution based on share's deposit weight
+        const weight = s.totalDeposit / totalDepositSum;
+        const rawAllocated = weight * unallocatedProfit;
+        let allocatedProfit = Math.round(rawAllocated * 100) / 100;
+
+        if (isLast) {
+          // Exact final-cent adjustment mechanism
+          allocatedProfit = Number((unallocatedProfit - runningProfitSum).toFixed(2));
+          if (allocatedProfit < 0) allocatedProfit = 0;
+        } else {
+          runningProfitSum = Number((runningProfitSum + allocatedProfit).toFixed(2));
+        }
+        shareProfit = Number((shareProfit + allocatedProfit).toFixed(2));
+      } else {
+        // Equal split if all deposits are 0
+        const perShare = Math.round((unallocatedProfit / remainingShares) * 100) / 100;
+        let allocatedProfit = perShare;
+        if (isLast) {
+          allocatedProfit = Number((unallocatedProfit - runningProfitSum).toFixed(2));
+          if (allocatedProfit < 0) allocatedProfit = 0;
+        } else {
+          runningProfitSum = Number((runningProfitSum + allocatedProfit).toFixed(2));
+        }
+        shareProfit = Number((shareProfit + allocatedProfit).toFixed(2));
+      }
+    }
+
+    const depositPercentage = totalDepositSum > 0
+      ? Number(((s.totalDeposit / totalDepositSum) * 100).toFixed(2))
+      : Number((100 / remainingShares).toFixed(2));
+
+    const profitPercentage = totalMemberProfit > 0
+      ? Number(((shareProfit / totalMemberProfit) * 100).toFixed(2))
+      : depositPercentage;
+
+    const totalSavings = Number((s.totalDeposit + shareProfit).toFixed(2));
+
+    return {
+      shareNo: s.shareNo,
+      initialDeposit: s.initialDeposit,
+      monthlyDeposits: s.monthlyDeposits,
+      totalDeposit: s.totalDeposit,
+      depositPercentage,
+      totalProfit: shareProfit,
+      profitPercentage,
+      totalSavings,
+      purchaseDate: s.purchaseDate,
+      voucherNo: s.voucherNo,
+      status: 'active' as const,
+    };
+  });
+
+  const verifiedTotalProfit = Number(
+    finalShares.reduce((sum, s) => sum + s.totalProfit, 0).toFixed(2)
+  );
+
+  const verifiedTotalSavings = Number(
+    finalShares.reduce((sum, s) => sum + s.totalSavings, 0).toFixed(2)
+  );
+
+  return {
+    memberId: member.id,
+    memberNo: member.memberNo || '',
+    memberName: member.name || '',
+    totalShares: remainingShares,
+    shares: finalShares,
+    totalDeposit: totalDepositSum,
+    totalProfit: verifiedTotalProfit,
+    totalSavings: verifiedTotalSavings,
+  };
+}

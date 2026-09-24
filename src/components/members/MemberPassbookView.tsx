@@ -26,6 +26,7 @@ import {
   formatBengaliDate, 
   getTransactionTypeName 
 } from '../../utils/bengaliUtils';
+import { calculateMemberShareWiseProfits } from '../../utils/shareCalculation';
 
 // Helper to extract Share Number from a transaction
 function getTxShareNumber(tx: Transaction, isBn: boolean = true): string {
@@ -70,6 +71,7 @@ export const MemberPassbookView: React.FC = () => {
     currentUser, 
     members, 
     transactions, 
+    shareClosures,
     settings, 
     useBengaliDigits,
     openReceiptForTx,
@@ -184,6 +186,14 @@ export const MemberPassbookView: React.FC = () => {
     }
     return transactions.filter(t => t.memberId === activeMember.id && t.status === 'pending');
   }, [transactions, activeMember]);
+
+  // Share-wise Profit & Deposit tracking for the active member
+  const shareWiseSummary = useMemo(() => {
+    if (!activeMember) return null;
+    return calculateMemberShareWiseProfits(activeMember, transactions, shareClosures);
+  }, [activeMember, transactions, shareClosures]);
+
+  const [isShareSummaryExpanded, setIsShareSummaryExpanded] = useState(true);
 
   // Filtered rows
   const filteredRows = useMemo(() => {
@@ -357,6 +367,107 @@ export const MemberPassbookView: React.FC = () => {
                 : 'Per accounting regulations, pending transactions do not affect member balances, shares, or the passbook ledger until explicitly approved by an Administrator.'}
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Share-wise Profit & Deposit Tracking Card for Active Member */}
+      {shareWiseSummary && shareWiseSummary.totalShares > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-blue-50 text-blue-700 rounded-xl">
+                <Layers className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <span>{isBn ? 'শেয়ারভিত্তিক পৃথক সঞ্চয় ও অর্জিত লভ্যাংশ ট্র্যাকিং' : 'Share-wise Deposits & Profit Tracking'}</span>
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-blue-100 text-blue-800">
+                    {isBn ? `${toBengaliNumber(shareWiseSummary.totalShares)}টি শেয়ার` : `${shareWiseSummary.totalShares} Shares`}
+                  </span>
+                </h4>
+                <p className="text-xs text-slate-500">
+                  {isBn 
+                    ? 'প্রতিটি শেয়ারের আলাদা মোট জমা, আনুপাতিক অর্জিত লাভ ও মোট সঞ্চয় স্থিতি'
+                    : 'Track each share\'s separate deposit, allocated profit, and total savings'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsShareSummaryExpanded(!isShareSummaryExpanded)}
+              className="px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-blue-700 bg-slate-100 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+            >
+              <span>{isShareSummaryExpanded ? (isBn ? 'সংক্ষিপ্ত করুন' : 'Collapse') : (isBn ? 'বিস্তারিত দেখুন' : 'Expand')}</span>
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isShareSummaryExpanded ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
+
+          {isShareSummaryExpanded && (
+            <>
+              {/* Share Badges Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+                {shareWiseSummary.shares.map(s => (
+                  <div 
+                    key={s.shareNo}
+                    className="bg-slate-50 border border-slate-200/90 rounded-xl p-3.5 space-y-2 hover:border-blue-300 transition-all shadow-2xs"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-blue-600 text-white font-mono text-xs font-bold">
+                        {isBn ? `শেয়ার #${toBengaliNumber(s.shareNo)}` : `Share #${s.shareNo}`}
+                      </span>
+                      <span className="text-[11px] font-semibold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200 font-mono">
+                        {toBengaliNumber(s.depositPercentage)}%
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex justify-between items-center text-slate-600">
+                        <span>{isBn ? 'মোট জমা (Deposit):' : 'Deposit:'}</span>
+                        <span className="font-bold text-slate-900 font-mono">
+                          ৳{formatCurrency(s.totalDeposit, isBn && useBengaliDigits)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-emerald-700">
+                        <span className="font-medium">{isBn ? 'অর্জিত লাভ (Profit):' : 'Profit:'}</span>
+                        <span className="font-black font-mono text-emerald-700">
+                          +৳{formatCurrency(s.totalProfit, isBn && useBengaliDigits)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center pt-1.5 border-t border-slate-200 font-bold text-indigo-950">
+                        <span>{isBn ? 'মোট সঞ্চয় স্থিতি (Total):' : 'Total Savings:'}</span>
+                        <span className="font-black text-indigo-900 font-mono text-sm">
+                          ৳{formatCurrency(s.totalSavings, isBn && useBengaliDigits)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Total Summary Footer Strip */}
+              <div className="bg-blue-50/70 border border-blue-200/80 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2 font-bold text-blue-950">
+                  <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>{isBn ? 'সকল শেয়ারের সমন্বিত মোট হিসাব (Grand Total):' : 'All Shares Combined Grand Total:'}</span>
+                </div>
+                <div className="flex items-center gap-4 flex-wrap text-xs font-mono">
+                  <span className="text-slate-700">
+                    {isBn ? 'মোট জমা:' : 'Deposit:'}{' '}
+                    <strong className="text-slate-950">৳{formatCurrency(shareWiseSummary.totalDeposit, isBn && useBengaliDigits)}</strong>
+                  </span>
+                  <span className="text-emerald-700">
+                    {isBn ? 'মোট লভ্যাংশ:' : 'Profit:'}{' '}
+                    <strong className="text-emerald-800">+৳{formatCurrency(shareWiseSummary.totalProfit, isBn && useBengaliDigits)}</strong>
+                  </span>
+                  <span className="text-indigo-900 bg-white px-2.5 py-1 rounded-lg border border-blue-200">
+                    {isBn ? 'সর্বমোট সঞ্চয়:' : 'Total:'}{' '}
+                    <strong className="text-indigo-950 font-black">৳{formatCurrency(shareWiseSummary.totalSavings, isBn && useBengaliDigits)}</strong>
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 

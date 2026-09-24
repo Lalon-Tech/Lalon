@@ -38,6 +38,7 @@ import {
   deriveProfitByProvider,
   MemberDepositSnapshotItem,
 } from '../../utils/profitCalculation';
+import { calculateMemberShareWiseProfits } from '../../utils/shareCalculation';
 
 export const ProfitReportsAndSandbox: React.FC = () => {
   const {
@@ -45,6 +46,7 @@ export const ProfitReportsAndSandbox: React.FC = () => {
     businessProfitRecords,
     profitDistributions,
     transactions,
+    shareClosures,
     getMemberSavingsBalance,
     useBengaliDigits,
     isUserAdmin,
@@ -59,6 +61,7 @@ export const ProfitReportsAndSandbox: React.FC = () => {
   const [reportTab, setReportTab] = useState<'members' | 'dates' | 'months' | 'providers' | 'history'>('members');
   const [selectedMonthFilter, setSelectedMonthFilter] = useState<string>('all');
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
+  const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
 
   // Derive reports from the single source of truth (businessProfitRecords)
@@ -777,29 +780,127 @@ export const ProfitReportsAndSandbox: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium">
-                    {memberProfitSummaries.map((m) => (
-                      <tr key={m.memberId} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-3 px-4">
-                          <div className="font-bold text-slate-800">{m.memberName}</div>
-                          <div className="text-[10px] text-slate-400 font-mono">{m.memberNo}</div>
-                        </td>
-                        <td className="py-3 px-4 text-right font-bold text-slate-700">
-                          ৳{formatCurrency(m.currentDeposit, isBn && useBengaliDigits)}
-                        </td>
-                        <td className="py-3 px-4 text-right font-black text-emerald-700">
-                          +৳{formatCurrency(m.totalEarnedProfit, isBn && useBengaliDigits)}
-                        </td>
-                        <td className="py-3 px-4 text-right font-black text-indigo-900 bg-indigo-50/30">
-                          ৳{formatCurrency(m.overallBalanceWithProfit, isBn && useBengaliDigits)}
-                        </td>
-                        <td className="py-3 px-4 text-right font-bold text-blue-700">
-                          {m.totalProvidedProfit > 0 ? `৳${formatCurrency(m.totalProvidedProfit, isBn && useBengaliDigits)}` : '—'}
-                        </td>
-                        <td className="py-3 px-4 text-center text-slate-500 font-mono text-[11px]">
-                          {m.distributionCount} {isBn ? 'বার' : 'times'}
-                        </td>
-                      </tr>
-                    ))}
+                    {memberProfitSummaries.map((m) => {
+                      const memberObj = members.find(mem => mem.id === m.memberId);
+                      const hasShares = Boolean(memberObj && (memberObj.shareCount || 0) > 0);
+                      const isExpanded = expandedMemberId === m.memberId;
+
+                      return (
+                        <React.Fragment key={m.memberId}>
+                          <tr className="hover:bg-slate-50/70 transition-colors">
+                            <td className="py-3 px-4">
+                              <div className="flex items-center justify-between gap-2">
+                                <div>
+                                  <div className="font-bold text-slate-800">{m.memberName}</div>
+                                  <div className="text-[10px] text-slate-400 font-mono">{m.memberNo}</div>
+                                </div>
+                                {hasShares && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedMemberId(isExpanded ? null : m.memberId)}
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0 ${
+                                      isExpanded 
+                                        ? 'bg-blue-600 text-white shadow-2xs' 
+                                        : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
+                                    }`}
+                                    title={isBn ? 'শেয়ারভিত্তিক পৃথক লাভ ও জমা দেখুন' : 'View Share-wise details'}
+                                  >
+                                    <Layers className="w-3 h-3" />
+                                    <span>{isBn ? `${toBengaliNumber(memberObj?.shareCount || 1)} শেয়ার` : `${memberObj?.shareCount || 1} Shares`}</span>
+                                    <ChevronDown className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-right font-bold text-slate-700">
+                              ৳{formatCurrency(m.currentDeposit, isBn && useBengaliDigits)}
+                            </td>
+                            <td className="py-3 px-4 text-right font-black text-emerald-700">
+                              +৳{formatCurrency(m.totalEarnedProfit, isBn && useBengaliDigits)}
+                            </td>
+                            <td className="py-3 px-4 text-right font-black text-indigo-900 bg-indigo-50/30">
+                              ৳{formatCurrency(m.overallBalanceWithProfit, isBn && useBengaliDigits)}
+                            </td>
+                            <td className="py-3 px-4 text-right font-bold text-blue-700">
+                              {m.totalProvidedProfit > 0 ? `৳${formatCurrency(m.totalProvidedProfit, isBn && useBengaliDigits)}` : '—'}
+                            </td>
+                            <td className="py-3 px-4 text-center text-slate-500 font-mono text-[11px]">
+                              {m.distributionCount} {isBn ? 'বার' : 'times'}
+                            </td>
+                          </tr>
+
+                          {/* Share-wise Breakdown row for this member */}
+                          {isExpanded && memberObj && (
+                            <tr className="bg-slate-50/90 border-b border-slate-200">
+                              <td colSpan={6} className="p-3 sm:p-4">
+                                {(() => {
+                                  const shareSummary = calculateMemberShareWiseProfits(
+                                    memberObj, 
+                                    transactions, 
+                                    shareClosures, 
+                                    m.totalEarnedProfit
+                                  );
+
+                                  return (
+                                    <div className="bg-white rounded-xl border border-blue-200 p-3.5 shadow-2xs space-y-2.5">
+                                      <div className="flex items-center justify-between flex-wrap gap-2">
+                                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                                          <Layers className="w-4 h-4 text-blue-600" />
+                                          <span>
+                                            {isBn 
+                                              ? `${m.memberName}-এর শেয়ারভিত্তিক পৃথক আমানত ও অর্জিত লভ্যাংশ বিবরণী` 
+                                              : `Share-wise Profit & Savings Breakdown for ${m.memberName}`}
+                                          </span>
+                                        </div>
+                                        <span className="text-[10px] text-slate-500 font-mono">
+                                          {isBn 
+                                            ? 'প্রতিটি শেয়ারের আলাদা মোট জমা, আনুপাতিক অর্জিত মুনাফা ও মোট সঞ্চয়' 
+                                            : 'Individual Deposit, Allocated Profit & Total Savings per Share'}
+                                        </span>
+                                      </div>
+
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                                        {shareSummary.shares.map(s => (
+                                          <div key={s.shareNo} className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-1.5 text-xs shadow-2xs">
+                                            <div className="flex justify-between items-center">
+                                              <span className="inline-flex items-center px-2 py-0.5 rounded bg-blue-600 text-white font-mono text-[11px] font-bold">
+                                                {isBn ? `শেয়ার #${toBengaliNumber(s.shareNo)}` : `Share #${s.shareNo}`}
+                                              </span>
+                                              <span className="text-[10px] text-slate-500 font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                                                {toBengaliNumber(s.depositPercentage)}%
+                                              </span>
+                                            </div>
+                                            <div className="flex justify-between text-slate-600 pt-1">
+                                              <span>{isBn ? 'মোট জমা:' : 'Deposit:'}</span>
+                                              <span className="font-bold text-slate-900 font-mono">৳{formatCurrency(s.totalDeposit, isBn && useBengaliDigits)}</span>
+                                            </div>
+                                            <div className="flex justify-between text-emerald-700">
+                                              <span>{isBn ? 'অর্জিত লাভ:' : 'Profit:'}</span>
+                                              <span className="font-black font-mono">+৳{formatCurrency(s.totalProfit, isBn && useBengaliDigits)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-indigo-950 font-bold border-t border-slate-200 pt-1">
+                                              <span>{isBn ? 'মোট সঞ্চয়:' : 'Total Savings:'}</span>
+                                              <span className="font-black text-indigo-900 font-mono">৳{formatCurrency(s.totalSavings, isBn && useBengaliDigits)}</span>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+
+                                      <div className="flex items-center justify-between text-[11px] text-slate-600 bg-blue-50/60 px-3 py-1.5 rounded-lg border border-blue-100">
+                                        <span className="font-semibold text-blue-900">{isBn ? 'সমন্বিত সর্বমোট হিসাব (Grand Total):' : 'Combined Total:'}</span>
+                                        <span className="font-mono font-bold text-blue-950">
+                                          {isBn ? 'জমা:' : 'Dep:'} ৳{formatCurrency(shareSummary.totalDeposit, isBn && useBengaliDigits)} + {isBn ? 'লাভ:' : 'Profit:'} ৳{formatCurrency(shareSummary.totalProfit, isBn && useBengaliDigits)} = {isBn ? 'মোট:' : 'Total:'} ৳{formatCurrency(shareSummary.totalSavings, isBn && useBengaliDigits)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
                   <tfoot className="bg-slate-100 font-bold border-t-2 border-slate-300 text-xs">
                     <tr>
