@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Mail, Lock, User, LogIn, UserPlus, AlertCircle, CheckCircle2, Flame, Loader2, Fingerprint, Trash2, ShieldCheck, Sparkles } from 'lucide-react';
+import { X, Mail, Lock, User, LogIn, UserPlus, AlertCircle, CheckCircle2, Flame, Loader2, Fingerprint, Trash2, ShieldCheck, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSomiti } from '../../context/SomitiContext';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock';
@@ -10,10 +10,12 @@ interface AuthModalProps {
   onClose: () => void;
 }
 
+const REMEMBERED_LOGIN_ID_KEY = 'somiti_remembered_login_id';
+
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   useModalScrollLock(isOpen);
   const { user, signIn, signUp, logOut, signInWithBiometricProfile, error, clearError } = useAuth();
-  const { settings } = useSomiti();
+  const { settings, setActiveTab, setSelectedMemberId } = useSomiti();
   
   const {
     isSupported: isBiometricSupported,
@@ -30,9 +32,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   } = useBiometricAuth();
 
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState<string>(() => {
+    try {
+      return localStorage.getItem(REMEMBERED_LOGIN_ID_KEY) || '';
+    } catch {
+      return '';
+    }
+  });
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [validationError, setValidationError] = useState('');
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -42,6 +52,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const currentDeviceCredential = user
     ? enrolledCredentials.find((c) => c.user.uid === user.uid || c.user.email === user.email)
     : null;
+
+  const rememberLoginId = (id: string) => {
+    if (!id || !id.trim()) return;
+    try {
+      localStorage.setItem(REMEMBERED_LOGIN_ID_KEY, id.trim());
+    } catch (err) {
+      console.warn('Failed to save remembered login ID in modal:', err);
+    }
+  };
 
   const handleEnrollBiometrics = async () => {
     if (!user) return;
@@ -64,7 +83,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     try {
       const res = await authenticateWithBiometrics();
       if (res.success && res.user) {
+        if (res.user.email) {
+          rememberLoginId(res.user.email);
+        }
         signInWithBiometricProfile(res.user);
+        setActiveTab('dashboard');
+        setSelectedMemberId(null);
         setSuccessMsg(`বায়োমেট্রিক সফলভাবে যাচাই হয়েছে! স্বাগতম ${res.user.displayName || res.user.email}`);
         setTimeout(() => {
           onClose();
@@ -102,14 +126,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
     setLoading(true);
     try {
+      const cleanLoginId = email.trim();
+      rememberLoginId(cleanLoginId);
+
       if (mode === 'signin') {
-        await signIn(email, password);
+        await signIn(cleanLoginId, password);
+        setActiveTab('dashboard');
+        setSelectedMemberId(null);
         setSuccessMsg('সফলভাবে লগইন হয়েছে!');
         setTimeout(() => {
           onClose();
         }, 800);
       } else {
-        await signUp(email, password);
+        await signUp(cleanLoginId, password);
+        setActiveTab('dashboard');
+        setSelectedMemberId(null);
         setSuccessMsg('নিবন্ধন সম্পন্ন হয়েছে! অ্যাকাউন্টটি প্রশাসনিক অনুমোদনের অপেক্ষায় রয়েছে।');
         setTimeout(() => {
           onClose();
@@ -377,19 +408,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   পাসওয়ার্ড <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     required
                     minLength={6}
-                    placeholder="কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড"
+                    autoComplete="current-password"
+                    placeholder="••••••••"
                     value={password}
                     onChange={(e) => {
                       setPassword(e.target.value);
                       setValidationError('');
                     }}
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-slate-800 placeholder:text-slate-400"
+                    className="w-full pl-9 pr-10 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-slate-800 placeholder:text-slate-400"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(prev => !prev)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
+                    title={showPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4 text-blue-600" /> : <Eye className="w-4 h-4 text-slate-400" />}
+                  </button>
                 </div>
               </div>
 
@@ -399,19 +439,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     কনফার্ম পাসওয়ার্ড <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
-                      type="password"
+                      type={showConfirmPassword ? 'text' : 'password'}
                       required
                       minLength={6}
-                      placeholder="পাসওয়ার্ডটি পুনরায় লিখুন"
+                      autoComplete="new-password"
+                      placeholder="••••••••"
                       value={confirmPassword}
                       onChange={(e) => {
                         setConfirmPassword(e.target.value);
                         setValidationError('');
                       }}
-                      className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-slate-800 placeholder:text-slate-400"
+                      className="w-full pl-9 pr-10 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-slate-800 placeholder:text-slate-400"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(prev => !prev)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
+                      title={showConfirmPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4 text-blue-600" /> : <Eye className="w-4 h-4 text-slate-400" />}
+                    </button>
                   </div>
                 </div>
               )}

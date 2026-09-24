@@ -8,6 +8,17 @@ import { useBiometricAuth } from '../../hooks/useBiometricAuth';
 
 interface LoginPageProps {}
 
+const REMEMBERED_LOGIN_ID_KEY = 'somiti_remembered_login_id';
+
+const getInitialLoginId = (): string => {
+  if (typeof window === 'undefined') return '';
+  try {
+    return localStorage.getItem(REMEMBERED_LOGIN_ID_KEY) || '';
+  } catch {
+    return '';
+  }
+};
+
 export const LoginPage: React.FC<LoginPageProps> = () => {
   const { language, t } = useLanguage();
   const { setActiveTab, setSelectedMemberId, settings } = useSomiti();
@@ -27,22 +38,36 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
   const {
     isSupported: isBiometricSupported,
     isEnrolled: isBiometricEnrolled,
+    lastEnrolledUser,
     authenticateWithBiometrics,
+    registerBiometrics,
     loading: biometricLoading,
     clearError: clearBiometricError,
   } = useBiometricAuth();
 
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
-  const [email, setEmail] = useState('');
+  // Auto-fill previously remembered Login ID across Mobile, Tablet, and Desktop/Web
+  const [email, setEmail] = useState<string>(getInitialLoginId);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [validationError, setValidationError] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
+  const [enableBiometricsOnLogin, setEnableBiometricsOnLogin] = useState<boolean>(true);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+
+  // Persists or updates the remembered Login ID (Email or User ID)
+  const rememberLoginId = (id: string) => {
+    if (!id || !id.trim()) return;
+    try {
+      localStorage.setItem(REMEMBERED_LOGIN_ID_KEY, id.trim());
+    } catch (err) {
+      console.warn('Failed to save remembered login ID:', err);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,6 +106,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
       setLoading(true);
       try {
         await signUp(email.trim(), password);
+        rememberLoginId(email.trim());
         setSuccessMsg(language === 'bn' ? 'নিবন্ধন সফল হয়েছে! অ্যাকাউন্টটি প্রশাসনিক অনুমোদনের অপেক্ষায় রয়েছে।' : 'Registration submitted! Your account is pending administrative approval.');
       } catch {
         // error in context
@@ -95,10 +121,29 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
     setLoading(true);
     try {
       if (mode === 'signin') {
-        await signIn(email, password);
+        const cleanLoginId = email.trim();
+        // Remember the Login ID across mobile, tablet, and desktop (replaces previously saved ID)
+        rememberLoginId(cleanLoginId);
+
+        await signIn(cleanLoginId, password);
+        // Always open Home/Dashboard upon login
         setActiveTab('dashboard');
         setSelectedMemberId(null);
         setSuccessMsg(language === 'bn' ? 'সফলভাবে সাইন-ইন সম্পন্ন হয়েছে!' : 'Successfully signed in!');
+
+        // If user opted to enable biometric on this device and device supports it
+        if (enableBiometricsOnLogin && isBiometricSupported && !isBiometricEnrolled) {
+          try {
+            await registerBiometrics({
+              uid: 'user_' + Date.now(),
+              email: cleanLoginId.includes('@') ? cleanLoginId : `${cleanLoginId.toLowerCase()}@somiti.local`,
+              displayName: cleanLoginId.split('@')[0],
+              photoURL: null,
+            });
+          } catch (bioErr) {
+            console.warn('Biometric auto-registration notice:', bioErr);
+          }
+        }
       }
     } catch {
       // error in context
@@ -127,6 +172,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
     clearError();
     clearBiometricError();
     setSuccessMsg('');
+    rememberLoginId(presetEmail);
     signInAsDemo(presetRole);
     setActiveTab('dashboard');
     setSelectedMemberId(null);
@@ -150,8 +196,8 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
     if (!isBiometricEnrolled) {
       setValidationError(
         language === 'bn'
-          ? 'এই ডিভাইসে এখনো বায়োমেট্রিক সংরক্ষিত নেই। প্রথমে পাসওয়ার্ড দিয়ে লগইন করে প্রোফাইল সেটিংস থেকে বায়োমেট্রিক যুক্ত করুন।'
-          : 'No biometric credentials registered on this device yet. Please sign in with password first, then enable biometrics from your profile settings.'
+          ? 'এই ডিভাইসে এখনো বায়োমেট্রিক সংরক্ষিত নেই। পাসওয়ার্ড দিয়ে লগইন করার সময় "ফিঙ্গারপ্রিন্ট সক্রিয় রাখুন" চেক করুন।'
+          : 'No biometric credentials registered on this device yet. Please sign in with password first and check "Enable Fingerprint".'
       );
       return;
     }
@@ -159,7 +205,11 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
     try {
       const res = await authenticateWithBiometrics();
       if (res.success && res.user) {
+        if (res.user.email) {
+          rememberLoginId(res.user.email);
+        }
         signInWithBiometricProfile(res.user);
+        // Always open Home/Dashboard upon login
         setActiveTab('dashboard');
         setSelectedMemberId(null);
         setSuccessMsg(
@@ -287,6 +337,39 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
           </div>
         )}
 
+        {/* One-Tap Biometric Sign In Card for Enrolled Devices (Mobile, Tablet, Touch ID/Windows Hello) */}
+        {mode === 'signin' && isBiometricSupported && isBiometricEnrolled && (
+          <button
+            type="button"
+            id="btn-quick-biometric-banner"
+            onClick={handleBiometricLogin}
+            disabled={biometricLoading || loading || googleLoading}
+            className="w-full mb-3 sm:mb-4 py-2.5 px-3.5 bg-gradient-to-r from-cyan-950/80 via-[#0e1a38] to-blue-950/80 hover:from-cyan-900/90 hover:to-blue-900/90 border border-cyan-500/50 rounded-2xl flex items-center justify-between text-xs text-cyan-200 transition-all cursor-pointer group shadow-lg active:scale-[0.99]"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-400 group-hover:scale-110 transition-transform shadow-xs shrink-0">
+                {biometricLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+                ) : (
+                  <Fingerprint className="w-4 h-4 text-cyan-400" />
+                )}
+              </div>
+              <div className="text-left min-w-0">
+                <p className="font-bold text-cyan-300 text-xs flex items-center gap-1.5 truncate">
+                  <span>{language === 'bn' ? 'ফিঙ্গারপ্রিন্ট / বায়োমেট্রিক লগইন' : 'Biometric / Fingerprint Login'}</span>
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                </p>
+                <p className="text-[10px] text-slate-400 truncate">
+                  {lastEnrolledUser?.displayName || lastEnrolledUser?.email || (language === 'bn' ? 'এক ক্লিকে নিরাপদ প্রবেশ' : 'One-tap secure sign in')}
+                </p>
+              </div>
+            </div>
+            <span className="text-[11px] font-bold text-cyan-300 bg-cyan-500/20 px-2.5 py-1 rounded-lg border border-cyan-400/30 group-hover:bg-cyan-400 group-hover:text-slate-950 transition-colors shrink-0">
+              {language === 'bn' ? 'লগইন' : 'Sign In'}
+            </span>
+          </button>
+        )}
+
         {/* Form elements identical to user screenshot */}
         <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
           {/* EMAIL ADDRESS OR USER UID */}
@@ -297,10 +380,11 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
                 : (language === 'bn' ? 'ইমেইল ঠিকানা' : 'EMAIL ADDRESS')}
             </label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type={mode === 'signin' ? 'text' : 'email'}
                 required
+                autoComplete="username"
                 placeholder={mode === 'signin' ? (language === 'bn' ? 'name@example.com অথবা BS-1001' : 'name@example.com or BS-1001') : 'name@example.com'}
                 value={email}
                 onChange={(e) => {
@@ -339,25 +423,28 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
                 )}
               </div>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
                   minLength={6}
+                  autoComplete="current-password"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
                     setValidationError('');
                   }}
-                  className="w-full bg-[#131d36] border border-slate-700/80 rounded-xl pl-10 pr-10 py-2.5 sm:py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-sans"
+                  className="w-full bg-[#131d36] border border-slate-700/80 rounded-xl pl-10 pr-11 py-2.5 sm:py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-sans"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  aria-label={showPassword ? (language === 'bn' ? 'পাসওয়ার্ড লুকান' : 'Hide password') : (language === 'bn' ? 'পাসওয়ার্ড দেখুন' : 'Show password')}
+                  title={showPassword ? (language === 'bn' ? 'পাসওয়ার্ড লুকান' : 'Hide password') : (language === 'bn' ? 'পাসওয়ার্ড দেখুন' : 'Show password')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-cyan-300 active:scale-95 transition-all cursor-pointer rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-400"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? <EyeOff className="w-4 h-4 text-cyan-400" /> : <Eye className="w-4 h-4 text-slate-400" />}
                 </button>
               </div>
             </div>
@@ -372,43 +459,65 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
                 </label>
               </div>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type={showConfirmPassword ? 'text' : 'password'}
                   required
                   minLength={6}
+                  autoComplete="new-password"
                   placeholder="••••••••"
                   value={confirmPassword}
                   onChange={(e) => {
                     setConfirmPassword(e.target.value);
                     setValidationError('');
                   }}
-                  className="w-full bg-[#131d36] border border-slate-700/80 rounded-xl pl-10 pr-10 py-2.5 sm:py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-sans"
+                  className="w-full bg-[#131d36] border border-slate-700/80 rounded-xl pl-10 pr-11 py-2.5 sm:py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-sans"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                  onClick={() => setShowConfirmPassword(prev => !prev)}
+                  aria-label={showConfirmPassword ? (language === 'bn' ? 'পাসওয়ার্ড লুকান' : 'Hide password') : (language === 'bn' ? 'পাসওয়ার্ড দেখুন' : 'Show password')}
+                  title={showConfirmPassword ? (language === 'bn' ? 'পাসওয়ার্ড লুকান' : 'Hide password') : (language === 'bn' ? 'পাসওয়ার্ড দেখুন' : 'Show password')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-cyan-300 active:scale-95 transition-all cursor-pointer rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-400"
                 >
-                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4 text-cyan-400" /> : <Eye className="w-4 h-4 text-slate-400" />}
                 </button>
               </div>
             </div>
           )}
 
-          {/* Remember me checkbox */}
+          {/* Options: Remember Login ID & Biometric opt-in */}
           {mode === 'signin' && (
-            <div className="flex items-center gap-2 pt-0.5">
-              <input
-                type="checkbox"
-                id="page-remember"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="w-4 h-4 rounded bg-[#131d36] border-slate-700 text-cyan-500 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-cyan-400"
-              />
-              <label htmlFor="page-remember" className="text-xs text-slate-400 cursor-pointer select-none">
-                {language === 'bn' ? 'Remember me for 30 days' : 'Remember me for 30 days'}
-              </label>
+            <div className="space-y-1.5 pt-0.5">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="page-remember"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 rounded bg-[#131d36] border-slate-700 text-cyan-500 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-cyan-400"
+                />
+                <label htmlFor="page-remember" className="text-xs text-slate-400 cursor-pointer select-none">
+                  {language === 'bn' ? 'লগইন আইডি মনে রাখুন (Remember Login ID)' : 'Remember Login ID'}
+                </label>
+              </div>
+
+              {/* Enable Biometrics option when device/browser supports it */}
+              {isBiometricSupported && !isBiometricEnrolled && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="page-enable-biometrics"
+                    checked={enableBiometricsOnLogin}
+                    onChange={(e) => setEnableBiometricsOnLogin(e.target.checked)}
+                    className="w-4 h-4 rounded bg-[#131d36] border-slate-700 text-cyan-500 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-cyan-400"
+                  />
+                  <label htmlFor="page-enable-biometrics" className="text-xs text-slate-300 cursor-pointer select-none flex items-center gap-1.5">
+                    <Fingerprint className="w-3.5 h-3.5 text-cyan-400 inline shrink-0" />
+                    <span>{language === 'bn' ? 'পরবর্তী লগইনের জন্য ফিঙ্গারপ্রিন্ট সক্রিয় রাখুন' : 'Enable Fingerprint for next login'}</span>
+                  </label>
+                </div>
+              )}
             </div>
           )}
 
@@ -417,7 +526,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
             <button
               type="submit"
               disabled={loading || googleLoading}
-              className={`${mode === 'signin' ? 'flex-1' : 'w-full'} py-3 sm:py-3.5 px-4 bg-cyan-400 hover:bg-cyan-300 active:scale-[0.99] text-slate-950 rounded-xl sm:rounded-2xl font-black text-sm tracking-wide shadow-lg shadow-cyan-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60`}
+              className={`${mode === 'signin' && isBiometricSupported ? 'flex-1' : 'w-full'} py-3 sm:py-3.5 px-4 bg-cyan-400 hover:bg-cyan-300 active:scale-[0.99] text-slate-950 rounded-xl sm:rounded-2xl font-black text-sm tracking-wide shadow-lg shadow-cyan-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60`}
             >
               {loading ? (
                 <>
@@ -433,7 +542,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
               )}
             </button>
 
-            {mode === 'signin' && (
+            {mode === 'signin' && isBiometricSupported && (
               <button
                 type="button"
                 id="btn-biometric-icon-signin"

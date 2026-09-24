@@ -193,11 +193,23 @@ const AppContent: React.FC = () => {
     setShowAuthModal
   ]);
 
-  // Post Login Redirect: After successful login or session switch, always redirect to the Dashboard
+  // Reset Menu & Navigation state on Logout and Login:
+  // - If user logs out while side menu is open, completely reset menu state
+  // - After logging in again, always open Home/Dashboard
+  // - Never reopen previously opened side menu or page after login
   const previousUserUidRef = useRef<string | null>(null);
   useEffect(() => {
     const currentUid = user ? user.uid : null;
-    if (currentUid && previousUserUidRef.current !== currentUid) {
+    if (!user) {
+      // User is logged out: completely reset side menu, modal dialogs, and navigation state
+      setSidebarOpen(false);
+      setShowAuthModal(false);
+      setActiveTab('dashboard');
+      setSelectedMemberId(null);
+    } else if (currentUid && previousUserUidRef.current !== currentUid) {
+      // User just logged in: ensure sidebar is closed and always open Home/Dashboard
+      setSidebarOpen(false);
+      setShowAuthModal(false);
       setActiveTab('dashboard');
       setSelectedMemberId(null);
     }

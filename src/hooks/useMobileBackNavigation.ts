@@ -86,6 +86,12 @@ export const useMobileBackNavigation = ({
     if (!user) {
       hasInitializedHistoryRef.current = false;
       inAppHistoryRef.current = [];
+      currentViewRef.current = { tab: 'dashboard', memberId: null };
+      try {
+        if (typeof window !== 'undefined' && window.location.hash) {
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+      } catch {}
       return;
     }
 

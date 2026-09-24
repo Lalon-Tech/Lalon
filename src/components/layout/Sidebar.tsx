@@ -543,7 +543,10 @@ export const Sidebar: React.FC<{
                 </div>
               </div>
               <button
-                onClick={logOut}
+                onClick={() => {
+                  setIsOpen(false);
+                  logOut();
+                }}
                 title={language === 'bn' ? 'লগআউট করুন' : 'Log out'}
                 className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
               >
