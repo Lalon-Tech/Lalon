@@ -12,10 +12,10 @@ export const initialSettings: SomitiSettings = {
   presidentName: 'হাজী মোঃ নুরুল ইসলাম',
   secretaryName: 'মোঃ রিয়াদ ইসলাম',
   cashierName: 'মোছাঃ সালেহা বেগম',
-  logoUrl: '/logo.svg',
-  logoScale: 1,
-  logoOffsetX: 0,
-  logoOffsetY: 0,
+  logoUrl: '/logo.png',
+  logoScale: 1.97,
+  logoOffsetX: 3,
+  logoOffsetY: -12,
   sharePricePerUnit: 1000,
   defaultAdmissionFee: 0,
   defaultDpsInterestRate: 9.5,
@@ -24,8 +24,6 @@ export const initialSettings: SomitiSettings = {
   smsNotificationEnabled: true,
   currencySymbol: '৳',
   useBengaliDigits: true,
-  apkDownloadUrl: '/downloads/Bondhu_Somiti.apk',
-  apkVersion: 'v2.5.0',
 };
 
 export const sampleDemoUsers: AppUser[] = [

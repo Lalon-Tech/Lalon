@@ -278,8 +278,6 @@ export interface SomitiSettings {
   smsNotificationEnabled: boolean;
   currencySymbol: string;
   useBengaliDigits: boolean;
-  apkDownloadUrl?: string;
-  apkVersion?: string;
 }
 
 export type BusinessFundingStatus = 'pending' | 'approved' | 'active' | 'completed' | 'rejected';

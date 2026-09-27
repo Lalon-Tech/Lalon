@@ -761,15 +761,15 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     // Cleanse oversized logoUrl (> 500,000 chars) that causes Firestore 1,048,487 bytes limit errors
     const isOversized = typeof loaded.logoUrl === 'string' && loaded.logoUrl.length > 500000;
-    const finalLogo = isOversized ? '/logo.svg' : (loaded.logoUrl || '/logo.svg');
+    const finalLogo = isOversized ? '/logo.png' : (loaded.logoUrl || initialSettings.logoUrl || '/logo.png');
 
     return { 
       ...initialSettings,
       ...loaded, 
       logoUrl: finalLogo,
-      logoScale: typeof loaded.logoScale === 'number' && !isNaN(loaded.logoScale) ? loaded.logoScale : 1,
-      logoOffsetX: typeof loaded.logoOffsetX === 'number' && !isNaN(loaded.logoOffsetX) ? loaded.logoOffsetX : 0,
-      logoOffsetY: typeof loaded.logoOffsetY === 'number' && !isNaN(loaded.logoOffsetY) ? loaded.logoOffsetY : 0,
+      logoScale: typeof loaded.logoScale === 'number' && !isNaN(loaded.logoScale) ? loaded.logoScale : initialSettings.logoScale,
+      logoOffsetX: typeof loaded.logoOffsetX === 'number' && !isNaN(loaded.logoOffsetX) ? loaded.logoOffsetX : initialSettings.logoOffsetX,
+      logoOffsetY: typeof loaded.logoOffsetY === 'number' && !isNaN(loaded.logoOffsetY) ? loaded.logoOffsetY : initialSettings.logoOffsetY,
       somitiName: resolvedName,
       somitiNameEn: loaded.somitiNameEn || 'Bondhu Samabay Somiti Ltd.'
     };
@@ -1832,11 +1832,17 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setSettings(prev => {
       const updated = { ...prev, ...newSet };
       if (typeof updated.logoUrl === 'string' && updated.logoUrl.length > 500000) {
-        console.warn('Oversized logoUrl detected in updateSettings, resetting to /logo.svg to protect Firestore doc limits.');
-        updated.logoUrl = '/logo.svg';
+        console.warn('Oversized logoUrl detected in updateSettings, resetting to /logo.png to protect Firestore doc limits.');
+        updated.logoUrl = '/logo.png';
       }
       try {
         localStorage.setItem('bondhu_settings', JSON.stringify(updated));
+        if (updated.logoUrl) {
+          localStorage.setItem('bondhu_default_logo', updated.logoUrl);
+          if (updated.logoScale !== undefined) localStorage.setItem('bondhu_default_logo_scale', String(updated.logoScale));
+          if (updated.logoOffsetX !== undefined) localStorage.setItem('bondhu_default_logo_offset_x', String(updated.logoOffsetX));
+          if (updated.logoOffsetY !== undefined) localStorage.setItem('bondhu_default_logo_offset_y', String(updated.logoOffsetY));
+        }
       } catch (_) {}
       safeSetDoc(doc(db, 'settings', 'general'), updated).catch(console.error);
       return updated;

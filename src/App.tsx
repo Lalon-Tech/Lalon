@@ -43,7 +43,6 @@ import { AuditLogViewer } from './components/audit/AuditLogViewer';
 import { BackupRestoreCenter } from './components/backup/BackupRestoreCenter';
 import { OfflineIndicator } from './components/common/OfflineIndicator';
 import { InactivityWarningModal } from './components/common/InactivityWarningModal';
-import { AppDownloadView } from './components/common/AppDownloadView';
 import { Loader2, ShieldAlert, Clock, AlertTriangle } from 'lucide-react';
 import { useModalScrollLock } from './hooks/useModalScrollLock';
 import { useDynamicManifest } from './hooks/useDynamicManifest';
@@ -548,11 +547,6 @@ const AppContent: React.FC = () => {
           }
         }
         return <SettingsView />;
-
-      case 'app_download':
-      case 'download_app':
-      case 'install_app':
-        return <AppDownloadView />;
 
       default:
         return <DashboardView />;

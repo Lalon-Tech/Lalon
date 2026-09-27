@@ -77,16 +77,12 @@ export const SettingsView: React.FC = () => {
   const [defaultLoanInterestRate, setDefaultLoanInterestRate] = useState(settings.defaultLoanInterestRate);
   const [defaultDpsInterestRate, setDefaultDpsInterestRate] = useState(settings.defaultDpsInterestRate);
 
-  // APK download settings
-  const [apkDownloadUrl, setApkDownloadUrl] = useState(settings.apkDownloadUrl || '/downloads/Bondhu_Somiti.apk');
-  const [apkVersion, setApkVersion] = useState(settings.apkVersion || 'v2.5.0');
-
   // Logo state and handlers
-  const [logoUrl, setLogoUrl] = useState(settings.logoUrl || '/logo.svg');
+  const [logoUrl, setLogoUrl] = useState(settings.logoUrl || '/logo.png');
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const [logoScale, setLogoScale] = useState<number>(settings.logoScale ?? 1);
-  const [logoOffsetX, setLogoOffsetX] = useState<number>(settings.logoOffsetX ?? 0);
-  const [logoOffsetY, setLogoOffsetY] = useState<number>(settings.logoOffsetY ?? 0);
+  const [logoScale, setLogoScale] = useState<number>(settings.logoScale ?? 1.97);
+  const [logoOffsetX, setLogoOffsetX] = useState<number>(settings.logoOffsetX ?? 3);
+  const [logoOffsetY, setLogoOffsetY] = useState<number>(settings.logoOffsetY ?? -12);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   // Sync settings when loaded from Firestore or updated
@@ -105,13 +101,11 @@ export const SettingsView: React.FC = () => {
       setDefaultAdmissionFee(settings.defaultAdmissionFee ?? 50);
       setDefaultLoanInterestRate(settings.defaultLoanInterestRate ?? 10);
       setDefaultDpsInterestRate(settings.defaultDpsInterestRate ?? 8);
-      setApkDownloadUrl(settings.apkDownloadUrl || '/downloads/Bondhu_Somiti.apk');
-      setApkVersion(settings.apkVersion || 'v2.5.0');
-      setLogoScale(settings.logoScale ?? 1);
-      setLogoOffsetX(settings.logoOffsetX ?? 0);
-      setLogoOffsetY(settings.logoOffsetY ?? 0);
+      setLogoScale(settings.logoScale ?? 1.97);
+      setLogoOffsetX(settings.logoOffsetX ?? 3);
+      setLogoOffsetY(settings.logoOffsetY ?? -12);
       if (!logoPreview) {
-        setLogoUrl(settings.logoUrl || '/logo.svg');
+        setLogoUrl(settings.logoUrl || '/logo.png');
       }
     }
   }, [settings]);
@@ -147,7 +141,9 @@ export const SettingsView: React.FC = () => {
       setLogoPreview(optimizedLogo);
       setActionFeedback({
         type: 'success',
-        message: language === 'bn' ? 'নতুন লোগো সফলভাবে প্রস্তুত হয়েছে! স্থায়ী করতে নিচের "সংরক্ষণ করুন" বাটনে চাপুন।' : 'New logo ready! Click "Save" below to apply.'
+        message: language === 'bn' 
+          ? 'নতুন লোগো সফলভাবে লোড হয়েছে! এটিকে আপনার স্থায়ী ডিফল্ট লোগো করতে নিচে "সকল সেটিংস সংরক্ষণ করুন" বাটনে চাপুন।' 
+          : 'New logo loaded! Click "Save" below to make it your permanent default logo.'
       });
     } catch (err: any) {
       setActionFeedback({
@@ -158,15 +154,16 @@ export const SettingsView: React.FC = () => {
   };
 
   const handleResetLogo = () => {
-    setLogoUrl('/logo.svg');
+    const defaultLogoUrl = settings.logoUrl || '/logo.png';
+    setLogoUrl(defaultLogoUrl);
     setLogoPreview(null);
-    setLogoScale(1);
-    setLogoOffsetX(0);
-    setLogoOffsetY(0);
+    setLogoScale(settings.logoScale ?? 1.97);
+    setLogoOffsetX(settings.logoOffsetX ?? 3);
+    setLogoOffsetY(settings.logoOffsetY ?? -12);
     if (logoInputRef.current) logoInputRef.current.value = '';
     setActionFeedback({
       type: 'info',
-      message: language === 'bn' ? 'ডিফল্ট "বন্ধু সমবায় সমিতি" লোগোতে ফিরিয়ে আনা হয়েছে। সংরক্ষণ করতে নিচের সেভ বাটনে চাপুন।' : 'Reset to default logo. Click Save to apply.'
+      message: language === 'bn' ? 'আপনার সংরক্ষিত ডিফল্ট লোগো ও পজিশনে ফিরিয়ে আনা হয়েছে।' : 'Reverted to your saved default logo.'
     });
   };
 
@@ -215,8 +212,8 @@ export const SettingsView: React.FC = () => {
     setActionFeedback({
       type: 'success',
       message: language === 'bn' 
-        ? 'লোগোর সাইজ ও পজিশন সফলভাবে সংরক্ষিত এবং অ্যাপের সর্বত্র প্রয়োগ করা হয়েছে!' 
-        : 'Logo size & position saved and applied everywhere!'
+        ? 'লোগোর সাইজ ও পজিশন সফলভাবে স্থায়ী ডিফল্ট হিসেবে সংরক্ষিত এবং অ্যাপের সর্বত্র প্রয়োগ করা হয়েছে!' 
+        : 'Logo size & position permanently saved as default and applied everywhere!'
     });
     try {
       confetti({ particleCount: 30, spread: 55, origin: { y: 0.6 } });
@@ -273,14 +270,14 @@ export const SettingsView: React.FC = () => {
       defaultAdmissionFee: Number(defaultAdmissionFee),
       defaultLoanInterestRate: Number(defaultLoanInterestRate),
       defaultDpsInterestRate: Number(defaultDpsInterestRate),
-      apkDownloadUrl: apkDownloadUrl.trim() || '/downloads/Bondhu_Somiti.apk',
-      apkVersion: apkVersion.trim() || 'v2.5.0',
     });
 
     setIsSaved(true);
     setActionFeedback({
       type: 'success',
-      message: language === 'bn' ? 'সমিতি সেটিংস ও লোগো সফলভাবে সংরক্ষিত ও ক্লাউডে সিঙ্ক করা হয়েছে!' : 'Settings and logo saved & synced successfully!'
+      message: language === 'bn' 
+        ? 'আপনার সর্বশেষ লোগোটি স্থায়ীভাবে ডিফল্ট লোগো হিসেবে সংরক্ষিত হয়েছে এবং সমিতি সেটিংস সফলভাবে আপডেট ও ক্লাউডে সিঙ্ক হয়েছে!' 
+        : 'Your latest logo has been permanently saved as your default logo and synced!'
     });
     try {
       confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
@@ -465,18 +462,12 @@ export const SettingsView: React.FC = () => {
                   style={getLogoTransformStyle({ logoScale, logoOffsetX, logoOffsetY })}
                   referrerPolicy="no-referrer"
                   onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).src = '/logo.svg';
+                    (e.currentTarget as HTMLImageElement).src = '/logo.png';
                   }}
                 />
               </div>
               <span className="mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                {logoUrl === '/logo.svg' 
-                  ? 'অফিসিয়াল সার্কুলার ব্যাজ' 
-                  : logoUrl === '/logo-horizontal.svg' 
-                    ? 'হরাইজন্টাল লোগো' 
-                    : logoUrl === '/icon.svg' 
-                      ? 'অ্যাপ আইকন ব্যাজ' 
-                      : 'কাস্টম লোগো'}
+                {language === 'bn' ? 'ডিফল্ট সমিতি লোগো ✓' : 'Default Somiti Logo ✓'}
               </span>
             </div>
 
@@ -580,14 +571,14 @@ export const SettingsView: React.FC = () => {
                   <span>গ্যালারি থেকে নিজস্ব লোগো আপলোড</span>
                 </button>
 
-                {(logoUrl !== '/logo.svg' || logoPreview) && (
+                {logoPreview && (
                   <button
                     type="button"
                     onClick={handleResetLogo}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition-all cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
-                    <span>ডিফল্ট লোগোতে ফিরুন</span>
+                    <span>সংরক্ষিত ডিফল্ট লোগোতে ফিরুন</span>
                   </button>
                 )}
               </div>
@@ -1167,70 +1158,6 @@ export const SettingsView: React.FC = () => {
                 className="hidden"
               />
             </label>
-          </div>
-        </div>
-
-        {/* Android APK Download Link Settings */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
-          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2 border-b pb-2">
-            <Smartphone className="w-4 h-4 text-emerald-600" />
-            <span>৫. অ্যান্ড্রয়েড APK ও সরাসরি অ্যাপ ডাউনলোড কনফিগারেশন</span>
-          </h3>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                অ্যান্ড্রয়েড APK ফাইল ডাউনলোড লিংক (File Download URL)
-              </label>
-              <input
-                type="text"
-                value={apkDownloadUrl}
-                onChange={(e) => setApkDownloadUrl(e.target.value)}
-                placeholder="/downloads/Bondhu_Somiti.apk অথবা Google Drive / Cloud লিংক"
-                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
-              />
-              <p className="text-[11px] text-slate-500 mt-1">
-                ডিফল্ট হিসেবে সফটওয়্যারের নিজস্ব <code>/downloads/Bondhu_Somiti.apk</code> ব্যবহৃত হয়। আপনি চাইলে কোনো নতুন APK বা গুগল ড্রাইভ ডিরেক্ট ডাউনলোড লিংকও এখানে দিতে পারেন।
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                APK সংস্করণ / ভার্সন
-              </label>
-              <input
-                type="text"
-                value={apkVersion}
-                onChange={(e) => setApkVersion(e.target.value)}
-                placeholder="v2.5.0"
-                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
-              />
-              <p className="text-[11px] text-slate-500 mt-1">
-                ডাউনলোড স্ক্রিনে প্রদর্শিত হবে
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-xl">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
-                APK
-              </div>
-              <div>
-                <p className="text-xs font-bold text-emerald-950">সরাসরি ডাউনলোড টেস্ট করুন</p>
-                <p className="text-[10px] text-emerald-700">বর্তমান সেট করা লিংক থেকে APK ফাইল ঠিকমতো ডাউনলোড হচ্ছে কিনা পরীক্ষা করুন</p>
-              </div>
-            </div>
-            <a
-              href={apkDownloadUrl}
-              download="Bondhu_Somiti.apk"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>টেস্ট ডাউনলোড</span>
-            </a>
           </div>
         </div>
 
