@@ -40,6 +40,11 @@ import { useLanguage } from '../../context/LanguageContext';
 import { compressLogoImage } from '../../utils/imageUtils';
 import { ThemeToggle } from '../common/ThemeToggle';
 import { getLogoTransformStyle } from '../../utils/logoUtils';
+import { 
+  generateAppIconPackage, 
+  syncLogoAssetsToServer, 
+  downloadDataUrlFile 
+} from '../../utils/appIconGenerator';
 
 export const SettingsView: React.FC = () => {
   const { language } = useLanguage();
@@ -209,16 +214,52 @@ export const SettingsView: React.FC = () => {
       logoOffsetX: Math.round(logoOffsetX),
       logoOffsetY: Math.round(logoOffsetY),
     });
+    // Immediately persist updated icon package to disk
+    syncLogoAssetsToServer(logoUrl, {
+      scale: logoScale,
+      offsetX: logoOffsetX,
+      offsetY: logoOffsetY,
+    }).catch(console.warn);
+
     setActionFeedback({
       type: 'success',
       message: language === 'bn' 
-        ? 'লোগোর সাইজ ও পজিশন সফলভাবে স্থায়ী ডিফল্ট হিসেবে সংরক্ষিত এবং অ্যাপের সর্বত্র প্রয়োগ করা হয়েছে!' 
-        : 'Logo size & position permanently saved as default and applied everywhere!'
+        ? 'লোগোর সাইজ ও পজিশন সফলভাবে মোবাইল অ্যাপ আইকন ও ডিফল্ট হিসেবে সংরক্ষিত এবং সর্বত্র প্রয়োগ করা হয়েছে!' 
+        : 'Logo size & position permanently saved as mobile app icon!'
     });
     try {
       confetti({ particleCount: 30, spread: 55, origin: { y: 0.6 } });
     } catch (_) {}
     setTimeout(() => setActionFeedback(null), 4000);
+  };
+
+  const handleDownloadAppIcon = async () => {
+    try {
+      setActionFeedback({
+        type: 'info',
+        message: language === 'bn' ? 'হাই-রেজ্যুলুশন মোবাইল অ্যাপ আইকন তৈরি হচ্ছে...' : 'Generating app icon PNG...'
+      });
+      const icons = await generateAppIconPackage(logoUrl, {
+        scale: logoScale,
+        offsetX: logoOffsetX,
+        offsetY: logoOffsetY
+      });
+      if (icons?.icon512) {
+        downloadDataUrlFile(icons.icon512, 'bondhu_somiti_mobile_icon_512.png');
+        setActionFeedback({
+          type: 'success',
+          message: language === 'bn' 
+            ? 'মোবাইল অ্যাপ আইকন (512x512 PNG) সফলভাবে ডাউনলোড হয়েছে! এটি যেকোনো APK নির্মাতা বা স্টোরে ব্যবহার করতে পারবেন।' 
+            : 'App icon (512x512 PNG) downloaded!'
+        });
+      }
+    } catch (e) {
+      setActionFeedback({
+        type: 'error',
+        message: language === 'bn' ? 'আইকন ডাউনলোড করতে সমস্যা হয়েছে।' : 'Error downloading icon.'
+      });
+    }
+    setTimeout(() => setActionFeedback(null), 5000);
   };
 
   const [isSaved, setIsSaved] = useState(false);
@@ -272,12 +313,19 @@ export const SettingsView: React.FC = () => {
       defaultDpsInterestRate: Number(defaultDpsInterestRate),
     });
 
+    // Sync physical PWA PNG icons (192, 512, maskable, apple-touch) to public assets
+    syncLogoAssetsToServer(logoUrl, {
+      scale: logoScale,
+      offsetX: logoOffsetX,
+      offsetY: logoOffsetY,
+    }).catch(console.warn);
+
     setIsSaved(true);
     setActionFeedback({
       type: 'success',
       message: language === 'bn' 
-        ? 'আপনার সর্বশেষ লোগোটি স্থায়ীভাবে ডিফল্ট লোগো হিসেবে সংরক্ষিত হয়েছে এবং সমিতি সেটিংস সফলভাবে আপডেট ও ক্লাউডে সিঙ্ক হয়েছে!' 
-        : 'Your latest logo has been permanently saved as your default logo and synced!'
+        ? 'আপনার নির্বাচিত লোগোটি মোবাইল অ্যাপ আইকন ও স্থায়ী ডিফল্ট হিসেবে সংরক্ষিত হয়েছে!' 
+        : 'Your selected logo has been saved as the mobile app icon and default logo!'
     });
     try {
       confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
@@ -451,109 +499,65 @@ export const SettingsView: React.FC = () => {
             <span>১. সমিতির সাধারণ ও প্রাতিষ্ঠানিক তথ্য</span>
           </h3>
 
-          {/* Logo Management */}
-          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 sm:p-5 flex flex-col md:flex-row items-center md:items-start gap-5">
-            <div className="relative shrink-0 flex flex-col items-center">
-              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-white p-1 border-2 border-emerald-500/40 shadow-md flex items-center justify-center overflow-hidden">
-                <img
-                  src={logoPreview || logoUrl || '/logo.svg'}
-                  alt="সমিতির লোগো"
-                  className="w-full h-full object-contain rounded-full"
-                  style={getLogoTransformStyle({ logoScale, logoOffsetX, logoOffsetY })}
-                  referrerPolicy="no-referrer"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).src = '/logo.png';
-                  }}
-                />
+          {/* Logo & Mobile App Icon Management */}
+          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 sm:p-5 flex flex-col lg:flex-row items-center lg:items-start gap-6">
+            {/* Dual Previews: Circular Web Badge + Mobile App Icon Mockup */}
+            <div className="shrink-0 flex items-center justify-center gap-5 sm:gap-7">
+              {/* Preview 1: Circular Emblem for Web & Receipts */}
+              <div className="flex flex-col items-center">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white p-1 border-2 border-emerald-500/40 shadow-md flex items-center justify-center overflow-hidden">
+                  <img
+                    src={logoPreview || logoUrl || '/logo.png'}
+                    alt="সমিতির লোগো"
+                    className="w-full h-full object-contain rounded-full"
+                    style={getLogoTransformStyle({ logoScale, logoOffsetX, logoOffsetY })}
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = '/logo.png';
+                    }}
+                  />
+                </div>
+                <span className="mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200/80 text-slate-700 border border-slate-300">
+                  ওয়েব লোগো
+                </span>
               </div>
-              <span className="mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                {language === 'bn' ? 'ডিফল্ট সমিতি লোগো ✓' : 'Default Somiti Logo ✓'}
-              </span>
+
+              {/* Preview 2: Mobile Phone App Icon Mockup */}
+              <div className="flex flex-col items-center">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white p-1.5 shadow-lg border border-slate-300 ring-2 ring-blue-500/30 flex items-center justify-center overflow-hidden transition-transform hover:scale-105">
+                  <img
+                    src={logoPreview || logoUrl || '/logo.png'}
+                    alt="মোবাইল অ্যাপ আইকন"
+                    className="w-full h-full object-contain rounded-xl"
+                    style={getLogoTransformStyle({ logoScale, logoOffsetX, logoOffsetY })}
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = '/logo.png';
+                    }}
+                  />
+                </div>
+                <span className="mt-1 text-[11px] font-bold text-slate-800 text-center max-w-[85px] truncate">
+                  {somitiName?.split(' ')?.[0] || 'বন্ধু সমিতি'}
+                </span>
+                <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-300">
+                  মোবাইল অ্যাপ আইকন ✓
+                </span>
+              </div>
             </div>
 
-            <div className="flex-1 text-center md:text-left space-y-3 w-full">
+            <div className="flex-1 text-center lg:text-left space-y-3.5 w-full min-w-0">
               <div>
-                <h4 className="text-sm font-bold text-slate-900 flex items-center justify-center md:justify-start gap-1.5">
-                  <ImageIcon className="w-4 h-4 text-emerald-600" />
-                  <span>সমিতির অফিসিয়াল লোগো (App, Header & Receipt Logo)</span>
+                <h4 className="text-sm font-bold text-slate-900 flex items-center justify-center lg:justify-start gap-1.5">
+                  <Smartphone className="w-4 h-4 text-blue-600" />
+                  <span>মোবাইল অ্যাপ আইকন ও সমিতির লোগো (Mobile App Icon & Logo)</span>
                 </h4>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  এই লোগোটি অ্যাপের সাইডবার, হেডার, লগইন স্ক্রিন, ড্যাশবোর্ড এবং সকল মানি রসিদে প্রদর্শিত হয়।
+                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                  এখানে যে ছবিটি আপলোড ও সংরক্ষণ করবেন, সেটিই <strong>মোবাইল ফোনে ইনস্টল করার পর আপনার ফোনের স্ক্রিনে অ্যাপ আইকন</strong> এবং সফটওয়্যারের সর্বত্র প্রদর্শিত হবে।
                 </p>
               </div>
 
-              {/* Quick Preset Selector */}
-              <div>
-                <p className="text-[11px] font-bold text-slate-700 mb-1.5 text-center md:text-left">
-                  দ্রুত নির্বাচন করুন অথবা নিজস্ব লোগো আপলোড করুন:
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLogoUrl('/logo.svg');
-                      setLogoPreview(null);
-                    }}
-                    className={`flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                      logoUrl === '/logo.svg' && !logoPreview
-                        ? 'bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-500/20 shadow-xs'
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="w-7 h-7 rounded-full bg-white p-0.5 border border-slate-200 shrink-0 flex items-center justify-center overflow-hidden">
-                      <img src="/logo.svg" alt="Emblem" className="w-full h-full object-contain rounded-full" />
-                    </div>
-                    <div className="text-left min-w-0">
-                      <p className="truncate leading-tight">সার্কুলার ব্যাজ</p>
-                      <p className="text-[10px] text-slate-400 font-normal">অফিসিয়াল গোল লোগো</p>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLogoUrl('/logo-horizontal.svg');
-                      setLogoPreview(null);
-                    }}
-                    className={`flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                      logoUrl === '/logo-horizontal.svg' && !logoPreview
-                        ? 'bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-500/20 shadow-xs'
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="w-7 h-7 rounded-lg bg-white p-0.5 border border-slate-200 shrink-0 flex items-center justify-center overflow-hidden">
-                      <img src="/logo-horizontal.svg" alt="Banner" className="w-full h-full object-contain" />
-                    </div>
-                    <div className="text-left min-w-0">
-                      <p className="truncate leading-tight">হরাইজন্টাল ব্যানার</p>
-                      <p className="text-[10px] text-slate-400 font-normal">প্রশস্ত হেডারের জন্য</p>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLogoUrl('/icon.svg');
-                      setLogoPreview(null);
-                    }}
-                    className={`flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                      logoUrl === '/icon.svg' && !logoPreview
-                        ? 'bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-500/20 shadow-xs'
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="w-7 h-7 rounded-full bg-white p-0.5 border border-slate-200 shrink-0 flex items-center justify-center overflow-hidden">
-                      <img src="/icon.svg" alt="Icon" className="w-full h-full object-contain rounded-full" />
-                    </div>
-                    <div className="text-left min-w-0">
-                      <p className="truncate leading-tight">অ্যাপ আইকন</p>
-                      <p className="text-[10px] text-slate-400 font-normal">পিউ ডব্লিউ এ ও ফেভিকন</p>
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 pt-1">
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2 pt-0.5">
                 <input
                   ref={logoInputRef}
                   type="file"
@@ -565,22 +569,45 @@ export const SettingsView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => logoInputRef.current?.click()}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
                 >
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>গ্যালারি থেকে নিজস্ব লোগো আপলোড</span>
+                  <Upload className="w-4 h-4" />
+                  <span>গ্যালারি থেকে নতুন আইকন / লোগো আপলোড</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDownloadAppIcon}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all border border-slate-300/80 cursor-pointer active:scale-95"
+                  title="512x512 PNG আইকন ডাউনলোড"
+                >
+                  <Download className="w-3.5 h-3.5 text-blue-600" />
+                  <span>অ্যাপ আইকন ডাউনলোড (.png)</span>
                 </button>
 
                 {logoPreview && (
                   <button
                     type="button"
                     onClick={handleResetLogo}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-semibold transition-all border border-rose-200 cursor-pointer active:scale-95"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>সংরক্ষিত ডিফল্ট লোগোতে ফিরুন</span>
                   </button>
                 )}
+              </div>
+
+              {/* Instructions on how the icon shows on mobile when installed */}
+              <div className="p-3.5 bg-blue-50/70 border border-blue-200/80 rounded-xl space-y-1.5 text-xs text-blue-950 text-left">
+                <div className="flex items-center gap-1.5 font-bold text-blue-900 text-xs">
+                  <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                  <span>মোবাইলে আপনার দেওয়া আইকনটি দেখার সহজ ৩ ধাপ:</span>
+                </div>
+                <ol className="space-y-1 text-[11.5px] text-slate-700 list-decimal list-inside leading-relaxed pl-0.5">
+                  <li><strong>১.</strong> উপরের "আপলোড" দিয়ে পছন্দের ছবি নির্বাচন করুন, জুম ও পজিশন ঠিক করে নিচে <strong>"সকল সেটিংস সংরক্ষণ করুন"</strong> বাটনে চাপুন।</li>
+                  <li><strong>২.</strong> আপনার মোবাইলে <strong>Google Chrome</strong> ব্রাউজারে গিয়ে উপরের তিনটি ডট (⋮) এ চাপ দিন এবং <strong>"Add to Home screen"</strong> নির্বাচন করুন।</li>
+                  <li><strong>৩.</strong> সাথে সাথে আপনার নির্বাচিত ছবিটিই সুন্দর অ্যাপ আইকন আকারে আপনার মোবাইলের স্ক্রিনে চলে আসবে। (পূর্বে পুরনো আইকন দিয়ে অ্যাড করা থাকলে আগের শর্টকাটটি মুছে নিয়ে পুনরায় অ্যাড করুন)।</li>
+                </ol>
               </div>
 
               {/* Logo Resize & Position Controls (Zoom, Move, Center, Real-Time Preview) */}

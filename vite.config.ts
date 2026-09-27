@@ -24,6 +24,50 @@ function spaFallbackPlugin() {
   };
 }
 
+// Plugin to persist custom logo PNG icons (192, 512, maskable, apple-touch) to public/ directory for WebAPK and PWA minting
+function logoAssetsPlugin() {
+  return {
+    name: 'logo-assets-saver',
+    configureServer(server: any) {
+      server.middlewares.use('/api/save-logo-assets', (req: any, res: any) => {
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk: any) => { body += chunk; });
+          req.on('end', () => {
+            try {
+              const { icon192, icon512, iconMaskable, appleIcon } = JSON.parse(body);
+              const publicDir = path.resolve(__dirname, 'public');
+              const saveBase64 = (filePath: string, base64Data: string) => {
+                if (!base64Data || typeof base64Data !== 'string') return;
+                const match = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+                if (match && match[2]) {
+                  fs.writeFileSync(filePath, Buffer.from(match[2], 'base64'));
+                }
+              };
+              saveBase64(path.join(publicDir, 'pwa-192x192.png'), icon192);
+              saveBase64(path.join(publicDir, 'pwa-512x512.png'), icon512);
+              saveBase64(path.join(publicDir, 'pwa-maskable-512x512.png'), iconMaskable);
+              saveBase64(path.join(publicDir, 'apple-touch-icon.png'), appleIcon);
+              saveBase64(path.join(publicDir, 'logo.png'), icon512);
+
+              res.statusCode = 200;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ success: true }));
+            } catch (err) {
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: String(err) }));
+            }
+          });
+        } else {
+          res.statusCode = 405;
+          res.end();
+        }
+      });
+    }
+  };
+}
+
 export default defineConfig(() => {
   return {
     base: process.env.VITE_BASE_PATH || '/',
@@ -31,6 +75,7 @@ export default defineConfig(() => {
       react(),
       tailwindcss(),
       spaFallbackPlugin(),
+      logoAssetsPlugin(),
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg'],
