@@ -6,6 +6,7 @@ import { useSomiti } from '../../context/SomitiContext';
 import { LanguageSwitcher } from '../common/LanguageSwitcher';
 import { useBiometricAuth } from '../../hooks/useBiometricAuth';
 import { SomitiLogoLoader } from '../common/SomitiLogoLoader';
+import { getLogoTransformStyle } from '../../utils/logoUtils';
 
 interface LoginPageProps {}
 
@@ -250,11 +251,12 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
 
         {/* Brand header with official round Somiti logo */}
         <div className="text-center mb-5 sm:mb-7">
-          <div className="inline-flex items-center justify-center w-14 h-14 sm:w-20 sm:h-20 rounded-2xl bg-white p-1 ring-3 sm:ring-4 ring-emerald-500/40 shadow-xl shadow-emerald-950/50 mb-2 sm:mb-3 mx-auto overflow-hidden">
+          <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white p-1 ring-3 sm:ring-4 ring-emerald-500/40 shadow-xl shadow-emerald-950/50 mb-2 sm:mb-3 mx-auto overflow-hidden">
             <img 
               src={settings?.logoUrl || '/logo.svg'} 
               alt={settings?.somitiName || (language === 'bn' ? 'বন্ধু সমবায় সমিতি লিমিটেড' : 'Bondhu Samabay Somiti Ltd.')}
-              className="w-full h-full object-contain"
+              className="w-full h-full object-contain rounded-full"
+              style={getLogoTransformStyle(settings)}
               referrerPolicy="no-referrer"
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).src = '/logo.svg';

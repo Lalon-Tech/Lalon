@@ -267,6 +267,9 @@ export interface SomitiSettings {
   secretaryName: string;
   cashierName: string;
   logoUrl: string;
+  logoScale?: number;
+  logoOffsetX?: number;
+  logoOffsetY?: number;
   sharePricePerUnit: number;
   defaultAdmissionFee: number;
   defaultDpsInterestRate: number;

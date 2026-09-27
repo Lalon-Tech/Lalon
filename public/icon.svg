@@ -1,120 +1,221 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="512" height="512">
   <defs>
-    <filter id="icon-shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#16244f" flood-opacity="0.18"/>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@700;800&amp;family=Plus+Jakarta+Sans:wght@700;800&amp;display=swap');
+    </style>
+    <!-- Metallic Silver Gradients -->
+    <linearGradient id="silver-bevel" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="25%" stop-color="#cbd5e1" />
+      <stop offset="50%" stop-color="#64748b" />
+      <stop offset="75%" stop-color="#e2e8f0" />
+      <stop offset="100%" stop-color="#94a3b8" />
+    </linearGradient>
+
+    <linearGradient id="silver-bright" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#cbd5e1" />
+      <stop offset="50%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#94a3b8" />
+    </linearGradient>
+
+    <!-- Deep Midnight Teal/Navy Radial Gradient -->
+    <radialGradient id="teal-medallion" cx="45%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#112a42" />
+      <stop offset="65%" stop-color="#0a1a2b" />
+      <stop offset="100%" stop-color="#06111d" />
+    </radialGradient>
+
+    <!-- Facet Teal Gradient -->
+    <linearGradient id="teal-facet" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14535c" />
+      <stop offset="50%" stop-color="#0d373d" />
+      <stop offset="100%" stop-color="#082428" />
+    </linearGradient>
+
+    <!-- Emerald Plaque Gradient -->
+    <linearGradient id="green-plaque" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#188063" />
+      <stop offset="40%" stop-color="#12654e" />
+      <stop offset="100%" stop-color="#0a3f30" />
+    </linearGradient>
+
+    <!-- Cyan/Silver Trend Arrow Gradient -->
+    <linearGradient id="arrow-metal" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0ea5e9" />
+      <stop offset="45%" stop-color="#38bdf8" />
+      <stop offset="75%" stop-color="#f0f9ff" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+
+    <filter id="badge-glow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#020617" flood-opacity="0.4"/>
     </filter>
   </defs>
 
-  <!-- Clean rounded background container with subtle white-to-slate gradient -->
-  <rect width="512" height="512" rx="112" fill="#ffffff" />
+  <!-- Clean Circular Badge (Outside r=284 is 100% transparent) -->
+  <g filter="url(#badge-glow)">
+    <!-- 1. Outer 16-Point Faceted Metallic Border -->
+    <circle cx="300" cy="300" r="252" fill="#0d373d" />
+    
+    <path d="M 582.0 300.0 L 547.2 349.2 L 560.5 407.9" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
+    <polygon points="582.0,300.0 547.2,349.2 565.0,300.0" fill="url(#silver-bevel)" />
+    <polygon points="547.2,349.2 560.5,407.9 544.8,401.4" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
+    <circle cx="582.0" cy="300.0" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
+  
+    <path d="M 560.5 407.9 L 509.5 440.0 L 499.4 499.4" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
+    <polygon points="560.5,407.9 509.5,440.0 544.8,401.4" fill="url(#silver-bevel)" />
+    <polygon points="509.5,440.0 499.4,499.4 487.4,487.4" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
+    <circle cx="560.5" cy="407.9" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
+  
+    <path d="M 499.4 499.4 L 440.0 509.5 L 407.9 560.5" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
+    <polygon points="499.4,499.4 440.0,509.5 487.4,487.4" fill="url(#silver-bevel)" />
+    <polygon points="440.0,509.5 407.9,560.5 401.4,544.8" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
+    <circle cx="499.4" cy="499.4" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
+  
+    <path d="M 407.9 560.5 L 349.2 547.2 L 300.0 582.0" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
+    <polygon points="407.9,560.5 349.2,547.2 401.4,544.8" fill="url(#silver-bevel)" />
+    <polygon points="349.2,547.2 300.0,582.0 300.0,565.0" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
+    <circle cx="407.9" cy="560.5" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
+  
+    <path d="M 300.0 582.0 L 250.8 547.2 L 192.1 560.5" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
+    <polygon points="300.0,582.0 250.8,547.2 300.0,565.0" fill="url(#silver-bevel)" />
+    <polygon points="250.8,547.2 192.1,560.5 198.6,544.8" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
+    <circle cx="300.0" cy="582.0" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
+  
+    <path d="M 192.1 560.5 L 160.0 509.5 L 100.6 499.4" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
+    <polygon points="192.1,560.5 160.0,509.5 198.6,544.8" fill="url(#silver-bevel)" />
+    <polygon points="160.0,509.5 100.6,499.4 112.6,487.4" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
+    <circle cx="192.1" cy="560.5" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
+  
+    <path d="M 100.6 499.4 L 90.5 440.0 L 39.5 407.9" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
+    <polygon points="100.6,499.4 90.5,440.0 112.6,487.4" fill="url(#silver-bevel)" />
+    <polygon points="90.5,440.0 39.5,407.9 55.2,401.4" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
+    <circle cx="100.6" cy="499.4" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
+  
+    <path d="M 39.5 407.9 L 52.8 349.2 L 18.0 300.0" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
+    <polygon points="39.5,407.9 52.8,349.2 55.2,401.4" fill="url(#silver-bevel)" />
+    <polygon points="52.8,349.2 18.0,300.0 35.0,300.0" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
+    <circle cx="39.5" cy="407.9" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
+  
+    <path d="M 18.0 300.0 L 52.8 250.8 L 39.5 192.1" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
+    <polygon points="18.0,300.0 52.8,250.8 35.0,300.0" fill="url(#silver-bevel)" />
+    <polygon points="52.8,250.8 39.5,192.1 55.2,198.6" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
+    <circle cx="18.0" cy="300.0" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
+  
+    <path d="M 39.5 192.1 L 90.5 160.0 L 100.6 100.6" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
+    <polygon points="39.5,192.1 90.5,160.0 55.2,198.6" fill="url(#silver-bevel)" />
+    <polygon points="90.5,160.0 100.6,100.6 112.6,112.6" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
+    <circle cx="39.5" cy="192.1" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
+  
+    <path d="M 100.6 100.6 L 160.0 90.5 L 192.1 39.5" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
+    <polygon points="100.6,100.6 160.0,90.5 112.6,112.6" fill="url(#silver-bevel)" />
+    <polygon points="160.0,90.5 192.1,39.5 198.6,55.2" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
+    <circle cx="100.6" cy="100.6" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
+  
+    <path d="M 192.1 39.5 L 250.8 52.8 L 300.0 18.0" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
+    <polygon points="192.1,39.5 250.8,52.8 198.6,55.2" fill="url(#silver-bevel)" />
+    <polygon points="250.8,52.8 300.0,18.0 300.0,35.0" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
+    <circle cx="192.1" cy="39.5" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
+  
+    <path d="M 300.0 18.0 L 349.2 52.8 L 407.9 39.5" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
+    <polygon points="300.0,18.0 349.2,52.8 300.0,35.0" fill="url(#silver-bevel)" />
+    <polygon points="349.2,52.8 407.9,39.5 401.4,55.2" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
+    <circle cx="300.0" cy="18.0" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
+  
+    <path d="M 407.9 39.5 L 440.0 90.5 L 499.4 100.6" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
+    <polygon points="407.9,39.5 440.0,90.5 401.4,55.2" fill="url(#silver-bevel)" />
+    <polygon points="440.0,90.5 499.4,100.6 487.4,112.6" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
+    <circle cx="407.9" cy="39.5" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
+  
+    <path d="M 499.4 100.6 L 509.5 160.0 L 560.5 192.1" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
+    <polygon points="499.4,100.6 509.5,160.0 487.4,112.6" fill="url(#silver-bevel)" />
+    <polygon points="509.5,160.0 560.5,192.1 544.8,198.6" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
+    <circle cx="499.4" cy="100.6" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
+  
+    <path d="M 560.5 192.1 L 547.2 250.8 L 582.0 300.0" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
+    <polygon points="560.5,192.1 547.2,250.8 544.8,198.6" fill="url(#silver-bevel)" />
+    <polygon points="547.2,250.8 582.0,300.0 565.0,300.0" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
+    <circle cx="560.5" cy="192.1" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
+  
 
-  <!-- Centered Emblem Scaled and Positioned perfectly within 512x512 -->
-  <g transform="translate(10, 20) scale(0.97)" filter="url(#icon-shadow)">
-    <!-- Outer Ring Base Layer: Deep Navy Arc -->
-    <path d="M 233 72 
-             A 180 180 0 1 0 428 277 
-             L 410 272
-             A 162 162 0 1 1 239 90
-             Z" 
-          fill="#1b2a59" />
+    <!-- 2. Concentric Silver Chrome Rings -->
+    <circle cx="300" cy="300" r="244" fill="none" stroke="url(#silver-bevel)" stroke-width="4.5" />
+    <circle cx="300" cy="300" r="238" fill="none" stroke="#071927" stroke-width="2.5" />
+    <circle cx="300" cy="300" r="234" fill="none" stroke="url(#silver-bright)" stroke-width="3" />
 
-    <!-- Outer Ring Green Arc (Top-Right section from top to right) -->
-    <path d="M 280 72 
-             A 180 180 0 0 1 438 230 
-             L 420 235 
-             A 162 162 0 0 0 274 90 
-             Z" 
-          fill="#3ba844" />
+    <!-- 3. Medallion Interior Disc -->
+    <circle cx="300" cy="300" r="232" fill="url(#teal-medallion)" />
+    <circle cx="300" cy="300" r="228" fill="none" stroke="#1e3a5f" stroke-width="1.5" opacity="0.6" />
 
-    <!-- Outer Nodes (Community Member Circles) -->
-    <!-- Top Node (Navy) -->
-    <circle cx="256" cy="68" r="26" fill="#ffffff" />
-    <circle cx="256" cy="68" r="22" fill="#1b2a59" />
+    <!-- 4. Upper Bengali Curved Typography -->
+    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(-66, 300, 300)">ব</text>
+    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(-57.2, 300, 300)">ন্ধু</text>
+    
+    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(-39.599999999999994, 300, 300)">স</text>
+    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(-30.799999999999997, 300, 300)">ম</text>
+    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(-22, 300, 300)">বা</text>
+    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(-13.199999999999996, 300, 300)">য়</text>
+    
+    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(4.400000000000006, 300, 300)">স</text>
+    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(13.200000000000003, 300, 300)">মি</text>
+    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(22, 300, 300)">তি</text>
+    
+    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(39.60000000000001, 300, 300)">লি</text>
+    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(48.400000000000006, 300, 300)">মি</text>
+    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(57.20000000000002, 300, 300)">টে</text>
+    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(66, 300, 300)">ড</text>
 
-    <!-- Left Node (Navy) -->
-    <circle cx="76" cy="248" r="26" fill="#ffffff" />
-    <circle cx="76" cy="248" r="22" fill="#1b2a59" />
+    <!-- 5. Upper-Center Emblem: Ring of 4 Clasped Hands + Growth Trend Arrow -->
+    <g transform="translate(300, 206)">
+      <!-- Outer silver circle frame of the inner emblem -->
+      <circle cx="0" cy="0" r="48" fill="#081726" stroke="url(#silver-bevel)" stroke-width="3" />
+      <circle cx="0" cy="0" r="44" fill="none" stroke="#16324a" stroke-width="1.5" />
 
-    <!-- Right Node (Vibrant Green) -->
-    <circle cx="436" cy="248" r="26" fill="#ffffff" />
-    <circle cx="436" cy="248" r="22" fill="#3ba844" />
+      <!-- Ring of 4 Interlocking Cooperative Hands (Silver Metallic) -->
+      <!-- Top Hand & Arm (Clockwise to right) -->
+      <path d="M -18 -32 C -8 -40 14 -40 26 -28 C 30 -24 30 -16 24 -12 C 16 -8 8 -14 0 -18 C -10 -22 -14 -28 -18 -32 Z" fill="url(#silver-bright)" stroke="#475569" stroke-width="1" />
+      <!-- Right Hand & Arm (Clockwise to bottom) -->
+      <path d="M 32 -18 C 40 -8 40 14 28 26 C 24 30 16 30 12 24 C 8 16 14 8 18 0 C 22 -10 28 -14 32 -18 Z" fill="url(#silver-bevel)" stroke="#475569" stroke-width="1" />
+      <!-- Bottom Hand & Arm (Clockwise to left) -->
+      <path d="M 18 32 C 8 40 -14 40 -26 28 C -30 24 -30 16 -24 12 C -16 8 -8 14 0 18 C 10 22 14 28 18 32 Z" fill="url(#silver-bright)" stroke="#475569" stroke-width="1" />
+      <!-- Left Hand & Arm (Clockwise to top) -->
+      <path d="M -32 18 C -40 8 -40 -14 -28 -26 C -24 -30 -16 -30 -12 -24 C -8 -16 -14 -8 -18 0 C -22 10 -28 14 -32 18 Z" fill="url(#silver-bevel)" stroke="#475569" stroke-width="1" />
 
-    <!-- Left Navy Figure / Arm & Shoulder -->
-    <path d="M 228 112 
-             C 150 118 96 166 90 248
-             C 88 290 106 328 138 354
-             C 154 368 176 378 200 378
-             C 192 358 192 342 200 328
-             C 174 318 148 294 142 264
-             C 138 222 168 174 220 158
-             C 238 152 246 138 228 112
-             Z" 
-          fill="#1b2a59" />
+      <!-- Inner wrist & finger clasps -->
+      <circle cx="0" cy="0" r="26" fill="none" stroke="url(#silver-bevel)" stroke-width="2" />
 
-    <!-- Right Green Figure / Arm & Shoulder -->
-    <path d="M 284 112 
-             C 362 118 416 166 422 248
-             C 424 290 406 328 374 354
-             C 358 368 336 378 312 378
-             C 320 358 320 342 312 328
-             C 338 318 364 294 370 264
-             C 374 222 344 174 292 158
-             C 274 152 266 138 284 112
-             Z" 
-          fill="#3ba844" />
+      <!-- Upward Growth Trend Arrow (Cyan/Silver metallic zigzag surging to top-right) -->
+      <!-- Glow under arrow -->
+      <path d="M -26 20 L -10 -4 L 2 6 L 24 -24" fill="none" stroke="#0369a1" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" opacity="0.5" />
+      <!-- Arrow shaft -->
+      <path d="M -26 20 L -10 -4 L 2 6 L 24 -24" fill="none" stroke="url(#arrow-metal)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+      <!-- Arrowhead at (24, -24) pointing top-right -->
+      <polygon points="24,-24 10,-24 15,-18 7,-10 15,-6 19,-14 24,-10" fill="url(#arrow-metal)" stroke="#ffffff" stroke-width="1" />
+    </g>
 
-    <!-- Center Cooperative Handshake -->
-    <!-- Navy Hand (Left side wrapping around) -->
-    <path d="M 172 294 
-             C 202 284 238 286 252 300
-             C 256 305 260 315 258 326
-             C 254 343 240 355 220 360
-             C 202 365 184 350 180 332
-             Z" 
-          fill="#1b2a59" />
+    <!-- 6. Green Plaque / Banner (UNITY • GROWTH • TRUST) -->
+    <g transform="translate(300, 345)">
+      <!-- Outer Plaque Shadow -->
+      <rect x="-184" y="-26" width="368" height="52" rx="16" fill="#020617" opacity="0.4" />
+      <!-- Plaque Body -->
+      <rect x="-182" y="-25" width="364" height="50" rx="15" fill="url(#green-plaque)" stroke="url(#silver-bevel)" stroke-width="3.5" />
+      <!-- Inner Gloss Rim -->
+      <rect x="-179" y="-22" width="358" height="22" rx="12" fill="#ffffff" opacity="0.12" />
 
-    <!-- Handshake Fingers (Navy clasping) -->
-    <rect x="204" y="350" width="16" height="26" rx="8" fill="#1b2a59" transform="rotate(-15 212 363)" stroke="#ffffff" stroke-width="3" />
-    <rect x="225" y="360" width="16" height="26" rx="8" fill="#1b2a59" transform="rotate(-5 233 373)" stroke="#ffffff" stroke-width="3" />
-    <rect x="248" y="361" width="16" height="26" rx="8" fill="#1b2a59" transform="rotate(10 256 374)" stroke="#ffffff" stroke-width="3" />
-    <rect x="270" y="352" width="16" height="24" rx="8" fill="#1b2a59" transform="rotate(25 278 364)" stroke="#ffffff" stroke-width="3" />
+      <!-- Text: UNITY • GROWTH • TRUST -->
+      <text x="0" y="7" font-family="'Plus Jakarta Sans', sans-serif" font-size="18.5" font-weight="800" letter-spacing="3.5" fill="#ffffff" text-anchor="middle">
+        UNITY <tspan fill="#6ee7b7">•</tspan> GROWTH <tspan fill="#6ee7b7">•</tspan> TRUST
+      </text>
+    </g>
 
-    <!-- Green Hand (Right side grasping) -->
-    <path d="M 340 294 
-             C 310 284 274 286 260 300
-             C 256 305 252 315 254 326
-             C 258 343 272 355 292 360
-             C 310 365 328 350 332 332
-             Z" 
-          fill="#3ba844" />
+    <!-- 7. Subtitle: Cooperative Society -->
+    <text x="300" y="406" font-family="'Plus Jakarta Sans', sans-serif" font-size="17.5" font-weight="600" letter-spacing="1.8" fill="#cbd5e1" text-anchor="middle">
+      Cooperative Society
+    </text>
 
-    <!-- Thumb Clasp in Center -->
-    <path d="M 236 300 
-             C 246 290 266 290 276 300 
-             C 286 310 278 324 256 336 
-             C 234 324 226 310 236 300 Z" 
-          fill="#1b2a59" stroke="#ffffff" stroke-width="3.5" />
-
-    <!-- The 3-Leaf Growth Sprout (Seedling) -->
-    <!-- Central Upright Leaf -->
-    <path d="M 256 288 
-             C 242 236 225 194 256 156 
-             C 287 194 270 236 256 288 Z" 
-          fill="#3ba844" />
-    <path d="M 256 284 L 256 168" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" />
-
-    <!-- Left Leaf -->
-    <path d="M 248 266 
-             C 218 258 180 228 190 196 
-             C 218 196 242 232 252 258 Z" 
-          fill="#43b04c" />
-    <path d="M 246 262 C 232 248 214 230 198 206" stroke="#ffffff" stroke-width="3" stroke-linecap="round" />
-
-    <!-- Right Leaf -->
-    <path d="M 264 266 
-             C 294 258 332 228 322 196 
-             C 294 196 270 232 260 258 Z" 
-          fill="#43b04c" />
-    <path d="M 266 262 C 280 248 298 230 314 206" stroke="#ffffff" stroke-width="3" stroke-linecap="round" />
+    <!-- 8. Lower Concentric Silver Arcs -->
+    <path d="M 175 442 A 195 195 0 0 0 425 442" fill="none" stroke="url(#silver-bevel)" stroke-width="2.5" stroke-linecap="round" />
+    <path d="M 205 458 A 185 185 0 0 0 395 458" fill="none" stroke="url(#silver-bright)" stroke-width="1.8" stroke-linecap="round" />
+    <path d="M 245 474 A 175 175 0 0 0 355 474" fill="none" stroke="url(#silver-bevel)" stroke-width="1.2" stroke-linecap="round" />
   </g>
 </svg>

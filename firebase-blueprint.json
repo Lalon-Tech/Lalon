@@ -108,7 +108,10 @@
       "type": "object",
       "properties": {
         "somitiName": { "type": "string" },
-        "registrationNo": { "type": "string" }
+        "registrationNo": { "type": "string" },
+        "logoScale": { "type": "number" },
+        "logoOffsetX": { "type": "number" },
+        "logoOffsetY": { "type": "number" }
       }
     },
     "memberFinancials": {

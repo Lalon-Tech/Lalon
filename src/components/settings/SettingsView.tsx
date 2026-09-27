@@ -21,13 +21,23 @@ import {
   AlertCircle,
   ShieldCheck,
   Check,
-  Image as ImageIcon
+  Image as ImageIcon,
+  ZoomIn,
+  ZoomOut,
+  Move,
+  Crosshair,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  Sliders
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { compressLogoImage } from '../../utils/imageUtils';
 import { ThemeToggle } from '../common/ThemeToggle';
+import { getLogoTransformStyle } from '../../utils/logoUtils';
 
 export const SettingsView: React.FC = () => {
   const { language } = useLanguage();
@@ -68,6 +78,9 @@ export const SettingsView: React.FC = () => {
   // Logo state and handlers
   const [logoUrl, setLogoUrl] = useState(settings.logoUrl || '/logo.svg');
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoScale, setLogoScale] = useState<number>(settings.logoScale ?? 1);
+  const [logoOffsetX, setLogoOffsetX] = useState<number>(settings.logoOffsetX ?? 0);
+  const [logoOffsetY, setLogoOffsetY] = useState<number>(settings.logoOffsetY ?? 0);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   // Sync settings when loaded from Firestore or updated
@@ -86,6 +99,9 @@ export const SettingsView: React.FC = () => {
       setDefaultAdmissionFee(settings.defaultAdmissionFee ?? 50);
       setDefaultLoanInterestRate(settings.defaultLoanInterestRate ?? 10);
       setDefaultDpsInterestRate(settings.defaultDpsInterestRate ?? 8);
+      setLogoScale(settings.logoScale ?? 1);
+      setLogoOffsetX(settings.logoOffsetX ?? 0);
+      setLogoOffsetY(settings.logoOffsetY ?? 0);
       if (!logoPreview) {
         setLogoUrl(settings.logoUrl || '/logo.svg');
       }
@@ -136,11 +152,68 @@ export const SettingsView: React.FC = () => {
   const handleResetLogo = () => {
     setLogoUrl('/logo.svg');
     setLogoPreview(null);
+    setLogoScale(1);
+    setLogoOffsetX(0);
+    setLogoOffsetY(0);
     if (logoInputRef.current) logoInputRef.current.value = '';
     setActionFeedback({
       type: 'info',
       message: language === 'bn' ? 'ডিফল্ট "বন্ধু সমবায় সমিতি" লোগোতে ফিরিয়ে আনা হয়েছে। সংরক্ষণ করতে নিচের সেভ বাটনে চাপুন।' : 'Reset to default logo. Click Save to apply.'
     });
+  };
+
+  const handleZoomIn = () => {
+    setLogoScale(prev => Math.min(2.5, Number((prev + 0.05).toFixed(2))));
+  };
+
+  const handleZoomOut = () => {
+    setLogoScale(prev => Math.max(0.4, Number((prev - 0.05).toFixed(2))));
+  };
+
+  const handleMoveLeft = () => {
+    setLogoOffsetX(prev => Math.max(-50, prev - 3));
+  };
+
+  const handleMoveRight = () => {
+    setLogoOffsetX(prev => Math.min(50, prev + 3));
+  };
+
+  const handleMoveUp = () => {
+    setLogoOffsetY(prev => Math.max(-50, prev - 3));
+  };
+
+  const handleMoveDown = () => {
+    setLogoOffsetY(prev => Math.min(50, prev + 3));
+  };
+
+  const handleCenterLogo = () => {
+    setLogoScale(1);
+    setLogoOffsetX(0);
+    setLogoOffsetY(0);
+    setActionFeedback({
+      type: 'info',
+      message: language === 'bn' ? 'লোগোর অবস্থান সেন্টারে রিসেট করা হয়েছে (Zoom 100%, X: 0%, Y: 0%)।' : 'Logo centered and reset to default.'
+    });
+    setTimeout(() => setActionFeedback(null), 3000);
+  };
+
+  const handleApplyLogoTransform = () => {
+    updateSettings({
+      logoUrl,
+      logoScale: Number(logoScale.toFixed(2)),
+      logoOffsetX: Math.round(logoOffsetX),
+      logoOffsetY: Math.round(logoOffsetY),
+    });
+    setActionFeedback({
+      type: 'success',
+      message: language === 'bn' 
+        ? 'লোগোর সাইজ ও পজিশন সফলভাবে সংরক্ষিত এবং অ্যাপের সর্বত্র প্রয়োগ করা হয়েছে!' 
+        : 'Logo size & position saved and applied everywhere!'
+    });
+    try {
+      confetti({ particleCount: 30, spread: 55, origin: { y: 0.6 } });
+    } catch (_) {}
+    setTimeout(() => setActionFeedback(null), 4000);
   };
 
   const [isSaved, setIsSaved] = useState(false);
@@ -185,6 +258,9 @@ export const SettingsView: React.FC = () => {
       secretaryName: secretaryName.trim(),
       cashierName: cashierName.trim(),
       logoUrl: logoUrl,
+      logoScale: Number(logoScale.toFixed(2)),
+      logoOffsetX: Math.round(logoOffsetX),
+      logoOffsetY: Math.round(logoOffsetY),
       sharePricePerUnit: Number(sharePricePerUnit),
       defaultAdmissionFee: Number(defaultAdmissionFee),
       defaultLoanInterestRate: Number(defaultLoanInterestRate),
@@ -371,11 +447,12 @@ export const SettingsView: React.FC = () => {
           {/* Logo Management */}
           <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 sm:p-5 flex flex-col md:flex-row items-center md:items-start gap-5">
             <div className="relative shrink-0 flex flex-col items-center">
-              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white p-2.5 border-2 border-emerald-500/30 shadow-md flex items-center justify-center overflow-hidden">
+              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-white p-1 border-2 border-emerald-500/40 shadow-md flex items-center justify-center overflow-hidden">
                 <img
                   src={logoPreview || logoUrl || '/logo.svg'}
                   alt="সমিতির লোগো"
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-contain rounded-full"
+                  style={getLogoTransformStyle({ logoScale, logoOffsetX, logoOffsetY })}
                   referrerPolicy="no-referrer"
                   onError={(e) => {
                     (e.currentTarget as HTMLImageElement).src = '/logo.svg';
@@ -384,11 +461,11 @@ export const SettingsView: React.FC = () => {
               </div>
               <span className="mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
                 {logoUrl === '/logo.svg' 
-                  ? 'অফিসিয়াল এমব্লেম' 
+                  ? 'অফিসিয়াল সার্কুলার ব্যাজ' 
                   : logoUrl === '/logo-horizontal.svg' 
                     ? 'হরাইজন্টাল লোগো' 
                     : logoUrl === '/icon.svg' 
-                      ? 'সার্কুলার আইকন' 
+                      ? 'অ্যাপ আইকন ব্যাজ' 
                       : 'কাস্টম লোগো'}
               </span>
             </div>
@@ -422,12 +499,12 @@ export const SettingsView: React.FC = () => {
                         : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    <div className="w-7 h-7 rounded-lg bg-white p-0.5 border border-slate-200 shrink-0 flex items-center justify-center overflow-hidden">
-                      <img src="/logo.svg" alt="Emblem" className="w-full h-full object-contain" />
+                    <div className="w-7 h-7 rounded-full bg-white p-0.5 border border-slate-200 shrink-0 flex items-center justify-center overflow-hidden">
+                      <img src="/logo.svg" alt="Emblem" className="w-full h-full object-contain rounded-full" />
                     </div>
                     <div className="text-left min-w-0">
-                      <p className="truncate leading-tight">অফিসিয়াল এমব্লেম</p>
-                      <p className="text-[10px] text-slate-400 font-normal">রসিদ ও সিলের জন্য</p>
+                      <p className="truncate leading-tight">সার্কুলার ব্যাজ</p>
+                      <p className="text-[10px] text-slate-400 font-normal">অফিসিয়াল গোল লোগো</p>
                     </div>
                   </button>
 
@@ -464,12 +541,12 @@ export const SettingsView: React.FC = () => {
                         : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    <div className="w-7 h-7 rounded-lg bg-white p-0.5 border border-slate-200 shrink-0 flex items-center justify-center overflow-hidden">
-                      <img src="/icon.svg" alt="Icon" className="w-full h-full object-contain" />
+                    <div className="w-7 h-7 rounded-full bg-white p-0.5 border border-slate-200 shrink-0 flex items-center justify-center overflow-hidden">
+                      <img src="/icon.svg" alt="Icon" className="w-full h-full object-contain rounded-full" />
                     </div>
                     <div className="text-left min-w-0">
-                      <p className="truncate leading-tight">সার্কুলার আইকন</p>
-                      <p className="text-[10px] text-slate-400 font-normal">অ্যাপ আইকন ব্যাজ</p>
+                      <p className="truncate leading-tight">অ্যাপ আইকন</p>
+                      <p className="text-[10px] text-slate-400 font-normal">পিউ ডব্লিউ এ ও ফেভিকন</p>
                     </div>
                   </button>
                 </div>
@@ -503,6 +580,226 @@ export const SettingsView: React.FC = () => {
                     <span>ডিফল্ট লোগোতে ফিরুন</span>
                   </button>
                 )}
+              </div>
+
+              {/* Logo Resize & Position Controls (Zoom, Move, Center, Real-Time Preview) */}
+              <div className="mt-4 pt-4 border-t border-slate-200/90 bg-white/90 rounded-xl p-3.5 sm:p-4.5 border border-slate-200/80 shadow-xs space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                      <Sliders className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-slate-800">
+                        লোগো সাইজ ও পজিশন সমন্বয় (Logo Resize & Position)
+                      </h5>
+                      <p className="text-[10.5px] text-slate-500">
+                        জুম এবং মুভ করে লোগোটি রিংয়ের ভেতরে নিখুঁতভাবে বসান
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      Zoom: {Math.round(logoScale * 100)}%
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                      X: {logoOffsetX > 0 ? `+${logoOffsetX}` : logoOffsetX}% | Y: {logoOffsetY > 0 ? `+${logoOffsetY}` : logoOffsetY}%
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* 1. Zoom Controls (Zoom In / Zoom Out) */}
+                  <div className="space-y-2.5 bg-slate-50/70 p-3 sm:p-3.5 rounded-xl border border-slate-200/70">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                      <span className="flex items-center gap-1.5">
+                        <ZoomIn className="w-3.5 h-3.5 text-blue-600" />
+                        <span>জুম সমন্বয় (Zoom In / Zoom Out)</span>
+                      </span>
+                      <span className="text-blue-600 font-mono text-[11px]">{Math.round(logoScale * 100)}%</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleZoomOut}
+                        title="Zoom Out (-5%)"
+                        disabled={logoScale <= 0.4}
+                        className="p-2 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 active:scale-95 disabled:opacity-40 transition-all cursor-pointer shadow-2xs"
+                      >
+                        <ZoomOut className="w-4 h-4" />
+                      </button>
+
+                      <input
+                        type="range"
+                        min="0.4"
+                        max="2.5"
+                        step="0.01"
+                        value={logoScale}
+                        onChange={(e) => setLogoScale(parseFloat(e.target.value))}
+                        className="flex-1 accent-emerald-600 cursor-pointer h-2 bg-slate-200 rounded-lg"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={handleZoomIn}
+                        title="Zoom In (+5%)"
+                        disabled={logoScale >= 2.5}
+                        className="p-2 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 active:scale-95 disabled:opacity-40 transition-all cursor-pointer shadow-2xs"
+                      >
+                        <ZoomIn className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Quick Preset Zoom Buttons */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[10px] text-slate-400 font-medium">প্রিসেট:</span>
+                      {[0.8, 1.0, 1.25, 1.5, 1.8].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setLogoScale(preset)}
+                          className={`px-2 py-0.5 rounded-md text-[10.5px] font-bold transition-all cursor-pointer ${
+                            Math.abs(logoScale - preset) < 0.02
+                              ? 'bg-emerald-600 text-white shadow-2xs'
+                              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          {Math.round(preset * 100)}%
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 2. Position Controls (Move Left / Right, Move Up / Down, Center) */}
+                  <div className="space-y-2.5 bg-slate-50/70 p-3 sm:p-3.5 rounded-xl border border-slate-200/70">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                      <span className="flex items-center gap-1.5">
+                        <Move className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>পজিশন স্থানান্তর (Move & Align)</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleCenterLogo}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-100 hover:bg-emerald-200 active:scale-95 text-emerald-800 text-[10.5px] font-bold transition-all cursor-pointer shadow-2xs"
+                        title="সেন্টার ও ডিফল্ট পজিশনে রিসেট করুন"
+                      >
+                        <Crosshair className="w-3 h-3 text-emerald-700" />
+                        <span>Center (রিসেট)</span>
+                      </button>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-1">
+                      {/* Directional Pad */}
+                      <div className="inline-grid grid-cols-3 gap-1 p-1 bg-white border border-slate-200 rounded-xl shadow-2xs shrink-0">
+                        <div></div>
+                        <button
+                          type="button"
+                          onClick={handleMoveUp}
+                          title="উপরে সরান (Move Up)"
+                          className="p-1.5 rounded-lg bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 active:scale-95 text-slate-700 transition-all flex items-center justify-center cursor-pointer"
+                        >
+                          <ArrowUp className="w-4 h-4" />
+                        </button>
+                        <div></div>
+
+                        <button
+                          type="button"
+                          onClick={handleMoveLeft}
+                          title="বামে সরান (Move Left)"
+                          className="p-1.5 rounded-lg bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 active:scale-95 text-slate-700 transition-all flex items-center justify-center cursor-pointer"
+                        >
+                          <ArrowLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCenterLogo}
+                          title="সেন্টার (Center)"
+                          className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+                        >
+                          <Crosshair className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleMoveRight}
+                          title="ডানে সরান (Move Right)"
+                          className="p-1.5 rounded-lg bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 active:scale-95 text-slate-700 transition-all flex items-center justify-center cursor-pointer"
+                        >
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+
+                        <div></div>
+                        <button
+                          type="button"
+                          onClick={handleMoveDown}
+                          title="নিচে সরান (Move Down)"
+                          className="p-1.5 rounded-lg bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 active:scale-95 text-slate-700 transition-all flex items-center justify-center cursor-pointer"
+                        >
+                          <ArrowDown className="w-4 h-4" />
+                        </button>
+                        <div></div>
+                      </div>
+
+                      {/* Sliders for precision X and Y control */}
+                      <div className="flex-1 w-full space-y-1.5 text-[11px] text-slate-600">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 text-right font-bold text-slate-500">X:</span>
+                          <input
+                            type="range"
+                            min="-50"
+                            max="50"
+                            step="1"
+                            value={logoOffsetX}
+                            onChange={(e) => setLogoOffsetX(parseInt(e.target.value, 10))}
+                            className="flex-1 accent-emerald-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
+                            title="Horizontal Position X"
+                          />
+                          <span className="w-8 text-right font-mono text-[10px]">{logoOffsetX}%</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 text-right font-bold text-slate-500">Y:</span>
+                          <input
+                            type="range"
+                            min="-50"
+                            max="50"
+                            step="1"
+                            value={logoOffsetY}
+                            onChange={(e) => setLogoOffsetY(parseInt(e.target.value, 10))}
+                            className="flex-1 accent-emerald-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
+                            title="Vertical Position Y"
+                          />
+                          <span className="w-8 text-right font-mono text-[10px]">{logoOffsetY}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Instant Save / Apply Button */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                  <p className="text-[11px] text-slate-500">
+                    💡 প্রিভিউতে পরিবর্তন তাৎক্ষণিকভাবে প্রদর্শিত হচ্ছে। স্থায়ী করতে নিচের বাটনে চাপুন।
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCenterLogo}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 inline mr-1" />
+                      <span>পজিশন রিসেট</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleApplyLogoTransform}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>সাইজ ও পজিশন সেভ করুন</span>
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div className="bg-amber-50/80 border border-amber-200/80 rounded-lg p-2.5 text-[11px] text-amber-800 leading-relaxed text-left">

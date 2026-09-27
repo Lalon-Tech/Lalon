@@ -767,6 +767,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       ...initialSettings,
       ...loaded, 
       logoUrl: finalLogo,
+      logoScale: typeof loaded.logoScale === 'number' && !isNaN(loaded.logoScale) ? loaded.logoScale : 1,
+      logoOffsetX: typeof loaded.logoOffsetX === 'number' && !isNaN(loaded.logoOffsetX) ? loaded.logoOffsetX : 0,
+      logoOffsetY: typeof loaded.logoOffsetY === 'number' && !isNaN(loaded.logoOffsetY) ? loaded.logoOffsetY : 0,
       somitiName: resolvedName,
       somitiNameEn: loaded.somitiNameEn || 'Bondhu Samabay Somiti Ltd.'
     };

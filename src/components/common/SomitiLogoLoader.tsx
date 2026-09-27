@@ -1,6 +1,7 @@
 import React from 'react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { getLogoTransformStyle } from '../../utils/logoUtils';
 
 export interface SomitiLogoLoaderProps {
   /**
@@ -55,6 +56,7 @@ export const SomitiLogoLoader: React.FC<SomitiLogoLoaderProps> = ({
               src={logoSrc}
               alt={somitiTitle}
               className="w-full h-full object-contain rounded-full"
+              style={getLogoTransformStyle(settings)}
               referrerPolicy="no-referrer"
             />
           </div>
@@ -83,6 +85,7 @@ export const SomitiLogoLoader: React.FC<SomitiLogoLoaderProps> = ({
               src={logoSrc}
               alt={somitiTitle}
               className="w-full h-full object-contain rounded-full"
+              style={getLogoTransformStyle(settings)}
               referrerPolicy="no-referrer"
             />
           </div>
@@ -118,6 +121,7 @@ export const SomitiLogoLoader: React.FC<SomitiLogoLoaderProps> = ({
                 src={logoSrc}
                 alt={somitiTitle}
                 className="w-full h-full object-contain rounded-full"
+                style={getLogoTransformStyle(settings)}
                 referrerPolicy="no-referrer"
               />
             </div>

@@ -25,6 +25,7 @@ import {
 import * as XLSX from 'xlsx';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { getLogoTransformStyle } from '../../utils/logoUtils';
 import { ShareClosuresList } from '../members/ShareClosuresList';
 import { TrialBalanceReport } from './TrialBalanceReport';
 import { BalanceSheetReport } from './BalanceSheetReport';
@@ -362,15 +363,18 @@ export const ReportsView: React.FC = () => {
         {/* Printable Report Header */}
         <div className="text-center border-b-2 border-slate-900 pb-4">
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 mb-2">
-            <img 
-              src={settings.logoUrl || '/logo.svg'} 
-              alt="Logo" 
-              className="w-16 h-16 sm:w-18 sm:h-18 object-contain rounded-xl p-1 bg-white border border-slate-200 shadow-2xs" 
-              referrerPolicy="no-referrer"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src = '/logo.svg';
-              }}
-            />
+            <div className="w-16 h-16 sm:w-18 sm:h-18 shrink-0 rounded-full p-0.5 bg-white border-2 border-emerald-500/40 shadow-2xs overflow-hidden flex items-center justify-center">
+              <img 
+                src={settings.logoUrl || '/logo.svg'} 
+                alt="Logo" 
+                className="w-full h-full object-contain rounded-full" 
+                style={getLogoTransformStyle(settings)}
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = '/logo.svg';
+                }}
+              />
+            </div>
             <div className="text-center sm:text-left">
               <h1 className="text-2xl font-bold text-slate-900 uppercase leading-tight">
                 {settings.somitiName || (isBn ? 'বন্ধু সমবায় সমিতি লিমিটেড' : 'Bondhu Samabay Somiti Ltd.')}

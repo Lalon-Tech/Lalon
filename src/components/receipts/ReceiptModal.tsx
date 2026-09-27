@@ -34,6 +34,7 @@ import {
   toBengaliNumber 
 } from '../../utils/bengaliUtils';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock';
+import { getLogoTransformStyle } from '../../utils/logoUtils';
 
 export const ReceiptModal: React.FC = () => {
   const { 
@@ -589,15 +590,18 @@ ${tx.billingPeriod ? `বিলিং কিস্তি  : ${tx.billingPeriod}\
             {/* Somiti Official Header */}
             <div className="text-center pb-3 border-b-2 border-slate-800 relative">
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-2">
-                <img
-                  src={settings.logoUrl || '/logo.svg'}
-                  alt={somitiTitle}
-                  className="w-14 h-14 sm:w-16 sm:h-16 object-contain bg-white rounded-2xl p-1 border border-slate-200 shadow-2xs"
-                  crossOrigin="anonymous"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).src = '/logo.svg';
-                  }}
-                />
+                <div className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 bg-white rounded-full p-0.5 border-2 border-emerald-500/40 shadow-2xs overflow-hidden flex items-center justify-center">
+                  <img
+                    src={settings.logoUrl || '/logo.svg'}
+                    alt={somitiTitle}
+                    className="w-full h-full object-contain rounded-full"
+                    style={getLogoTransformStyle(settings)}
+                    crossOrigin="anonymous"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = '/logo.svg';
+                    }}
+                  />
+                </div>
                 <div className="text-center sm:text-left">
                   <div className="inline-flex items-center gap-1.5 border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-emerald-800 shadow-2xs mb-1">
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
