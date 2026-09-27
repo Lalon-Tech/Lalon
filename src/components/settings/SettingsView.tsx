@@ -30,7 +30,9 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
-  Sliders
+  Sliders,
+  Smartphone,
+  ExternalLink
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useSomiti } from '../../context/SomitiContext';
@@ -75,6 +77,10 @@ export const SettingsView: React.FC = () => {
   const [defaultLoanInterestRate, setDefaultLoanInterestRate] = useState(settings.defaultLoanInterestRate);
   const [defaultDpsInterestRate, setDefaultDpsInterestRate] = useState(settings.defaultDpsInterestRate);
 
+  // APK download settings
+  const [apkDownloadUrl, setApkDownloadUrl] = useState(settings.apkDownloadUrl || '/downloads/Bondhu_Somiti.apk');
+  const [apkVersion, setApkVersion] = useState(settings.apkVersion || 'v2.5.0');
+
   // Logo state and handlers
   const [logoUrl, setLogoUrl] = useState(settings.logoUrl || '/logo.svg');
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -99,6 +105,8 @@ export const SettingsView: React.FC = () => {
       setDefaultAdmissionFee(settings.defaultAdmissionFee ?? 50);
       setDefaultLoanInterestRate(settings.defaultLoanInterestRate ?? 10);
       setDefaultDpsInterestRate(settings.defaultDpsInterestRate ?? 8);
+      setApkDownloadUrl(settings.apkDownloadUrl || '/downloads/Bondhu_Somiti.apk');
+      setApkVersion(settings.apkVersion || 'v2.5.0');
       setLogoScale(settings.logoScale ?? 1);
       setLogoOffsetX(settings.logoOffsetX ?? 0);
       setLogoOffsetY(settings.logoOffsetY ?? 0);
@@ -265,6 +273,8 @@ export const SettingsView: React.FC = () => {
       defaultAdmissionFee: Number(defaultAdmissionFee),
       defaultLoanInterestRate: Number(defaultLoanInterestRate),
       defaultDpsInterestRate: Number(defaultDpsInterestRate),
+      apkDownloadUrl: apkDownloadUrl.trim() || '/downloads/Bondhu_Somiti.apk',
+      apkVersion: apkVersion.trim() || 'v2.5.0',
     });
 
     setIsSaved(true);
@@ -1157,6 +1167,70 @@ export const SettingsView: React.FC = () => {
                 className="hidden"
               />
             </label>
+          </div>
+        </div>
+
+        {/* Android APK Download Link Settings */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2 border-b pb-2">
+            <Smartphone className="w-4 h-4 text-emerald-600" />
+            <span>৫. অ্যান্ড্রয়েড APK ও সরাসরি অ্যাপ ডাউনলোড কনফিগারেশন</span>
+          </h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                অ্যান্ড্রয়েড APK ফাইল ডাউনলোড লিংক (File Download URL)
+              </label>
+              <input
+                type="text"
+                value={apkDownloadUrl}
+                onChange={(e) => setApkDownloadUrl(e.target.value)}
+                placeholder="/downloads/Bondhu_Somiti.apk অথবা Google Drive / Cloud লিংক"
+                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                ডিফল্ট হিসেবে সফটওয়্যারের নিজস্ব <code>/downloads/Bondhu_Somiti.apk</code> ব্যবহৃত হয়। আপনি চাইলে কোনো নতুন APK বা গুগল ড্রাইভ ডিরেক্ট ডাউনলোড লিংকও এখানে দিতে পারেন।
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                APK সংস্করণ / ভার্সন
+              </label>
+              <input
+                type="text"
+                value={apkVersion}
+                onChange={(e) => setApkVersion(e.target.value)}
+                placeholder="v2.5.0"
+                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                ডাউনলোড স্ক্রিনে প্রদর্শিত হবে
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-xl">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                APK
+              </div>
+              <div>
+                <p className="text-xs font-bold text-emerald-950">সরাসরি ডাউনলোড টেস্ট করুন</p>
+                <p className="text-[10px] text-emerald-700">বর্তমান সেট করা লিংক থেকে APK ফাইল ঠিকমতো ডাউনলোড হচ্ছে কিনা পরীক্ষা করুন</p>
+              </div>
+            </div>
+            <a
+              href={apkDownloadUrl}
+              download="Bondhu_Somiti.apk"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>টেস্ট ডাউনলোড</span>
+            </a>
           </div>
         </div>
 

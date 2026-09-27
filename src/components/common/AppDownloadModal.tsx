@@ -14,7 +14,9 @@ import {
   Zap,
   WifiOff,
   Copy,
-  Check
+  Check,
+  FileCode2,
+  AlertCircle
 } from 'lucide-react';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
 import { useSomiti } from '../../context/SomitiContext';
@@ -27,19 +29,37 @@ interface AppDownloadModalProps {
 }
 
 export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onClose }) => {
-  const { isInstallable, isInstalled, isIOS, isAndroid, install } = usePWAInstall();
+  const { isInstallable, isInstalled, install } = usePWAInstall();
   const { settings } = useSomiti();
   const { language } = useLanguage();
   const isBn = language === 'bn';
 
   const [installing, setInstalling] = useState(false);
+  const [downloadingApk, setDownloadingApk] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [activeTab, setActiveTab] = useState<'android' | 'ios' | 'desktop'>('android');
+  const [activeTab, setActiveTab] = useState<'apk' | 'pwa' | 'ios' | 'desktop'>('apk');
 
   if (!isOpen) return null;
 
   const somitiName = settings.somitiName || (isBn ? 'বন্ধু সমবায় সমিতি লিমিটেড' : 'Bondhu Samabay Somiti Ltd.');
   const appUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  const apkDownloadUrl = settings.apkDownloadUrl || '/downloads/Bondhu_Somiti.apk';
+  const apkVersion = settings.apkVersion || 'v2.5.0';
+
+  const handleDownloadApk = () => {
+    setDownloadingApk(true);
+    const link = document.createElement('a');
+    link.href = apkDownloadUrl;
+    link.download = 'Bondhu_Somiti.apk';
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setTimeout(() => {
+      setDownloadingApk(false);
+    }, 1500);
+  };
 
   const handleInstallClick = async () => {
     setInstalling(true);
@@ -84,7 +104,7 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header with Somiti Branding */}
-        <div className="relative p-5 sm:p-6 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white shrink-0">
+        <div className="relative p-5 sm:p-6 bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-950 text-white shrink-0 border-b border-emerald-900/40">
           <button
             type="button"
             onClick={onClose}
@@ -95,7 +115,7 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
           </button>
 
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-white p-1 ring-4 ring-emerald-400/40 shadow-xl shrink-0 overflow-hidden flex items-center justify-center">
+            <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-white p-1 ring-4 ring-emerald-500/40 shadow-xl shrink-0 overflow-hidden flex items-center justify-center">
               <img 
                 src={settings.logoUrl || '/logo.svg'} 
                 alt={somitiName}
@@ -111,13 +131,13 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
             <div className="min-w-0 flex-1">
               <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase tracking-wider mb-1">
                 <Sparkles className="w-3 h-3 text-emerald-400" />
-                <span>{isBn ? 'অফিসিয়াল অ্যাপ' : 'Official App'}</span>
+                <span>{isBn ? 'অফিসিয়াল Android APK' : 'Official Android APK'}</span>
               </div>
               <h2 className="text-lg sm:text-xl font-bold leading-tight truncate">
                 {somitiName}
               </h2>
-              <p className="text-xs text-blue-200/90 mt-0.5">
-                {isBn ? 'মোবাইল ও কম্পিউটারের জন্য সরাসরি ডাউনলোড ও ইনস্টল' : 'Direct install & download for Mobile & PC'}
+              <p className="text-xs text-emerald-200/90 mt-0.5">
+                {isBn ? 'সরাসরি APK ফাইল ডাউনলোড ও ইনস্টলেশন সেন্টার' : 'Direct APK File Download & Installation Center'}
               </p>
             </div>
           </div>
@@ -125,93 +145,97 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
 
         {/* Modal Scrollable Body */}
         <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
-          {/* Status / Direct Action Banner */}
-          {isInstalled ? (
-            <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                <CheckCircle2 className="w-6 h-6" />
-              </div>
+          {/* PRIMARY HERO: DIRECT APK FILE DOWNLOAD BUTTON */}
+          <div className="bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-700 text-white p-5 rounded-2xl shadow-xl relative overflow-hidden border border-emerald-400/30">
+            <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/15 rounded-full blur-2xl pointer-events-none" />
+            
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-sm font-bold text-emerald-900 dark:text-emerald-200">
-                  {isBn ? 'অ্যাপটি ইতিমধ্যে আপনার ডিভাইসে ইনস্টল করা আছে!' : 'App is already installed on your device!'}
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[11px] font-extrabold mb-1.5 backdrop-blur-xs">
+                  <Smartphone className="w-3.5 h-3.5 text-emerald-200" />
+                  <span>{isBn ? 'অ্যান্ড্রয়েড APK ফাইল (.apk)' : 'Android APK Package (.apk)'}</span>
+                </div>
+                <h3 className="text-base sm:text-lg font-bold flex items-center gap-2">
+                  <Download className="w-5 h-5" />
+                  <span>{isBn ? 'সরাসরি APK ফাইল ডাউনলোড' : 'Direct APK File Download'}</span>
                 </h3>
-                <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">
-                  {isBn ? 'আপনি আপনার ডিভাইসের হোমস্ক্রিন বা অ্যাপ তালিকা থেকে এটি সরাসরি খুলতে পারেন।' : 'You can launch it directly from your device home screen.'}
+                <p className="text-xs text-emerald-100 mt-1 max-w-sm">
+                  {isBn 
+                    ? `ফাইল সাইজ: ~১৪ মেগাবাইট • ভার্সন: ${apkVersion} • যেকোনো অ্যান্ড্রয়েড ফোনে সরাসরি চলবে।` 
+                    : `File size: ~14MB • Version: ${apkVersion} • Direct Android install.`}
                 </p>
               </div>
-            </div>
-          ) : (
-            <div className="bg-gradient-to-br from-emerald-600 to-teal-700 text-white p-5 rounded-2xl shadow-lg relative overflow-hidden">
-              <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-xl pointer-events-none" />
-              
-              <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h3 className="text-base sm:text-lg font-bold flex items-center gap-2">
-                    <Download className="w-5 h-5" />
-                    <span>{isBn ? 'এক ক্লিকে সরাসরি ইনস্টল করুন' : 'Instant One-Click Install'}</span>
-                  </h3>
-                  <p className="text-xs text-emerald-100 mt-1 max-w-sm">
-                    {isInstallable 
-                      ? (isBn ? 'আপনার ব্রাউজার প্রস্তুত! নিচের বাটনে চাপ দিয়ে সরাসরি আপনার হোমস্ক্রিনে অ্যাপ ডাউনলোড করুন।' : 'Your browser is ready! Click the button to add to your device.')
-                      : (isBn ? 'প্লে স্টোর ছাড়াও সরাসরি আপনার মোবাইল বা পিসিতে অ্যাপের মতো চলবে।' : 'Runs like a native app on mobile or desktop without Play Store.')
-                    }
-                  </p>
-                </div>
 
-                <button
-                  type="button"
-                  onClick={handleInstallClick}
-                  disabled={installing}
-                  className="px-5 py-3 rounded-xl bg-white text-emerald-900 hover:bg-emerald-50 font-bold text-sm shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 shrink-0 cursor-pointer disabled:opacity-75"
-                >
-                  <Download className={`w-4.5 h-4.5 text-emerald-700 ${installing ? 'animate-bounce' : ''}`} />
-                  <span>
-                    {installing 
-                      ? (isBn ? 'ইনস্টল হচ্ছে...' : 'Installing...') 
-                      : (isBn ? 'এখনই ডাউনলোড করুন' : 'Download Now')}
-                  </span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Quick Feature Perks */}
-          <div className="grid grid-cols-3 gap-2.5 text-center">
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800">
-              <Zap className="w-5 h-5 text-amber-500 mx-auto mb-1" />
-              <div className="text-xs font-bold text-slate-800 dark:text-slate-200">{isBn ? 'অতি দ্রুত' : 'Super Fast'}</div>
-              <div className="text-[10px] text-slate-500">{isBn ? '১ সেকেন্ডে লোড' : 'Instant Load'}</div>
-            </div>
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800">
-              <WifiOff className="w-5 h-5 text-blue-500 mx-auto mb-1" />
-              <div className="text-xs font-bold text-slate-800 dark:text-slate-200">{isBn ? 'অফলাইন ক্যাশ' : 'Offline Cache'}</div>
-              <div className="text-[10px] text-slate-500">{isBn ? 'দুর্বল নেটেও সচল' : 'Network Resilient'}</div>
-            </div>
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800">
-              <ShieldCheck className="w-5 h-5 text-emerald-500 mx-auto mb-1" />
-              <div className="text-xs font-bold text-slate-800 dark:text-slate-200">{isBn ? 'নিরাপদ ক্লাউড' : 'Cloud Secure'}</div>
-              <div className="text-[10px] text-slate-500">{isBn ? '১০০% অটো ব্যাকআপ' : 'Auto Backup'}</div>
+              <button
+                type="button"
+                onClick={handleDownloadApk}
+                disabled={downloadingApk}
+                className="px-6 py-3.5 rounded-xl bg-white text-emerald-900 hover:bg-emerald-50 font-extrabold text-sm shadow-lg hover:shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2.5 shrink-0 cursor-pointer disabled:opacity-80"
+              >
+                <Download className={`w-5 h-5 text-emerald-700 ${downloadingApk ? 'animate-bounce' : ''}`} />
+                <span>
+                  {downloadingApk 
+                    ? (isBn ? 'ডাউনলোড শুরু হচ্ছে...' : 'Starting Download...') 
+                    : (isBn ? 'এখনই APK ডাউনলোড' : 'Download APK Now')}
+                </span>
+              </button>
             </div>
           </div>
 
-          {/* Device Tabs & Step-by-Step Direct Download Guide */}
+          {/* Quick APK Installation Steps */}
+          <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 space-y-2.5">
+            <div className="flex items-center gap-2 text-xs font-bold text-amber-900 dark:text-amber-200">
+              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>{isBn ? 'APK ফাইল ইনস্টল করার ৩টি সহজ ধাপ:' : '3 Easy Steps to Install the APK:'}</span>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+              <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-amber-200/80 dark:border-slate-800">
+                <span className="font-bold text-amber-700 dark:text-amber-400">১. ডাউনলোড: </span>
+                {isBn ? '"APK ডাউনলোড" এ চাপুন। ব্রাউজারে "Download anyway" আসলে চাপ দিন।' : 'Tap Download APK. If prompted, tap "Download anyway".'}
+              </div>
+              <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-amber-200/80 dark:border-slate-800">
+                <span className="font-bold text-amber-700 dark:text-amber-400">২. ফাইল খুলুন: </span>
+                {isBn ? 'ডাউনলোড শেষে মোবাইলের নোটিফিকেশন বার থেকে ফাইলে চাপ দিন।' : 'Open the downloaded file from your notification bar.'}
+              </div>
+              <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-amber-200/80 dark:border-slate-800">
+                <span className="font-bold text-amber-700 dark:text-amber-400">৩. ইনস্টল সম্পন্ন: </span>
+                {isBn ? '"Install" এ চাপুন (পারমিশন চাইলে Allow দিন)। অ্যাপ চালু করুন!' : 'Tap "Install" (Allow unknown apps if asked). You are ready!'}
+              </div>
+            </div>
+          </div>
+
+          {/* Device Tabs & Alternative Direct Options */}
           <div>
             <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-              {isBn ? 'ডিভাইস অনুযায়ী সরাসরি ডাউনলোড নিয়ম' : 'Device Installation Instructions'}
+              {isBn ? 'অন্যান্য ডিভাইস ও বিকল্প ইনস্টলেশন' : 'Alternative Installation Methods'}
             </div>
 
             <div className="flex rounded-xl bg-slate-100 dark:bg-slate-800 p-1 mb-3">
               <button
                 type="button"
-                onClick={() => setActiveTab('android')}
+                onClick={() => setActiveTab('apk')}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeTab === 'android'
+                  activeTab === 'apk'
                     ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                 }`}
               >
                 <Smartphone className="w-3.5 h-3.5" />
-                <span>Android</span>
+                <span>APK ফাইল</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('pwa')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  activeTab === 'pwa'
+                    ? 'bg-white dark:bg-slate-900 text-teal-600 dark:text-teal-400 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                }`}
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>Web App (PWA)</span>
               </button>
 
               <button
@@ -241,102 +265,88 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
               </button>
             </div>
 
-            {/* Android Instructions */}
-            {activeTab === 'android' && (
+            {/* Tab: APK Info */}
+            {activeTab === 'apk' && (
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                    ১
-                  </div>
-                  <div className="text-xs text-slate-700 dark:text-slate-300">
-                    <span className="font-bold text-slate-900 dark:text-white">ক্রোম ব্রাউজারে ৩টি ডট চাপুন: </span>
-                    স্ক্রিনের উপরের ডানপাশের তিন ডট মেনু (<span className="font-mono font-bold">⋮</span>) বাটনে চাপ দিন।
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                    ২
-                  </div>
-                  <div className="text-xs text-slate-700 dark:text-slate-300">
-                    <span className="font-bold text-slate-900 dark:text-white">ইনস্টল অপশন নির্বাচন করুন: </span>
-                    মেনু থেকে <span className="font-bold text-emerald-600 dark:text-emerald-400">"Install app"</span> অথবা <span className="font-bold text-emerald-600 dark:text-emerald-400">"Add to Home screen"</span> অপশনে ট্যাপ করুন।
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                    ৩
-                  </div>
-                  <div className="text-xs text-slate-700 dark:text-slate-300">
-                    <span className="font-bold text-slate-900 dark:text-white">সরাসরি অ্যাপ চালু করুন: </span>
-                    কয়েক সেকেন্ডের মধ্যে আপনার ফোনের হোমস্ক্রিনে সমিতির লোগোসহ অ্যাপ আইকন চলে আসবে!
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* iOS Instructions */}
-            {activeTab === 'ios' && (
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-400 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                    ১
-                  </div>
-                  <div className="text-xs text-slate-700 dark:text-slate-300">
-                    <span className="font-bold text-slate-900 dark:text-white">Safari ব্রাউজার দিয়ে খুলুন: </span>
-                    আইফোনে Safari ব্রাউজার ব্যবহার করুন।
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-400 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                    ২
-                  </div>
-                  <div className="text-xs text-slate-700 dark:text-slate-300">
-                    <span className="font-bold text-slate-900 dark:text-white">Share বাটনে ট্যাপ করুন: </span>
-                    সাফারির নিচের মেনুবারে থাকা <span className="font-bold text-blue-600 dark:text-blue-400">Share [⎋]</span> আইকনটিতে চাপ দিন।
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-400 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                    ৩
-                  </div>
-                  <div className="text-xs text-slate-700 dark:text-slate-300">
-                    <span className="font-bold text-slate-900 dark:text-white">Add to Home Screen: </span>
-                    নিচে স্ক্রোল করে <span className="font-bold text-blue-600 dark:text-blue-400">"Add to Home Screen" (➕)</span> সিলেক্ট করে উপরে 'Add' দিন। অ্যাপ তৈরি হয়ে যাবে।
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Desktop / PC Instructions */}
-            {activeTab === 'desktop' && (
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
-                <div className="flex items-center justify-between gap-3 p-3 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-800">
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold text-indigo-900 dark:text-indigo-200">
-                      {isBn ? 'ডেস্কটপ শর্টকাট ফাইল (.url)' : 'Windows Desktop Shortcut (.url)'}
-                    </div>
-                    <div className="text-[11px] text-indigo-700 dark:text-indigo-300">
-                      {isBn ? 'সরাসরি কম্পিউটারের ডেস্কটপে শর্টকাট ফাইল সেভ করুন' : 'Direct 1-click shortcut for Windows'}
-                    </div>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                      {somitiName} - APK Package
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      প্যাকেজ নাম: com.bondhu.somiti • সংস্করণ: {apkVersion}
+                    </p>
                   </div>
                   <button
                     type="button"
-                    onClick={handleDownloadDesktopShortcut}
-                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+                    onClick={handleDownloadApk}
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>{isBn ? 'ডাউনলোড' : 'Download'}</span>
                   </button>
                 </div>
+              </div>
+            )}
 
-                <div className="text-xs text-slate-600 dark:text-slate-400 pt-1">
-                  <span className="font-bold text-slate-800 dark:text-slate-200">Chrome বা Edge ব্রাউজারে: </span>
-                  অ্যাড্রেস বারের ডানপাশে থাকা <span className="font-bold text-indigo-600 dark:text-indigo-400">ইনস্টল আইকন (⊕)</span> এ ক্লিক করলেই উইন্ডোজ কম্পিউটারে সরাসরি অ্যাপ্লিকেশন হিসেবে সেভ হয়ে যাবে।
+            {/* Tab: PWA Web App Instant Install */}
+            {activeTab === 'pwa' && (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                      {isBn ? 'ব্রাউজার ছাড়াই সরাসরি হোমস্ক্রিন অ্যাপ' : 'Browser-free Home Screen App'}
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      {isBn ? 'কোনো স্টোরেজ খরচ ছাড়াই সরাসরি এক ক্লিকে ইনস্টল করুন।' : 'Direct 1-click home screen install.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleInstallClick}
+                    disabled={installing}
+                    className="px-3.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer disabled:opacity-75"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>{installing ? '...' : (isBn ? 'ইনস্টল' : 'Install')}</span>
+                  </button>
                 </div>
+              </div>
+            )}
+
+            {/* Tab: iOS */}
+            {activeTab === 'ios' && (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-2 text-xs text-slate-700 dark:text-slate-300">
+                <div>
+                  <span className="font-bold text-slate-900 dark:text-white">১. Safari ব্রাউজারে: </span>
+                  নিচের মেনুবারে থাকা <span className="font-bold text-blue-600 dark:text-blue-400">Share [⎋]</span> বাটনে ট্যাপ করুন।
+                </div>
+                <div>
+                  <span className="font-bold text-slate-900 dark:text-white">২. Add to Home Screen: </span>
+                  নিচে স্ক্রোল করে <span className="font-bold text-blue-600 dark:text-blue-400">"Add to Home Screen" (➕)</span> সিলেক্ট করুন।
+                </div>
+              </div>
+            )}
+
+            {/* Tab: Desktop */}
+            {activeTab === 'desktop' && (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-indigo-900 dark:text-indigo-200">
+                    {isBn ? 'উইন্ডোজ ডেস্কটপ শর্টকাট (.url)' : 'Windows Desktop Shortcut (.url)'}
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    {isBn ? 'ডেস্কটপে সেভ করে সরাসরি ডাবল ক্লিকে চালু করুন' : '1-click desktop launch file'}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadDesktopShortcut}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>{isBn ? 'ডাউনলোড' : 'Download'}</span>
+                </button>
               </div>
             )}
           </div>
@@ -345,7 +355,7 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
           <div className="p-3.5 rounded-xl bg-slate-100 dark:bg-slate-800/70 flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
               <div className="text-[11px] font-medium text-slate-500">
-                {isBn ? 'মোবাইলে ডাউনলোড করতে লিংক কপি করুন' : 'Share / Mobile link'}
+                {isBn ? 'অন্যান্য মোবাইলে লিংক পাঠাতে কপি করুন' : 'Share link for other devices'}
               </div>
               <div className="text-xs font-mono text-slate-700 dark:text-slate-300 truncate">
                 {appUrl}
@@ -375,7 +385,7 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ isOpen, onCl
         <div className="p-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 shrink-0">
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>PWA v2.0 • Offline Ready</span>
+            <span>APK {apkVersion} • Direct Android Package</span>
           </div>
 
           <button

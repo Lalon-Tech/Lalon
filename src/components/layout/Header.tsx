@@ -276,16 +276,16 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
         {/* Global Dark / Light Theme Toggle */}
         <ThemeToggle />
 
-        {/* Direct App Download / Install Button */}
+        {/* Direct APK Download / Install Button */}
         <button
           type="button"
           onClick={() => setShowDownloadModal(true)}
           className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800 transition-all cursor-pointer shrink-0 text-xs font-bold active:scale-95 shadow-2xs"
-          title={language === 'bn' ? 'অ্যাপ ডাউনলোড ও ইনস্টল করুন' : 'Download & Install App'}
+          title={language === 'bn' ? 'সরাসরি APK ও অ্যাপ ডাউনলোড' : 'Direct APK & App Download'}
         >
           <ArrowDownToLine className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-          <span className="hidden xl:inline">{language === 'bn' ? 'অ্যাপ ডাউনলোড' : 'Download App'}</span>
-          <span className="hidden sm:inline xl:hidden">{language === 'bn' ? 'অ্যাপ' : 'App'}</span>
+          <span className="hidden xl:inline">{language === 'bn' ? 'APK ডাউনলোড' : 'APK Download'}</span>
+          <span className="hidden sm:inline xl:hidden">APK</span>
         </button>
 
         {/* Quick Add Button & Dropdown - hidden on mobile */}

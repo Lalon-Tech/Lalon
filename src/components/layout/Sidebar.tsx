@@ -121,15 +121,21 @@ export const Sidebar: React.FC<{
       if (window.innerWidth < 1024) {
         setIsOpen(false);
       }
-      // If native browser prompt is available, try invoking it; and open modal for clear instructions
-      if (isInstallable) {
-        const accepted = await install();
-        if (!accepted) {
-          setShowDownloadModal(true);
-        }
-      } else {
-        setShowDownloadModal(true);
+      // Immediately trigger direct APK file download
+      try {
+        const apkUrl = settings.apkDownloadUrl || '/downloads/Bondhu_Somiti.apk';
+        const link = document.createElement('a');
+        link.href = apkUrl;
+        link.download = 'Bondhu_Somiti.apk';
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (err) {
+        console.warn('Direct APK download error:', err);
       }
+
+      setShowDownloadModal(true);
       setActiveTab('app_download');
       return;
     }
@@ -194,9 +200,9 @@ export const Sidebar: React.FC<{
     },
     {
       id: 'app_download',
-      label: isBn ? 'অ্যাপ ডাউনলোড করুন' : 'Download App',
+      label: isBn ? 'সরাসরি APK ডাউনলোড' : 'Direct APK Download',
       icon: ArrowDownToLine,
-      badge: isBn ? 'সরাসরি' : 'Direct',
+      badge: 'APK',
     },
   ];
 
@@ -376,9 +382,9 @@ export const Sidebar: React.FC<{
     },
     {
       id: 'app_download',
-      label: language === 'bn' ? 'অ্যাপ ডাউনলোড করুন' : 'Download App',
+      label: language === 'bn' ? 'সরাসরি APK ডাউনলোড' : 'Direct APK Download',
       icon: ArrowDownToLine,
-      badge: language === 'bn' ? 'সরাসরি' : 'Direct',
+      badge: 'APK',
     },
   ];
 

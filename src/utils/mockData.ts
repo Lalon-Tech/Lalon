@@ -24,6 +24,8 @@ export const initialSettings: SomitiSettings = {
   smsNotificationEnabled: true,
   currencySymbol: '৳',
   useBengaliDigits: true,
+  apkDownloadUrl: '/downloads/Bondhu_Somiti.apk',
+  apkVersion: 'v2.5.0',
 };
 
 export const sampleDemoUsers: AppUser[] = [
