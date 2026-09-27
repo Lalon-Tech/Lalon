@@ -29,6 +29,9 @@ import {
   ClipboardList,
   Scale,
   Database,
+  ArrowDownToLine,
+  Download,
+  Smartphone,
   X
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
@@ -36,6 +39,8 @@ import { useAuth } from '../../context/AuthContext';
 import { getLogoTransformStyle } from '../../utils/logoUtils';
 import { useLanguage } from '../../context/LanguageContext';
 import { toBengaliNumber } from '../../utils/bengaliUtils';
+import { AppDownloadModal } from '../common/AppDownloadModal';
+import { usePWAInstall } from '../../hooks/usePWAInstall';
 
 interface MenuItem {
   id: string;
@@ -78,6 +83,8 @@ export const Sidebar: React.FC<{
     : undefined;
 
   const { user: firebaseUser, logOut } = useAuth();
+  const { isInstallable, install } = usePWAInstall();
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
 
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
     members: true,
@@ -109,7 +116,24 @@ export const Sidebar: React.FC<{
     }));
   };
 
-  const handleMenuClick = (item: MenuItem) => {
+  const handleMenuClick = async (item: MenuItem) => {
+    if (item.id === 'app_download') {
+      if (window.innerWidth < 1024) {
+        setIsOpen(false);
+      }
+      // If native browser prompt is available, try invoking it; and open modal for clear instructions
+      if (isInstallable) {
+        const accepted = await install();
+        if (!accepted) {
+          setShowDownloadModal(true);
+        }
+      } else {
+        setShowDownloadModal(true);
+      }
+      setActiveTab('app_download');
+      return;
+    }
+
     if (isMember && (item.id === 'member_profile' || item.id === 'member_settings')) {
       if (currentUser?.memberId) {
         setSelectedMemberId(currentUser.memberId);
@@ -167,6 +191,12 @@ export const Sidebar: React.FC<{
       id: 'member_settings',
       label: isBn ? 'সেটিংস ও নিরাপত্তা' : 'Settings & Security',
       icon: SettingsIcon,
+    },
+    {
+      id: 'app_download',
+      label: isBn ? 'অ্যাপ ডাউনলোড করুন' : 'Download App',
+      icon: ArrowDownToLine,
+      badge: isBn ? 'সরাসরি' : 'Direct',
     },
   ];
 
@@ -344,6 +374,12 @@ export const Sidebar: React.FC<{
       label: language === 'bn' ? 'সদস্য সেটিংস ও নিরাপত্তা' : 'Member Settings & Security',
       icon: ShieldCheck,
     },
+    {
+      id: 'app_download',
+      label: language === 'bn' ? 'অ্যাপ ডাউনলোড করুন' : 'Download App',
+      icon: ArrowDownToLine,
+      badge: language === 'bn' ? 'সরাসরি' : 'Direct',
+    },
   ];
 
   return (
@@ -426,6 +462,7 @@ export const Sidebar: React.FC<{
 
           {(isMember ? memberMenuItems : menuItems).map((item) => {
             const Icon = item.icon;
+            const isDownloadItem = item.id === 'app_download';
             const isParentActive = 
               activeTab === item.id || 
               (item.subItems && item.subItems.some(sub => sub.id === activeTab)) ||
@@ -445,18 +482,32 @@ export const Sidebar: React.FC<{
                   onClick={() => handleMenuClick(item)}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all group cursor-pointer ${
                     isParentActive
-                      ? 'bg-blue-600 text-white shadow-md'
+                      ? isDownloadItem
+                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md'
+                        : 'bg-blue-600 text-white shadow-md'
+                      : isDownloadItem
+                      ? 'text-emerald-300 hover:text-white bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-500/40 shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                   }`}
                 >
                   <div className="flex items-center gap-3 truncate min-w-0">
-                    <Icon className={`w-4.5 h-4.5 shrink-0 ${isParentActive ? 'text-white' : 'text-slate-400 group-hover:text-blue-400'}`} />
+                    <Icon className={`w-4.5 h-4.5 shrink-0 ${
+                      isParentActive 
+                        ? 'text-white' 
+                        : isDownloadItem 
+                        ? 'text-emerald-400 group-hover:text-emerald-200' 
+                        : 'text-slate-400 group-hover:text-blue-400'
+                    }`} />
                     <span className="truncate">{item.label}</span>
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
                     {item.badge && (
-                      <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white shadow-xs">
+                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold shadow-xs ${
+                        isDownloadItem
+                          ? 'bg-emerald-500 text-white animate-pulse'
+                          : 'bg-amber-500 text-white'
+                      }`}>
                         {item.badge}
                       </span>
                     )}
@@ -577,6 +628,12 @@ export const Sidebar: React.FC<{
           </div>
         </div>
       </aside>
+
+      {/* App Download / Install Direct Modal */}
+      <AppDownloadModal 
+        isOpen={showDownloadModal} 
+        onClose={() => setShowDownloadModal(false)} 
+      />
     </>
   );
 };
