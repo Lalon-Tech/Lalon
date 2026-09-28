@@ -4,6 +4,9 @@ export interface LogoTransformOptions {
   logoScale?: number;
   logoOffsetX?: number;
   logoOffsetY?: number;
+  logoShape?: 'circle' | 'rounded' | 'square';
+  logoPadding?: number;
+  logoBgColor?: string;
 }
 
 /**
@@ -15,7 +18,7 @@ export function getLogoTransformStyle(
   extraStyle?: React.CSSProperties
 ): React.CSSProperties {
   const scale = typeof options?.logoScale === 'number' && !isNaN(options.logoScale)
-    ? Math.max(0.4, Math.min(3.0, options.logoScale))
+    ? Math.max(0.4, Math.min(3.5, options.logoScale))
     : 1;
 
   const offsetX = typeof options?.logoOffsetX === 'number' && !isNaN(options.logoOffsetX)
@@ -33,3 +36,27 @@ export function getLogoTransformStyle(
     ...extraStyle,
   };
 }
+
+/**
+ * Returns CSS class for logo and app icon containers according to selected shape
+ */
+export function getLogoShapeClass(shape?: 'circle' | 'rounded' | 'square'): string {
+  if (shape === 'square') return 'rounded-md';
+  if (shape === 'rounded') return 'rounded-2xl';
+  return 'rounded-full'; // Default is Circle (গোলাকার / বৃত্তাকার)
+}
+
+/**
+ * Returns inline CSSProperties for the container background color and padding
+ */
+export function getLogoContainerStyle(
+  options?: LogoTransformOptions,
+  extraStyle?: React.CSSProperties
+): React.CSSProperties {
+  const bgColor = options?.logoBgColor || '#ffffff';
+  return {
+    backgroundColor: bgColor === 'transparent' ? 'transparent' : bgColor,
+    ...extraStyle,
+  };
+}
+

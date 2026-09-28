@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useAuth } from '../../context/AuthContext';
-import { getLogoTransformStyle } from '../../utils/logoUtils';
+import { getLogoTransformStyle, getLogoShapeClass, getLogoContainerStyle } from '../../utils/logoUtils';
 import { useLanguage } from '../../context/LanguageContext';
 import { toBengaliNumber } from '../../utils/bengaliUtils';
 
@@ -382,12 +382,15 @@ export const Sidebar: React.FC<{
             className="flex items-center gap-3 w-full pr-8 lg:pr-0 cursor-pointer group select-none"
             title={settings.somitiName || (language === 'bn' ? 'বন্ধু সমবায় সমিতি লিমিটেড' : 'Bondhu Samabay Somiti Ltd.')}
           >
-            {/* Somiti Circular Badge Logo */}
-            <div className="w-12 h-12 rounded-full bg-white p-0.5 ring-2 ring-emerald-500/40 shadow-md flex items-center justify-center shrink-0 overflow-hidden transition-transform duration-200 group-hover:scale-105">
+            {/* Somiti Circular/Shaped Badge Logo */}
+            <div 
+              className={`w-12 h-12 ${getLogoShapeClass(settings.logoShape)} p-0.5 ring-2 ring-emerald-500/40 shadow-md flex items-center justify-center shrink-0 overflow-hidden transition-transform duration-200 group-hover:scale-105`}
+              style={getLogoContainerStyle(settings)}
+            >
               <img 
                 src={settings.logoUrl || '/logo.svg'} 
                 alt={settings.somitiName || "বন্ধু সমবায় সমিতি"} 
-                className="w-full h-full object-contain rounded-full"
+                className={`w-full h-full object-contain ${getLogoShapeClass(settings.logoShape)}`}
                 style={getLogoTransformStyle(settings)}
                 referrerPolicy="no-referrer"
                 onError={(e) => {

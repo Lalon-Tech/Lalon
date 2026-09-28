@@ -770,6 +770,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       logoScale: typeof loaded.logoScale === 'number' && !isNaN(loaded.logoScale) ? loaded.logoScale : initialSettings.logoScale,
       logoOffsetX: typeof loaded.logoOffsetX === 'number' && !isNaN(loaded.logoOffsetX) ? loaded.logoOffsetX : initialSettings.logoOffsetX,
       logoOffsetY: typeof loaded.logoOffsetY === 'number' && !isNaN(loaded.logoOffsetY) ? loaded.logoOffsetY : initialSettings.logoOffsetY,
+      logoShape: loaded.logoShape || 'circle',
+      logoPadding: typeof loaded.logoPadding === 'number' && !isNaN(loaded.logoPadding) ? loaded.logoPadding : 0,
+      logoBgColor: loaded.logoBgColor || '#ffffff',
       somitiName: resolvedName,
       somitiNameEn: loaded.somitiNameEn || 'Bondhu Samabay Somiti Ltd.'
     };
@@ -1842,6 +1845,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (updated.logoScale !== undefined) localStorage.setItem('bondhu_default_logo_scale', String(updated.logoScale));
           if (updated.logoOffsetX !== undefined) localStorage.setItem('bondhu_default_logo_offset_x', String(updated.logoOffsetX));
           if (updated.logoOffsetY !== undefined) localStorage.setItem('bondhu_default_logo_offset_y', String(updated.logoOffsetY));
+          if (updated.logoShape) localStorage.setItem('bondhu_default_logo_shape', updated.logoShape);
+          if (updated.logoPadding !== undefined) localStorage.setItem('bondhu_default_logo_padding', String(updated.logoPadding));
+          if (updated.logoBgColor) localStorage.setItem('bondhu_default_logo_bg_color', updated.logoBgColor);
         }
       } catch (_) {}
       safeSetDoc(doc(db, 'settings', 'general'), updated).catch(console.error);

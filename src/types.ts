@@ -270,6 +270,9 @@ export interface SomitiSettings {
   logoScale?: number;
   logoOffsetX?: number;
   logoOffsetY?: number;
+  logoShape?: 'circle' | 'rounded' | 'square';
+  logoPadding?: number;
+  logoBgColor?: string;
   sharePricePerUnit: number;
   defaultAdmissionFee: number;
   defaultDpsInterestRate: number;

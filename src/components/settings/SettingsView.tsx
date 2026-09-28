@@ -32,14 +32,24 @@ import {
   ArrowRight,
   Sliders,
   Smartphone,
-  ExternalLink
+  ExternalLink,
+  Circle,
+  Square,
+  Maximize2,
+  Minimize2,
+  Palette,
+  Layers
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { compressLogoImage } from '../../utils/imageUtils';
 import { ThemeToggle } from '../common/ThemeToggle';
-import { getLogoTransformStyle } from '../../utils/logoUtils';
+import { 
+  getLogoTransformStyle, 
+  getLogoShapeClass, 
+  getLogoContainerStyle 
+} from '../../utils/logoUtils';
 import { 
   generateAppIconPackage, 
   syncLogoAssetsToServer, 
@@ -88,6 +98,8 @@ export const SettingsView: React.FC = () => {
   const [logoScale, setLogoScale] = useState<number>(settings.logoScale ?? 1.97);
   const [logoOffsetX, setLogoOffsetX] = useState<number>(settings.logoOffsetX ?? 3);
   const [logoOffsetY, setLogoOffsetY] = useState<number>(settings.logoOffsetY ?? -12);
+  const [logoShape, setLogoShape] = useState<'circle' | 'rounded' | 'square'>(settings.logoShape || 'circle');
+  const [logoBgColor, setLogoBgColor] = useState<string>(settings.logoBgColor || '#ffffff');
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   // Sync settings when loaded from Firestore or updated
@@ -109,6 +121,8 @@ export const SettingsView: React.FC = () => {
       setLogoScale(settings.logoScale ?? 1.97);
       setLogoOffsetX(settings.logoOffsetX ?? 3);
       setLogoOffsetY(settings.logoOffsetY ?? -12);
+      setLogoShape(settings.logoShape || 'circle');
+      setLogoBgColor(settings.logoBgColor || '#ffffff');
       if (!logoPreview) {
         setLogoUrl(settings.logoUrl || '/logo.png');
       }
@@ -165,19 +179,21 @@ export const SettingsView: React.FC = () => {
     setLogoScale(settings.logoScale ?? 1.97);
     setLogoOffsetX(settings.logoOffsetX ?? 3);
     setLogoOffsetY(settings.logoOffsetY ?? -12);
+    setLogoShape(settings.logoShape || 'circle');
+    setLogoBgColor(settings.logoBgColor || '#ffffff');
     if (logoInputRef.current) logoInputRef.current.value = '';
     setActionFeedback({
       type: 'info',
-      message: language === 'bn' ? 'আপনার সংরক্ষিত ডিফল্ট লোগো ও পজিশনে ফিরিয়ে আনা হয়েছে।' : 'Reverted to your saved default logo.'
+      message: language === 'bn' ? 'আপনার সংরক্ষিত ডিফল্ট লোগো, সাইজ ও শেপে ফিরিয়ে আনা হয়েছে।' : 'Reverted to your saved default logo.'
     });
   };
 
   const handleZoomIn = () => {
-    setLogoScale(prev => Math.min(2.5, Number((prev + 0.05).toFixed(2))));
+    setLogoScale(prev => Math.min(2.5, Number((prev + 0.1).toFixed(2))));
   };
 
   const handleZoomOut = () => {
-    setLogoScale(prev => Math.max(0.4, Number((prev - 0.05).toFixed(2))));
+    setLogoScale(prev => Math.max(0.3, Number((prev - 0.1).toFixed(2))));
   };
 
   const handleMoveLeft = () => {
@@ -213,19 +229,23 @@ export const SettingsView: React.FC = () => {
       logoScale: Number(logoScale.toFixed(2)),
       logoOffsetX: Math.round(logoOffsetX),
       logoOffsetY: Math.round(logoOffsetY),
+      logoShape,
+      logoBgColor,
     });
     // Immediately persist updated icon package to disk
     syncLogoAssetsToServer(logoUrl, {
       scale: logoScale,
       offsetX: logoOffsetX,
       offsetY: logoOffsetY,
+      shape: logoShape,
+      bgColor: logoBgColor,
     }).catch(console.warn);
 
     setActionFeedback({
       type: 'success',
       message: language === 'bn' 
-        ? 'লোগোর সাইজ ও পজিশন সফলভাবে মোবাইল অ্যাপ আইকন ও ডিফল্ট হিসেবে সংরক্ষিত এবং সর্বত্র প্রয়োগ করা হয়েছে!' 
-        : 'Logo size & position permanently saved as mobile app icon!'
+        ? 'লোগোর সাইজ, বৃত্তাকার/শেপ ও পজিশন সফলভাবে মোবাইল অ্যাপ আইকন ও ডিফল্ট হিসেবে সংরক্ষিত হয়েছে!' 
+        : 'Logo size, shape & position permanently saved as mobile app icon!'
     });
     try {
       confetti({ particleCount: 30, spread: 55, origin: { y: 0.6 } });
@@ -242,14 +262,16 @@ export const SettingsView: React.FC = () => {
       const icons = await generateAppIconPackage(logoUrl, {
         scale: logoScale,
         offsetX: logoOffsetX,
-        offsetY: logoOffsetY
+        offsetY: logoOffsetY,
+        shape: logoShape,
+        bgColor: logoBgColor,
       });
       if (icons?.icon512) {
         downloadDataUrlFile(icons.icon512, 'bondhu_somiti_mobile_icon_512.png');
         setActionFeedback({
           type: 'success',
           message: language === 'bn' 
-            ? 'মোবাইল অ্যাপ আইকন (512x512 PNG) সফলভাবে ডাউনলোড হয়েছে! এটি যেকোনো APK নির্মাতা বা স্টোরে ব্যবহার করতে পারবেন।' 
+            ? 'মোবাইল অ্যাপ আইকন (512x512 PNG) সফলভাবে ডাউনলোড হয়েছে! এটি যেকোনো ফোন বা অ্যাপ ম্যানিফেস্টে ব্যবহার করা যাবে।' 
             : 'App icon (512x512 PNG) downloaded!'
         });
       }
@@ -307,6 +329,8 @@ export const SettingsView: React.FC = () => {
       logoScale: Number(logoScale.toFixed(2)),
       logoOffsetX: Math.round(logoOffsetX),
       logoOffsetY: Math.round(logoOffsetY),
+      logoShape: logoShape,
+      logoBgColor: logoBgColor,
       sharePricePerUnit: Number(sharePricePerUnit),
       defaultAdmissionFee: Number(defaultAdmissionFee),
       defaultLoanInterestRate: Number(defaultLoanInterestRate),
@@ -318,14 +342,16 @@ export const SettingsView: React.FC = () => {
       scale: logoScale,
       offsetX: logoOffsetX,
       offsetY: logoOffsetY,
+      shape: logoShape,
+      bgColor: logoBgColor,
     }).catch(console.warn);
 
     setIsSaved(true);
     setActionFeedback({
       type: 'success',
       message: language === 'bn' 
-        ? 'আপনার নির্বাচিত লোগোটি মোবাইল অ্যাপ আইকন ও স্থায়ী ডিফল্ট হিসেবে সংরক্ষিত হয়েছে!' 
-        : 'Your selected logo has been saved as the mobile app icon and default logo!'
+        ? 'আপনার নির্বাচিত লোগো, সাইজ ও শেপ সফলভাবে মোবাইল অ্যাপ আইকন ও স্থায়ী ডিফল্ট হিসেবে সংরক্ষিত হয়েছে!' 
+        : 'Your selected logo, size & shape have been saved as mobile app icon and default logo!'
     });
     try {
       confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
@@ -501,15 +527,18 @@ export const SettingsView: React.FC = () => {
 
           {/* Logo & Mobile App Icon Management */}
           <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 sm:p-5 flex flex-col lg:flex-row items-center lg:items-start gap-6">
-            {/* Dual Previews: Circular Web Badge + Mobile App Icon Mockup */}
+            {/* Dual Previews: Circular/Custom Web Badge + Mobile App Icon Mockup */}
             <div className="shrink-0 flex items-center justify-center gap-5 sm:gap-7">
-              {/* Preview 1: Circular Emblem for Web & Receipts */}
+              {/* Preview 1: Emblem for Web & Receipts with Live Shape */}
               <div className="flex flex-col items-center">
-                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white p-1 border-2 border-emerald-500/40 shadow-md flex items-center justify-center overflow-hidden">
+                <div 
+                  className={`w-20 h-20 sm:w-24 sm:h-24 ${getLogoShapeClass(logoShape)} p-1 border-2 border-emerald-500/50 shadow-md flex items-center justify-center overflow-hidden transition-all`}
+                  style={getLogoContainerStyle({ logoBgColor })}
+                >
                   <img
                     src={logoPreview || logoUrl || '/logo.png'}
                     alt="সমিতির লোগো"
-                    className="w-full h-full object-contain rounded-full"
+                    className={`w-full h-full object-contain ${getLogoShapeClass(logoShape)}`}
                     style={getLogoTransformStyle({ logoScale, logoOffsetX, logoOffsetY })}
                     referrerPolicy="no-referrer"
                     onError={(e) => {
@@ -518,17 +547,20 @@ export const SettingsView: React.FC = () => {
                   />
                 </div>
                 <span className="mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200/80 text-slate-700 border border-slate-300">
-                  ওয়েব লোগো
+                  {logoShape === 'circle' ? 'বৃত্তাকার লোগো' : logoShape === 'rounded' ? 'কার্ভড লোগো' : 'চারকোনা লোগো'}
                 </span>
               </div>
 
-              {/* Preview 2: Mobile Phone App Icon Mockup */}
+              {/* Preview 2: Mobile Phone App Icon Mockup on Home Screen */}
               <div className="flex flex-col items-center">
-                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white p-1.5 shadow-lg border border-slate-300 ring-2 ring-blue-500/30 flex items-center justify-center overflow-hidden transition-transform hover:scale-105">
+                <div 
+                  className={`w-20 h-20 sm:w-24 sm:h-24 ${logoShape === 'circle' ? 'rounded-full' : logoShape === 'square' ? 'rounded-md' : 'rounded-2xl'} p-1.5 shadow-lg border border-slate-300 ring-2 ring-blue-500/30 flex items-center justify-center overflow-hidden transition-all hover:scale-105`}
+                  style={getLogoContainerStyle({ logoBgColor })}
+                >
                   <img
                     src={logoPreview || logoUrl || '/logo.png'}
                     alt="মোবাইল অ্যাপ আইকন"
-                    className="w-full h-full object-contain rounded-xl"
+                    className={`w-full h-full object-contain ${logoShape === 'circle' ? 'rounded-full' : logoShape === 'square' ? 'rounded-sm' : 'rounded-xl'}`}
                     style={getLogoTransformStyle({ logoScale, logoOffsetX, logoOffsetY })}
                     referrerPolicy="no-referrer"
                     onError={(e) => {
@@ -545,14 +577,14 @@ export const SettingsView: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex-1 text-center lg:text-left space-y-3.5 w-full min-w-0">
+            <div className="flex-1 text-center lg:text-left space-y-4 w-full min-w-0">
               <div>
                 <h4 className="text-sm font-bold text-slate-900 flex items-center justify-center lg:justify-start gap-1.5">
                   <Smartphone className="w-4 h-4 text-blue-600" />
                   <span>মোবাইল অ্যাপ আইকন ও সমিতির লোগো (Mobile App Icon & Logo)</span>
                 </h4>
                 <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-                  এখানে যে ছবিটি আপলোড ও সংরক্ষণ করবেন, সেটিই <strong>মোবাইল ফোনে ইনস্টল করার পর আপনার ফোনের স্ক্রিনে অ্যাপ আইকন</strong> এবং সফটওয়্যারের সর্বত্র প্রদর্শিত হবে।
+                  এখানে যে ছবিটি আপলোড ও সংরক্ষণ করবেন, সেটিই <strong>মোবাইল ফোনে অ্যাপ হিসেবে যুক্ত করার পর আপনার ফোনের স্ক্রিনে অ্যাপ আইকন</strong> এবং সফটওয়্যারের সর্বত্র প্রদর্শিত হবে।
                 </p>
               </div>
 
@@ -597,21 +629,175 @@ export const SettingsView: React.FC = () => {
                 )}
               </div>
 
-              {/* Instructions on how the icon shows on mobile when installed */}
-              <div className="p-3.5 bg-blue-50/70 border border-blue-200/80 rounded-xl space-y-1.5 text-xs text-blue-950 text-left">
+              {/* Step-by-Step Guide for Changing App Icon and Viewing on Mobile */}
+              <div className="p-3.5 bg-gradient-to-r from-blue-50/90 to-indigo-50/70 border border-blue-200/80 rounded-xl space-y-2 text-xs text-blue-950 text-left shadow-2xs">
                 <div className="flex items-center gap-1.5 font-bold text-blue-900 text-xs">
-                  <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                  <span>মোবাইলে আপনার দেওয়া আইকনটি দেখার সহজ ৩ ধাপ:</span>
+                  <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>মোবাইল অ্যাপ আইকন পরিবর্তন ও ফোনে দেখার ৪টি সহজ ধাপ:</span>
                 </div>
-                <ol className="space-y-1 text-[11.5px] text-slate-700 list-decimal list-inside leading-relaxed pl-0.5">
-                  <li><strong>১.</strong> উপরের "আপলোড" দিয়ে পছন্দের ছবি নির্বাচন করুন, জুম ও পজিশন ঠিক করে নিচে <strong>"সকল সেটিংস সংরক্ষণ করুন"</strong> বাটনে চাপুন।</li>
-                  <li><strong>২.</strong> আপনার মোবাইলে <strong>Google Chrome</strong> ব্রাউজারে গিয়ে উপরের তিনটি ডট (⋮) এ চাপ দিন এবং <strong>"Add to Home screen"</strong> নির্বাচন করুন।</li>
-                  <li><strong>৩.</strong> সাথে সাথে আপনার নির্বাচিত ছবিটিই সুন্দর অ্যাপ আইকন আকারে আপনার মোবাইলের স্ক্রিনে চলে আসবে। (পূর্বে পুরনো আইকন দিয়ে অ্যাড করা থাকলে আগের শর্টকাটটি মুছে নিয়ে পুনরায় অ্যাড করুন)।</li>
-                </ol>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11.5px] text-slate-700">
+                  <div className="bg-white/80 p-2.5 rounded-lg border border-blue-100 space-y-1">
+                    <p className="font-bold text-blue-800 flex items-center gap-1">
+                      <span className="w-4 h-4 rounded-full bg-blue-600 text-white inline-flex items-center justify-center text-[10px]">১</span>
+                      <span>ছবি নির্বাচন</span>
+                    </p>
+                    <p className="text-slate-600 leading-snug">
+                      উপরের "আপলোড" বাটনে চাপ দিয়ে আপনার সমিতির লোগো বা পছন্দের ছবি সিলেক্ট করুন।
+                    </p>
+                  </div>
+                  <div className="bg-white/80 p-2.5 rounded-lg border border-blue-100 space-y-1">
+                    <p className="font-bold text-blue-800 flex items-center gap-1">
+                      <span className="w-4 h-4 rounded-full bg-blue-600 text-white inline-flex items-center justify-center text-[10px]">২</span>
+                      <span>গোলাকার শেপ ও সাইজ রিসাইজ</span>
+                    </p>
+                    <p className="text-slate-600 leading-snug">
+                      নিচে "বৃত্তাকার (Circle)" অপশনে চাপ দিন এবং "রিসাইজ" স্লাইডার দিয়ে সাইজ ছোট-বড় করে ফ্রেমের মধ্যে নিখুঁতভাবে বসান।
+                    </p>
+                  </div>
+                  <div className="bg-white/80 p-2.5 rounded-lg border border-blue-100 space-y-1">
+                    <p className="font-bold text-blue-800 flex items-center gap-1">
+                      <span className="w-4 h-4 rounded-full bg-blue-600 text-white inline-flex items-center justify-center text-[10px]">৩</span>
+                      <span>সংরক্ষণ (Save)</span>
+                    </p>
+                    <p className="text-slate-600 leading-snug">
+                      "সাইজ ও শেপ সেভ করুন" চাপুন। আপনার দেওয়া লোগোটি স্থায়ী ডিফল্ট অ্যাপ আইকন হিসেবে সেট হয়ে যাবে।
+                    </p>
+                  </div>
+                  <div className="bg-white/80 p-2.5 rounded-lg border border-blue-100 space-y-1">
+                    <p className="font-bold text-blue-800 flex items-center gap-1">
+                      <span className="w-4 h-4 rounded-full bg-blue-600 text-white inline-flex items-center justify-center text-[10px]">৪</span>
+                      <span>মোবাইলের হোম স্ক্রিনে দেখা</span>
+                    </p>
+                    <p className="text-slate-600 leading-snug">
+                      মোবাইলে Google Chrome ব্রাউজারের থ্রি-ডট (⋮) মেনু থেকে <strong>"Add to Home screen"</strong> দিলেই আইকনটি ফোনের স্ক্রিনে চলে আসবে।
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              {/* Logo Resize & Position Controls (Zoom, Move, Center, Real-Time Preview) */}
-              <div className="mt-4 pt-4 border-t border-slate-200/90 bg-white/90 rounded-xl p-3.5 sm:p-4.5 border border-slate-200/80 shadow-xs space-y-4">
+              {/* 1. Shape Options: Circle (বৃত্তাকার), Squircle (কার্ভড), Square (চারকোনা) + Background */}
+              <div className="bg-white/95 rounded-xl p-3.5 sm:p-4 border border-slate-200/90 shadow-2xs space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+                      <Layers className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-slate-800">
+                        লোগো ও অ্যাপ আইকন শেপ অপশন (Circle / Shape Options)
+                      </h5>
+                      <p className="text-[10.5px] text-slate-500">
+                        মোবাইল অ্যাপ আইকন এবং ওয়েব লোগোর জন্য বৃত্তাকার বা আপনার পছন্দের ফ্রেম নির্বাচন করুন
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200">
+                    নির্বাচিত: {logoShape === 'circle' ? 'বৃত্তাকার (Circle)' : logoShape === 'rounded' ? 'কার্ভড স্কোয়ার' : 'চারকোনা (Square)'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  {/* Option 1: Circle (বৃত্তাকার) - Recommended */}
+                  <button
+                    type="button"
+                    onClick={() => setLogoShape('circle')}
+                    className={`flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      logoShape === 'circle'
+                        ? 'bg-emerald-50/80 border-emerald-500 ring-2 ring-emerald-500/20 shadow-2xs'
+                        : 'bg-slate-50/60 border-slate-200 hover:bg-slate-100/70 text-slate-700'
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                      logoShape === 'circle' ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300 bg-white text-slate-400'
+                    }`}>
+                      <Circle className="w-4 h-4 fill-current" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-slate-900">বৃত্তাকার (Circle)</span>
+                        <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800">ডিফল্ট</span>
+                      </div>
+                      <p className="text-[10.5px] text-slate-500 truncate">গোলাকার ফ্রেম ও সিল</p>
+                    </div>
+                  </button>
+
+                  {/* Option 2: Squircle / Rounded (কার্ভড স্কোয়ার) */}
+                  <button
+                    type="button"
+                    onClick={() => setLogoShape('rounded')}
+                    className={`flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      logoShape === 'rounded'
+                        ? 'bg-blue-50/80 border-blue-500 ring-2 ring-blue-500/20 shadow-2xs'
+                        : 'bg-slate-50/60 border-slate-200 hover:bg-slate-100/70 text-slate-700'
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center shrink-0 ${
+                      logoShape === 'rounded' ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white text-slate-400'
+                    }`}>
+                      <Smartphone className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-slate-900">কার্ভড স্কোয়ার</span>
+                      <p className="text-[10.5px] text-slate-500 truncate">স্মার্টফোন অ্যাপ স্টাইল</p>
+                    </div>
+                  </button>
+
+                  {/* Option 3: Square (চারকোনা) */}
+                  <button
+                    type="button"
+                    onClick={() => setLogoShape('square')}
+                    className={`flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      logoShape === 'square'
+                        ? 'bg-indigo-50/80 border-indigo-500 ring-2 ring-indigo-500/20 shadow-2xs'
+                        : 'bg-slate-50/60 border-slate-200 hover:bg-slate-100/70 text-slate-700'
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-md border-2 flex items-center justify-center shrink-0 ${
+                      logoShape === 'square' ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300 bg-white text-slate-400'
+                    }`}>
+                      <Square className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-slate-900">চারকোনা (Square)</span>
+                      <p className="text-[10.5px] text-slate-500 truncate">ফ্ল্যাট বর্গাকার রূপ</p>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Background color selector for circle/badge */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                  <div className="flex items-center gap-1.5 text-xs text-slate-700 font-semibold">
+                    <Palette className="w-3.5 h-3.5 text-slate-500" />
+                    <span>আইকন ব্যাকগ্রাউন্ড কালার:</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {[
+                      { label: 'সাদা', value: '#ffffff', bg: 'bg-white' },
+                      { label: 'সবুজ', value: '#059669', bg: 'bg-emerald-600' },
+                      { label: 'নেভি ব্লু', value: '#1b2a59', bg: 'bg-[#1b2a59]' },
+                      { label: 'স্বচ্ছ', value: 'transparent', bg: 'bg-slate-200' },
+                    ].map(c => (
+                      <button
+                        key={c.value}
+                        type="button"
+                        onClick={() => setLogoBgColor(c.value)}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10.5px] font-bold border transition-all cursor-pointer ${
+                          logoBgColor === c.value
+                            ? 'border-emerald-600 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-500/30'
+                            : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                        }`}
+                      >
+                        <span className={`w-3 h-3 rounded-full border border-black/10 shrink-0 ${c.bg}`}></span>
+                        <span>{c.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Logo Resize & Zoom Controls + Position Controls */}
+              <div className="mt-4 pt-4 border-t border-slate-200/90 bg-white/95 rounded-xl p-3.5 sm:p-4.5 border border-slate-200/80 shadow-xs space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
@@ -619,92 +805,116 @@ export const SettingsView: React.FC = () => {
                     </div>
                     <div>
                       <h5 className="text-xs font-bold text-slate-800">
-                        লোগো সাইজ ও পজিশন সমন্বয় (Logo Resize & Position)
+                        লোগো সাইজ ও রিসাইজ অপশন (Resize & Zoom Options)
                       </h5>
                       <p className="text-[10.5px] text-slate-500">
-                        জুম এবং মুভ করে লোগোটি রিংয়ের ভেতরে নিখুঁতভাবে বসান
+                        স্লাইডার টেনে অথবা বাটনে চাপ দিয়ে লোগোটি রিংয়ের ভেতরে নিখুঁতভাবে রিসাইজ করুন
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
-                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
-                      Zoom: {Math.round(logoScale * 100)}%
+                    <span className="px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-2xs font-mono">
+                      সাইজ / Zoom: {Math.round(logoScale * 100)}%
                     </span>
-                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                    <span className="px-2 py-1 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
                       X: {logoOffsetX > 0 ? `+${logoOffsetX}` : logoOffsetX}% | Y: {logoOffsetY > 0 ? `+${logoOffsetY}` : logoOffsetY}%
                     </span>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {/* 1. Zoom Controls (Zoom In / Zoom Out) */}
-                  <div className="space-y-2.5 bg-slate-50/70 p-3 sm:p-3.5 rounded-xl border border-slate-200/70">
-                    <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                  {/* 1. Dedicated Resize & Zoom Controls */}
+                  <div className="space-y-3 bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-800">
                       <span className="flex items-center gap-1.5">
-                        <ZoomIn className="w-3.5 h-3.5 text-blue-600" />
-                        <span>জুম সমন্বয় (Zoom In / Zoom Out)</span>
+                        <ZoomIn className="w-4 h-4 text-emerald-600" />
+                        <span>সাইজ সমন্বয় / রিসাইজ (Resize Slider)</span>
                       </span>
-                      <span className="text-blue-600 font-mono text-[11px]">{Math.round(logoScale * 100)}%</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLogoScale(1.0);
+                          setLogoOffsetX(0);
+                          setLogoOffsetY(0);
+                        }}
+                        className="text-[10.5px] text-emerald-700 hover:text-emerald-800 font-bold underline cursor-pointer"
+                      >
+                        অটো ফিট (১০০%)
+                      </button>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={handleZoomOut}
-                        title="Zoom Out (-5%)"
-                        disabled={logoScale <= 0.4}
-                        className="p-2 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 active:scale-95 disabled:opacity-40 transition-all cursor-pointer shadow-2xs"
+                        title="১০% ছোট করুন (Zoom Out)"
+                        disabled={logoScale <= 0.3}
+                        className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 active:scale-95 disabled:opacity-40 transition-all cursor-pointer shadow-2xs flex items-center gap-1 text-xs font-bold"
                       >
-                        <ZoomOut className="w-4 h-4" />
+                        <ZoomOut className="w-3.5 h-3.5" />
+                        <span>-১০%</span>
                       </button>
 
                       <input
                         type="range"
-                        min="0.4"
+                        min="0.3"
                         max="2.5"
                         step="0.01"
                         value={logoScale}
                         onChange={(e) => setLogoScale(parseFloat(e.target.value))}
-                        className="flex-1 accent-emerald-600 cursor-pointer h-2 bg-slate-200 rounded-lg"
+                        className="flex-1 accent-emerald-600 cursor-pointer h-2.5 bg-slate-200 rounded-lg"
                       />
 
                       <button
                         type="button"
                         onClick={handleZoomIn}
-                        title="Zoom In (+5%)"
+                        title="১০% বড় করুন (Zoom In)"
                         disabled={logoScale >= 2.5}
-                        className="p-2 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 active:scale-95 disabled:opacity-40 transition-all cursor-pointer shadow-2xs"
+                        className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 active:scale-95 disabled:opacity-40 transition-all cursor-pointer shadow-2xs flex items-center gap-1 text-xs font-bold"
                       >
-                        <ZoomIn className="w-4 h-4" />
+                        <ZoomIn className="w-3.5 h-3.5" />
+                        <span>+১০%</span>
                       </button>
                     </div>
 
-                    {/* Quick Preset Zoom Buttons */}
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                      <span className="text-[10px] text-slate-400 font-medium">প্রিসেট:</span>
-                      {[0.8, 1.0, 1.25, 1.5, 1.8].map((preset) => (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => setLogoScale(preset)}
-                          className={`px-2 py-0.5 rounded-md text-[10.5px] font-bold transition-all cursor-pointer ${
-                            Math.abs(logoScale - preset) < 0.02
-                              ? 'bg-emerald-600 text-white shadow-2xs'
-                              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
-                          }`}
-                        >
-                          {Math.round(preset * 100)}%
-                        </button>
-                      ))}
+                    {/* Quick Preset Resize Buttons */}
+                    <div className="space-y-1.5 pt-1">
+                      <span className="text-[10.5px] text-slate-500 font-bold block">
+                        দ্রুত সাইজ বাটন (Quick Size Presets):
+                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {[
+                          { label: '৫০% (খুব ছোট)', val: 0.5 },
+                          { label: '৭৫% (ছোট)', val: 0.75 },
+                          { label: '১০০% (স্বাভাবিক)', val: 1.0 },
+                          { label: '১২৫% (মাঝারি)', val: 1.25 },
+                          { label: '১৫০% (বড়)', val: 1.5 },
+                          { label: '১৮০%', val: 1.8 },
+                          { label: '২০০% (খুব বড়)', val: 2.0 },
+                        ].map((preset) => (
+                          <button
+                            key={preset.val}
+                            type="button"
+                            onClick={() => setLogoScale(preset.val)}
+                            className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                              Math.abs(logoScale - preset.val) < 0.03
+                                ? 'bg-emerald-600 text-white shadow-2xs ring-1 ring-emerald-700'
+                                : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                            }`}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
                   {/* 2. Position Controls (Move Left / Right, Move Up / Down, Center) */}
-                  <div className="space-y-2.5 bg-slate-50/70 p-3 sm:p-3.5 rounded-xl border border-slate-200/70">
-                    <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                  <div className="space-y-3 bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-800">
                       <span className="flex items-center gap-1.5">
-                        <Move className="w-3.5 h-3.5 text-emerald-600" />
+                        <Move className="w-4 h-4 text-blue-600" />
                         <span>পজিশন স্থানান্তর (Move & Align)</span>
                       </span>
                       <button
@@ -714,7 +924,7 @@ export const SettingsView: React.FC = () => {
                         title="সেন্টার ও ডিফল্ট পজিশনে রিসেট করুন"
                       >
                         <Crosshair className="w-3 h-3 text-emerald-700" />
-                        <span>Center (রিসেট)</span>
+                        <span>Center (সেন্টার)</span>
                       </button>
                     </div>
 
@@ -770,7 +980,7 @@ export const SettingsView: React.FC = () => {
                       </div>
 
                       {/* Sliders for precision X and Y control */}
-                      <div className="flex-1 w-full space-y-1.5 text-[11px] text-slate-600">
+                      <div className="flex-1 w-full space-y-2 text-[11px] text-slate-600">
                         <div className="flex items-center gap-2">
                           <span className="w-6 text-right font-bold text-slate-500">X:</span>
                           <input
@@ -805,15 +1015,15 @@ export const SettingsView: React.FC = () => {
                 </div>
 
                 {/* Instant Save / Apply Button */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
                   <p className="text-[11px] text-slate-500">
-                    💡 প্রিভিউতে পরিবর্তন তাৎক্ষণিকভাবে প্রদর্শিত হচ্ছে। স্থায়ী করতে নিচের বাটনে চাপুন।
+                    💡 প্রিভিউতে সকল পরিবর্তন তাৎক্ষণিকভাবে প্রদর্শিত হচ্ছে। স্থায়ী করতে ডানপাশের বাটনে চাপুন।
                   </p>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={handleCenterLogo}
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+                      className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-all cursor-pointer"
                     >
                       <RotateCcw className="w-3.5 h-3.5 inline mr-1" />
                       <span>পজিশন রিসেট</span>
@@ -821,18 +1031,21 @@ export const SettingsView: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleApplyLogoTransform}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
                     >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>সাইজ ও পজিশন সেভ করুন</span>
+                      <Check className="w-4 h-4" />
+                      <span>সাইজ, শেপ ও পজিশন সেভ করুন</span>
                     </button>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-amber-50/80 border border-amber-200/80 rounded-lg p-2.5 text-[11px] text-amber-800 leading-relaxed text-left">
-                <p className="font-semibold text-amber-900 mb-0.5">💡 ইনস্টল করা মোবাইল অ্যাপে আইকন আপডেট:</p>
-                লোগো সেভ করার সাথে সাথে ব্রাউজারের ট্যাব এবং ডাইনামিক অ্যাপ ম্যানিফেস্টে নতুন লোগো সেট হয়ে যাবে। ফোনের হোম স্ক্রিনে ইনস্টল করা অ্যাপটি স্বয়ংক্রিয়ভাবে ব্যাকগ্রাউন্ডে আপডেট না হলে—ফোন থেকে একবার পুরনো অ্যাপ আনইনস্টল করে পুনরায় <strong>"Install App"</strong> দিলেই হোম স্ক্রিনে নতুন লোগোটি যুক্ত হয়ে যাবে।
+              {/* Informative Note for Mobile Home Screen Refresh */}
+              <div className="bg-amber-50/80 border border-amber-200/80 rounded-lg p-3 text-[11.5px] text-amber-900 leading-relaxed text-left">
+                <p className="font-bold text-amber-950 mb-0.5 flex items-center gap-1">
+                  <span>💡 মোবাইলের হোম স্ক্রিনে আইকন রিফ্রেশ করার নিয়ম:</span>
+                </p>
+                লোগো সেভ করার সাথে সাথে ব্রাউজারের ট্যাব এবং ডাইনামিক অ্যাপ ম্যানিফেস্টে নতুন লোগো ও আইকন সেট হয়ে যায়। আপনার মোবাইলের হোম স্ক্রিনে পূর্বে পুরনো আইকন দিয়ে শর্টকাট যোগ করা থাকলে—হোম স্ক্রিন থেকে পুরনো শর্টকাটটি রিমুভ (ডিলিট) করে ক্রোম বা সাফারি ব্রাউজার থেকে পুনরায় <strong>"Add to Home screen" (হোম স্ক্রিনে যোগ করুন)</strong> দিলেই নতুন নির্বাচিত বৃত্তাকার/রিসাইজড আইকনটি তাৎক্ষণিকভাবে চলে আসবে।
               </div>
             </div>
           </div>

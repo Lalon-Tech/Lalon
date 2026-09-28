@@ -24,7 +24,7 @@ import { LanguageSwitcher } from '../common/LanguageSwitcher';
 import { ThemeToggle } from '../common/ThemeToggle';
 import { getAllPendingApprovals } from '../../utils/approvalRegistry';
 import { toBengaliNumber } from '../../utils/bengaliUtils';
-import { getLogoTransformStyle } from '../../utils/logoUtils';
+import { getLogoTransformStyle, getLogoShapeClass, getLogoContainerStyle } from '../../utils/logoUtils';
 
 interface HeaderProps {
   onToggleSidebar?: () => void;
@@ -114,11 +114,14 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
           onClick={() => setActiveTab('dashboard')}
           className="flex items-center gap-2 lg:hidden cursor-pointer"
         >
-          <div className="w-9 h-9 rounded-full bg-white p-0.5 ring-2 ring-emerald-500/30 shadow-xs flex items-center justify-center shrink-0 overflow-hidden">
+          <div 
+            className={`w-9 h-9 ${getLogoShapeClass(settings.logoShape)} p-0.5 ring-2 ring-emerald-500/30 shadow-xs flex items-center justify-center shrink-0 overflow-hidden`}
+            style={getLogoContainerStyle(settings)}
+          >
             <img
               src={settings.logoUrl || '/logo.svg'}
               alt={settings.somitiName || "বন্ধু সমবায় সমিতি"}
-              className="w-full h-full object-contain rounded-full"
+              className={`w-full h-full object-contain ${getLogoShapeClass(settings.logoShape)}`}
               style={getLogoTransformStyle(settings)}
               referrerPolicy="no-referrer"
               onError={(e) => {

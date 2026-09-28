@@ -1,13 +1,12 @@
 import { useEffect } from 'react';
 import { useSomiti } from '../context/SomitiContext';
+import { renderAppIconCanvas } from '../utils/appIconGenerator';
 
 /**
  * Dynamically updates the browser favicon, apple-touch-icon, and
- * the web application manifest with the current Somiti logo.
+ * the web application manifest with the current Somiti logo and selected shape (Circle, Rounded, Square).
  * It renders high-resolution PNG icons (192x192, 512x512, and 512x512 maskable)
- * directly from the current logo taking into account user custom logo adjustments.
- * This guarantees that Chrome, Android WebAPK Builder, and PWABuilder receive
- * the exact current logo as the installed application's icon.
+ * directly from the current logo taking into account user custom logo adjustments and shape.
  */
 export function useDynamicManifest() {
   const { settings } = useSomiti();
@@ -22,6 +21,9 @@ export function useDynamicManifest() {
     const scale = settings?.logoScale ?? 1.97;
     const offsetX = settings?.logoOffsetX ?? 3;
     const offsetY = settings?.logoOffsetY ?? -12;
+    const shape = settings?.logoShape ?? 'circle';
+    const bgColor = settings?.logoBgColor || '#ffffff';
+    const padding = settings?.logoPadding ?? 0;
 
     // Helper to update DOM link tags
     const updateLinkTag = (rel: string, href: string) => {
@@ -32,48 +34,6 @@ export function useDynamicManifest() {
         document.head.appendChild(link);
       }
       link.href = href;
-    };
-
-    // Render an image into an offscreen canvas with transformations and safe margins
-    const renderIconCanvas = (
-      img: HTMLImageElement, 
-      size: number, 
-      isMaskable: boolean
-    ): string => {
-      const canvas = document.createElement('canvas');
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return currentLogo;
-
-      if (isMaskable) {
-        // Maskable icon requires solid background and ~15% safe padding
-        ctx.fillStyle = '#1b2a59';
-        ctx.fillRect(0, 0, size, size);
-
-        const safeSize = size * 0.78;
-        ctx.save();
-        ctx.translate(size / 2, size / 2);
-        ctx.translate(offsetX * (size / 100), offsetY * (size / 100));
-        ctx.scale(scale, scale);
-        ctx.drawImage(img, -safeSize / 2, -safeSize / 2, safeSize, safeSize);
-        ctx.restore();
-      } else {
-        // Standard icon ('any' purpose): can have transparent background
-        ctx.clearRect(0, 0, size, size);
-        ctx.save();
-        ctx.translate(size / 2, size / 2);
-        ctx.translate(offsetX * (size / 100), offsetY * (size / 100));
-        ctx.scale(scale, scale);
-        ctx.drawImage(img, -size / 2, -size / 2, size, size);
-        ctx.restore();
-      }
-
-      try {
-        return canvas.toDataURL('image/png');
-      } catch {
-        return currentLogo;
-      }
     };
 
     const processIcons = async () => {
@@ -96,10 +56,10 @@ export function useDynamicManifest() {
 
       if (loaded) {
         try {
-          icon192 = renderIconCanvas(img, 192, false);
-          icon512 = renderIconCanvas(img, 512, false);
-          iconMaskable = renderIconCanvas(img, 512, true);
-          appleIcon = renderIconCanvas(img, 180, false);
+          icon192 = renderAppIconCanvas(img, 192, { scale, offsetX, offsetY, shape, bgColor, padding, isMaskable: false });
+          icon512 = renderAppIconCanvas(img, 512, { scale, offsetX, offsetY, shape, bgColor, padding, isMaskable: false });
+          iconMaskable = renderAppIconCanvas(img, 512, { scale, offsetX, offsetY, shape, bgColor, padding, isMaskable: true });
+          appleIcon = renderAppIconCanvas(img, 180, { scale, offsetX, offsetY, shape, bgColor, padding, isMaskable: false });
         } catch {
           // Fallback to static URLs if canvas export fails
         }
@@ -176,6 +136,9 @@ export function useDynamicManifest() {
     settings?.somitiName, 
     settings?.logoScale, 
     settings?.logoOffsetX, 
-    settings?.logoOffsetY
+    settings?.logoOffsetY,
+    settings?.logoShape,
+    settings?.logoPadding,
+    settings?.logoBgColor
   ]);
 }

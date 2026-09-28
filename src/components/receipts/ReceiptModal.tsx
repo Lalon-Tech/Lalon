@@ -34,7 +34,7 @@ import {
   toBengaliNumber 
 } from '../../utils/bengaliUtils';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock';
-import { getLogoTransformStyle } from '../../utils/logoUtils';
+import { getLogoTransformStyle, getLogoShapeClass, getLogoContainerStyle } from '../../utils/logoUtils';
 
 export const ReceiptModal: React.FC = () => {
   const { 
@@ -590,11 +590,14 @@ ${tx.billingPeriod ? `বিলিং কিস্তি  : ${tx.billingPeriod}\
             {/* Somiti Official Header */}
             <div className="text-center pb-3 border-b-2 border-slate-800 relative">
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-2">
-                <div className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 bg-white rounded-full p-0.5 border-2 border-emerald-500/40 shadow-2xs overflow-hidden flex items-center justify-center">
+                <div 
+                  className={`w-14 h-14 sm:w-16 sm:h-16 shrink-0 ${getLogoShapeClass(settings.logoShape)} p-0.5 border-2 border-emerald-500/40 shadow-2xs overflow-hidden flex items-center justify-center`}
+                  style={getLogoContainerStyle(settings)}
+                >
                   <img
                     src={settings.logoUrl || '/logo.svg'}
                     alt={somitiTitle}
-                    className="w-full h-full object-contain rounded-full"
+                    className={`w-full h-full object-contain ${getLogoShapeClass(settings.logoShape)}`}
                     style={getLogoTransformStyle(settings)}
                     crossOrigin="anonymous"
                     onError={(e) => {
