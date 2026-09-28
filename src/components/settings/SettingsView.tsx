@@ -173,18 +173,18 @@ export const SettingsView: React.FC = () => {
   };
 
   const handleResetLogo = () => {
-    const defaultLogoUrl = settings.logoUrl || '/logo.png';
+    const defaultLogoUrl = '/logo.png';
     setLogoUrl(defaultLogoUrl);
     setLogoPreview(null);
     setLogoScale(1.0);
     setLogoOffsetX(0);
     setLogoOffsetY(0);
-    setLogoShape(settings.logoShape || 'circle');
-    setLogoBgColor(settings.logoBgColor || '#ffffff');
+    setLogoShape('circle');
+    setLogoBgColor('#ffffff');
     if (logoInputRef.current) logoInputRef.current.value = '';
     setActionFeedback({
       type: 'info',
-      message: language === 'bn' ? 'আপনার সংরক্ষিত ডিফল্ট লোগো, সাইজ ও শেপে ফিরিয়ে আনা হয়েছে।' : 'Reverted to your saved default logo.'
+      message: language === 'bn' ? 'অফিসিয়াল ডিফল্ট লোগো, সাইজ ও বৃত্তাকার শেপে ফিরিয়ে আনা হয়েছে।' : 'Reverted to official default logo.'
     });
   };
 

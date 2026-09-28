@@ -759,11 +759,16 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       ? (loaded.somitiName === 'বন্ধু সমবায় সমিতি' ? 'বন্ধু সমবায় সমিতি লিমিটেড' : loaded.somitiName)
       : 'বন্ধু সমবায় সমিতি লিমিটেড';
     
-    // Cleanse oversized logoUrl (> 500,000 chars) that causes Firestore 1,048,487 bytes limit errors
-    const isOversized = typeof loaded.logoUrl === 'string' && loaded.logoUrl.length > 500000;
-    const finalLogo = isOversized ? '/logo.png' : (loaded.logoUrl || initialSettings.logoUrl || '/logo.png');
+    // Ensure official master logo is used instead of any legacy cached low-res base64 or custom paths
+    const isOldDataOrLegacy = !loaded.logoUrl || 
+      (typeof loaded.logoUrl === 'string' && (
+        loaded.logoUrl.length > 500000 || 
+        loaded.logoUrl.includes('custom_default_logo') ||
+        (loaded.logoUrl.startsWith('data:image/') && loaded.logoUrl.length < 50000)
+      ));
+    const finalLogo = isOldDataOrLegacy ? '/logo.png' : loaded.logoUrl;
 
-    // If user has old hacky zoom values (e.g. 2.36 or 1.97) from previous low-res crop, normalize to 1.0
+    // Normalize scale and offsets to 1.0 and 0 for perfect centering
     const isOldHackyScale = loaded.logoScale === 2.36 || loaded.logoScale === 1.97 || (typeof loaded.logoScale === 'number' && loaded.logoScale > 1.8 && (finalLogo === '/logo.png' || finalLogo.includes('custom_default_logo')));
     const finalScale = isOldHackyScale ? 1.0 : (typeof loaded.logoScale === 'number' && !isNaN(loaded.logoScale) ? loaded.logoScale : initialSettings.logoScale);
     const finalOffsetX = isOldHackyScale ? 0 : (typeof loaded.logoOffsetX === 'number' && !isNaN(loaded.logoOffsetX) ? loaded.logoOffsetX : initialSettings.logoOffsetX);
