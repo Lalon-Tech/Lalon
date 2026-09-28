@@ -527,64 +527,36 @@ export const SettingsView: React.FC = () => {
 
           {/* Logo & Mobile App Icon Management */}
           <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 sm:p-5 flex flex-col lg:flex-row items-center lg:items-start gap-6">
-            {/* Dual Previews: Circular/Custom Web Badge + Mobile App Icon Mockup */}
-            <div className="shrink-0 flex items-center justify-center gap-5 sm:gap-7">
-              {/* Preview 1: Emblem for Web & Receipts with Live Shape */}
-              <div className="flex flex-col items-center">
-                <div 
-                  className={`w-20 h-20 sm:w-24 sm:h-24 ${getLogoShapeClass(logoShape)} p-1 border-2 border-emerald-500/50 shadow-md flex items-center justify-center overflow-hidden transition-all`}
-                  style={getLogoContainerStyle({ logoBgColor })}
-                >
-                  <img
-                    src={logoPreview || logoUrl || '/logo.png'}
-                    alt="সমিতির লোগো"
-                    className={`w-full h-full object-contain ${getLogoShapeClass(logoShape)}`}
-                    style={getLogoTransformStyle({ logoScale, logoOffsetX, logoOffsetY })}
-                    referrerPolicy="no-referrer"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).src = '/logo.png';
-                    }}
-                  />
-                </div>
-                <span className="mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200/80 text-slate-700 border border-slate-300">
-                  {logoShape === 'circle' ? 'বৃত্তাকার লোগো' : logoShape === 'rounded' ? 'কার্ভড লোগো' : 'চারকোনা লোগো'}
-                </span>
+            {/* App Icon & Logo Preview */}
+            <div className="shrink-0 flex flex-col items-center">
+              <div 
+                className={`w-24 h-24 sm:w-28 sm:h-28 ${getLogoShapeClass(logoShape)} p-1.5 border-2 border-emerald-500/50 shadow-md flex items-center justify-center overflow-hidden transition-all`}
+                style={getLogoContainerStyle({ logoBgColor })}
+              >
+                <img
+                  src={logoPreview || logoUrl || '/logo.png'}
+                  alt="সমিতির লোগো ও অ্যাপ আইকন"
+                  className={`w-full h-full object-contain ${getLogoShapeClass(logoShape)}`}
+                  style={getLogoTransformStyle({ logoScale, logoOffsetX, logoOffsetY })}
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = '/logo.png';
+                  }}
+                />
               </div>
-
-              {/* Preview 2: Mobile Phone App Icon Mockup on Home Screen */}
-              <div className="flex flex-col items-center">
-                <div 
-                  className={`w-20 h-20 sm:w-24 sm:h-24 ${logoShape === 'circle' ? 'rounded-full' : logoShape === 'square' ? 'rounded-md' : 'rounded-2xl'} p-1.5 shadow-lg border border-slate-300 ring-2 ring-blue-500/30 flex items-center justify-center overflow-hidden transition-all hover:scale-105`}
-                  style={getLogoContainerStyle({ logoBgColor })}
-                >
-                  <img
-                    src={logoPreview || logoUrl || '/logo.png'}
-                    alt="মোবাইল অ্যাপ আইকন"
-                    className={`w-full h-full object-contain ${logoShape === 'circle' ? 'rounded-full' : logoShape === 'square' ? 'rounded-sm' : 'rounded-xl'}`}
-                    style={getLogoTransformStyle({ logoScale, logoOffsetX, logoOffsetY })}
-                    referrerPolicy="no-referrer"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).src = '/logo.png';
-                    }}
-                  />
-                </div>
-                <span className="mt-1 text-[11px] font-bold text-slate-800 text-center max-w-[85px] truncate">
-                  {somitiName?.split(' ')?.[0] || 'বন্ধু সমিতি'}
-                </span>
-                <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-300">
-                  মোবাইল অ্যাপ আইকন ✓
-                </span>
-              </div>
+              <span className="mt-2 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-300">
+                {logoShape === 'circle' ? 'বৃত্তাকার (Circle)' : logoShape === 'rounded' ? 'কার্ভড স্কোয়ার' : 'চারকোনা (Square)'}
+              </span>
             </div>
 
             <div className="flex-1 text-center lg:text-left space-y-4 w-full min-w-0">
               <div>
                 <h4 className="text-sm font-bold text-slate-900 flex items-center justify-center lg:justify-start gap-1.5">
                   <Smartphone className="w-4 h-4 text-blue-600" />
-                  <span>মোবাইল অ্যাপ আইকন ও সমিতির লোগো (Mobile App Icon & Logo)</span>
+                  <span>সমিতির লোগো ও অ্যাপ আইকন (Logo & App Icon)</span>
                 </h4>
                 <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-                  এখানে যে ছবিটি আপলোড ও সংরক্ষণ করবেন, সেটিই <strong>মোবাইল ফোনে অ্যাপ হিসেবে যুক্ত করার পর আপনার ফোনের স্ক্রিনে অ্যাপ আইকন</strong> এবং সফটওয়্যারের সর্বত্র প্রদর্শিত হবে।
+                  আপনার সমিতির লোগো আপলোড এবং শেপ ও সাইজ নির্ধারণ করুন। এটি রশিদ, রিপোর্ট এবং মোবাইল অ্যাপ আইকন হিসেবে প্রদর্শিত হবে।
                 </p>
               </div>
 
@@ -604,7 +576,7 @@ export const SettingsView: React.FC = () => {
                   className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
                 >
                   <Upload className="w-4 h-4" />
-                  <span>গ্যালারি থেকে নতুন আইকন / লোগো আপলোড</span>
+                  <span>নতুন লোগো / আইকন আপলোড</span>
                 </button>
 
                 <button
@@ -627,52 +599,6 @@ export const SettingsView: React.FC = () => {
                     <span>সংরক্ষিত ডিফল্ট লোগোতে ফিরুন</span>
                   </button>
                 )}
-              </div>
-
-              {/* Step-by-Step Guide for Changing App Icon and Viewing on Mobile */}
-              <div className="p-3.5 bg-gradient-to-r from-blue-50/90 to-indigo-50/70 border border-blue-200/80 rounded-xl space-y-2 text-xs text-blue-950 text-left shadow-2xs">
-                <div className="flex items-center gap-1.5 font-bold text-blue-900 text-xs">
-                  <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
-                  <span>মোবাইল অ্যাপ আইকন পরিবর্তন ও ফোনে দেখার ৪টি সহজ ধাপ:</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11.5px] text-slate-700">
-                  <div className="bg-white/80 p-2.5 rounded-lg border border-blue-100 space-y-1">
-                    <p className="font-bold text-blue-800 flex items-center gap-1">
-                      <span className="w-4 h-4 rounded-full bg-blue-600 text-white inline-flex items-center justify-center text-[10px]">১</span>
-                      <span>ছবি নির্বাচন</span>
-                    </p>
-                    <p className="text-slate-600 leading-snug">
-                      উপরের "আপলোড" বাটনে চাপ দিয়ে আপনার সমিতির লোগো বা পছন্দের ছবি সিলেক্ট করুন।
-                    </p>
-                  </div>
-                  <div className="bg-white/80 p-2.5 rounded-lg border border-blue-100 space-y-1">
-                    <p className="font-bold text-blue-800 flex items-center gap-1">
-                      <span className="w-4 h-4 rounded-full bg-blue-600 text-white inline-flex items-center justify-center text-[10px]">২</span>
-                      <span>গোলাকার শেপ ও সাইজ রিসাইজ</span>
-                    </p>
-                    <p className="text-slate-600 leading-snug">
-                      নিচে "বৃত্তাকার (Circle)" অপশনে চাপ দিন এবং "রিসাইজ" স্লাইডার দিয়ে সাইজ ছোট-বড় করে ফ্রেমের মধ্যে নিখুঁতভাবে বসান।
-                    </p>
-                  </div>
-                  <div className="bg-white/80 p-2.5 rounded-lg border border-blue-100 space-y-1">
-                    <p className="font-bold text-blue-800 flex items-center gap-1">
-                      <span className="w-4 h-4 rounded-full bg-blue-600 text-white inline-flex items-center justify-center text-[10px]">৩</span>
-                      <span>সংরক্ষণ (Save)</span>
-                    </p>
-                    <p className="text-slate-600 leading-snug">
-                      "সাইজ ও শেপ সেভ করুন" চাপুন। আপনার দেওয়া লোগোটি স্থায়ী ডিফল্ট অ্যাপ আইকন হিসেবে সেট হয়ে যাবে।
-                    </p>
-                  </div>
-                  <div className="bg-white/80 p-2.5 rounded-lg border border-blue-100 space-y-1">
-                    <p className="font-bold text-blue-800 flex items-center gap-1">
-                      <span className="w-4 h-4 rounded-full bg-blue-600 text-white inline-flex items-center justify-center text-[10px]">৪</span>
-                      <span>মোবাইলের হোম স্ক্রিনে বৃত্তাকার ও বড় আইকন দেখা</span>
-                    </p>
-                    <p className="text-slate-600 leading-snug">
-                      পূর্বে কোনো পুরনো চারকোনা/ছোট আইকন দিয়ে শর্টকাট থাকলে তা চেপে ধরে ডিলিট করুন। এরপর ব্রাউজার রিফ্রেশ করে <strong>"Add to Home screen"</strong> বা ইনস্টল দিন — সম্পূর্ণ গোল (Circle) এবং স্পষ্ট বড় জুম-ইন আইকন দেখতে পাবেন।
-                    </p>
-                  </div>
-                </div>
               </div>
 
               {/* 1. Shape Options: Circle (বৃত্তাকার), Squircle (কার্ভড), Square (চারকোনা) + Background */}
@@ -1038,14 +964,6 @@ export const SettingsView: React.FC = () => {
                     </button>
                   </div>
                 </div>
-              </div>
-
-              {/* Informative Note for Mobile Home Screen Refresh */}
-              <div className="bg-amber-50/80 border border-amber-200/80 rounded-lg p-3 text-[11.5px] text-amber-900 leading-relaxed text-left">
-                <p className="font-bold text-amber-950 mb-0.5 flex items-center gap-1">
-                  <span>💡 মোবাইলের হোম স্ক্রিনে আইকন রিফ্রেশ করার নিয়ম:</span>
-                </p>
-                লোগো সেভ করার সাথে সাথে ব্রাউজারের ট্যাব এবং ডাইনামিক অ্যাপ ম্যানিফেস্টে নতুন লোগো ও আইকন সেট হয়ে যায়। আপনার মোবাইলের হোম স্ক্রিনে পূর্বে পুরনো আইকন দিয়ে শর্টকাট যোগ করা থাকলে—হোম স্ক্রিন থেকে পুরনো শর্টকাটটি রিমুভ (ডিলিট) করে ক্রোম বা সাফারি ব্রাউজার থেকে পুনরায় <strong>"Add to Home screen" (হোম স্ক্রিনে যোগ করুন)</strong> দিলেই নতুন নির্বাচিত বৃত্তাকার/রিসাইজড আইকনটি তাৎক্ষণিকভাবে চলে আসবে।
               </div>
             </div>
           </div>
