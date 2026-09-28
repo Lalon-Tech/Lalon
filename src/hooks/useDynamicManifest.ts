@@ -84,26 +84,41 @@ export function useDynamicManifest() {
           orientation: 'portrait-primary',
           start_url: '/',
           scope: '/',
-          icons: [
-            {
-              src: icon192,
-              sizes: '192x192',
-              type: 'image/png',
-              purpose: 'any'
-            },
-            {
-              src: icon512,
-              sizes: '512x512',
-              type: 'image/png',
-              purpose: 'any'
-            },
-            {
-              src: iconMaskable,
-              sizes: '512x512',
-              type: 'image/png',
-              purpose: 'maskable'
-            }
-          ]
+          icons: shape === 'circle' 
+            ? [
+                {
+                  src: icon192,
+                  sizes: '192x192',
+                  type: 'image/png',
+                  purpose: 'any'
+                },
+                {
+                  src: icon512,
+                  sizes: '512x512',
+                  type: 'image/png',
+                  purpose: 'any'
+                }
+              ]
+            : [
+                {
+                  src: icon192,
+                  sizes: '192x192',
+                  type: 'image/png',
+                  purpose: 'any'
+                },
+                {
+                  src: icon512,
+                  sizes: '512x512',
+                  type: 'image/png',
+                  purpose: 'any'
+                },
+                {
+                  src: iconMaskable,
+                  sizes: '512x512',
+                  type: 'image/png',
+                  purpose: 'maskable'
+                }
+              ]
         };
 
         const manifestBlob = new Blob([JSON.stringify(dynamicManifest, null, 2)], {

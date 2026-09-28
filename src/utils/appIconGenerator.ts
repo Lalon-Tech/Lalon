@@ -1,6 +1,6 @@
 /**
- * Utility to generate production-ready PWA and mobile app icons (192x192, 512x512, maskable)
- * directly from any user-uploaded image, matching their custom scale and offset.
+ * Utility to generate production-ready PWA and mobile app icons (192x192, 512x512, maskable, apple-touch)
+ * directly from any user-uploaded image, matching their custom scale, offset, shape, and aspect ratio.
  */
 
 export interface RenderIconOptions {
@@ -11,6 +11,7 @@ export interface RenderIconOptions {
   bgColor?: string;
   padding?: number;
   isMaskable?: boolean;
+  isApple?: boolean;
 }
 
 function drawRoundedRectPath(
@@ -52,47 +53,111 @@ export function renderAppIconCanvas(
   const bgColor = options.bgColor || '#ffffff';
   const paddingPercent = Math.max(0, Math.min(30, options.padding ?? 0));
   const isMaskable = Boolean(options.isMaskable);
+  const isApple = Boolean(options.isApple);
+
+  // Calculate natural aspect ratio to match CSS object-contain
+  const imgW = img.naturalWidth || img.width || 1;
+  const imgH = img.naturalHeight || img.height || 1;
+  const imgAspect = imgW / imgH;
 
   if (isMaskable) {
-    // Maskable icons require a solid background and ~20% safe zone padding for Android circular/squircle masks
-    ctx.fillStyle = '#1b2a59';
+    // Fill full canvas with background color for maskable icons
+    ctx.fillStyle = bgColor && bgColor !== 'transparent' ? bgColor : '#ffffff';
     ctx.fillRect(0, 0, size, size);
 
-    const safeSize = size * 0.78 * (1 - paddingPercent / 100);
-    ctx.save();
-    ctx.translate(size / 2, size / 2);
-    ctx.translate((offsetX * size) / 100, (offsetY * size) / 100);
-    ctx.scale(scale, scale);
-    ctx.drawImage(img, -safeSize / 2, -safeSize / 2, safeSize, safeSize);
-    ctx.restore();
+    if (shape === 'circle') {
+      // Circle fills 96% of the canvas (radius = size * 0.48) to maximize visibility and avoid tiny zoomed-out look
+      const safeRadius = Math.floor(size * 0.48);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, safeRadius, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.fillStyle = bgColor && bgColor !== 'transparent' ? bgColor : '#ffffff';
+      ctx.fill();
+      ctx.clip();
+
+      const drawSize = (safeRadius * 2) * (1 - paddingPercent / 100);
+      let baseW = drawSize;
+      let baseH = drawSize;
+      if (imgAspect >= 1) {
+        baseH = drawSize / imgAspect;
+      } else {
+        baseW = drawSize * imgAspect;
+      }
+
+      ctx.translate(size / 2, size / 2);
+      ctx.translate((offsetX * size) / 100, (offsetY * size) / 100);
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, -baseW / 2, -baseH / 2, baseW, baseH);
+      ctx.restore();
+
+      // Border ring
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, safeRadius, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(59, 130, 246, 0.9)';
+      ctx.lineWidth = Math.max(2, size * 0.012);
+      ctx.stroke();
+    } else {
+      const safeSize = size * 0.90 * (1 - paddingPercent / 100);
+      let baseW = safeSize;
+      let baseH = safeSize;
+      if (imgAspect >= 1) {
+        baseH = safeSize / imgAspect;
+      } else {
+        baseW = safeSize * imgAspect;
+      }
+
+      ctx.save();
+      ctx.translate(size / 2, size / 2);
+      ctx.translate((offsetX * size) / 100, (offsetY * size) / 100);
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, -baseW / 2, -baseH / 2, baseW, baseH);
+      ctx.restore();
+    }
   } else {
-    // Standard icon: clean background
-    ctx.clearRect(0, 0, size, size);
+    // Standard icon (purpose: "any"): 100% transparent outside circle so Chrome and mobile launchers display a true floating circle
+    if (isApple) {
+      // iOS Safari does not support alpha channel in apple-touch-icon (turns black)
+      ctx.fillStyle = bgColor && bgColor !== 'transparent' ? bgColor : '#ffffff';
+      ctx.fillRect(0, 0, size, size);
+    } else {
+      ctx.clearRect(0, 0, size, size);
+    }
 
     if (shape === 'circle') {
-      const radius = (size / 2) - 2;
+      const radius = Math.floor(size / 2) - 2;
       ctx.save();
       ctx.beginPath();
       ctx.arc(size / 2, size / 2, radius, 0, Math.PI * 2);
       ctx.closePath();
       if (bgColor && bgColor !== 'transparent') {
         ctx.fillStyle = bgColor;
-        ctx.fill();
+      } else {
+        ctx.fillStyle = '#ffffff';
       }
+      ctx.fill();
       ctx.clip();
 
       const drawSize = size * (1 - paddingPercent / 100);
+      let baseW = drawSize;
+      let baseH = drawSize;
+      if (imgAspect >= 1) {
+        baseH = drawSize / imgAspect;
+      } else {
+        baseW = drawSize * imgAspect;
+      }
+
       ctx.translate(size / 2, size / 2);
       ctx.translate((offsetX * size) / 100, (offsetY * size) / 100);
       ctx.scale(scale, scale);
-      ctx.drawImage(img, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+      ctx.drawImage(img, -baseW / 2, -baseH / 2, baseW, baseH);
       ctx.restore();
 
-      // Elegant circular border
+      // Sleek vibrant circular border ring
       ctx.beginPath();
       ctx.arc(size / 2, size / 2, radius, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(16, 185, 129, 0.5)';
-      ctx.lineWidth = Math.max(2, size * 0.015);
+      ctx.strokeStyle = 'rgba(59, 130, 246, 0.9)';
+      ctx.lineWidth = Math.max(2, size * 0.012);
       ctx.stroke();
     } else if (shape === 'rounded') {
       const cornerRadius = size * 0.22;
@@ -102,22 +167,32 @@ export function renderAppIconCanvas(
       drawRoundedRectPath(ctx, pad, pad, w, w, cornerRadius);
       if (bgColor && bgColor !== 'transparent') {
         ctx.fillStyle = bgColor;
-        ctx.fill();
+      } else {
+        ctx.fillStyle = '#ffffff';
       }
+      ctx.fill();
       ctx.clip();
 
       const drawSize = size * (1 - paddingPercent / 100);
+      let baseW = drawSize;
+      let baseH = drawSize;
+      if (imgAspect >= 1) {
+        baseH = drawSize / imgAspect;
+      } else {
+        baseW = drawSize * imgAspect;
+      }
+
       ctx.translate(size / 2, size / 2);
       ctx.translate((offsetX * size) / 100, (offsetY * size) / 100);
       ctx.scale(scale, scale);
-      ctx.drawImage(img, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+      ctx.drawImage(img, -baseW / 2, -baseH / 2, baseW, baseH);
       ctx.restore();
 
       // Rounded border
       ctx.save();
       drawRoundedRectPath(ctx, pad, pad, w, w, cornerRadius);
-      ctx.strokeStyle = 'rgba(59, 130, 246, 0.4)';
-      ctx.lineWidth = Math.max(2, size * 0.015);
+      ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)';
+      ctx.lineWidth = Math.max(2, size * 0.014);
       ctx.stroke();
       ctx.restore();
     } else {
@@ -127,11 +202,19 @@ export function renderAppIconCanvas(
         ctx.fillRect(0, 0, size, size);
       }
       const drawSize = size * (1 - paddingPercent / 100);
+      let baseW = drawSize;
+      let baseH = drawSize;
+      if (imgAspect >= 1) {
+        baseH = drawSize / imgAspect;
+      } else {
+        baseW = drawSize * imgAspect;
+      }
+
       ctx.save();
       ctx.translate(size / 2, size / 2);
       ctx.translate((offsetX * size) / 100, (offsetY * size) / 100);
       ctx.scale(scale, scale);
-      ctx.drawImage(img, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+      ctx.drawImage(img, -baseW / 2, -baseH / 2, baseW, baseH);
       ctx.restore();
     }
   }
@@ -148,7 +231,7 @@ export async function generateAppIconPackage(
   options: { 
     scale?: number; 
     offsetX?: number; 
-    offsetY?: number;
+    offsetY?: number; 
     shape?: 'circle' | 'rounded' | 'square';
     bgColor?: string;
     padding?: number;
@@ -169,7 +252,7 @@ export async function generateAppIconPackage(
     const icon192 = renderAppIconCanvas(img, 192, { ...options, isMaskable: false });
     const icon512 = renderAppIconCanvas(img, 512, { ...options, isMaskable: false });
     const iconMaskable = renderAppIconCanvas(img, 512, { ...options, isMaskable: true });
-    const appleIcon = renderAppIconCanvas(img, 180, { ...options, isMaskable: false });
+    const appleIcon = renderAppIconCanvas(img, 180, { ...options, isMaskable: false, isApple: true });
 
     return { icon192, icon512, iconMaskable, appleIcon };
   } catch (err) {
@@ -183,7 +266,7 @@ export async function syncLogoAssetsToServer(
   options: { 
     scale?: number; 
     offsetX?: number; 
-    offsetY?: number;
+    offsetY?: number; 
     shape?: 'circle' | 'rounded' | 'square';
     bgColor?: string;
     padding?: number;

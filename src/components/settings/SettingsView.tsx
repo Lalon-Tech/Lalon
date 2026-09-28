@@ -666,10 +666,10 @@ export const SettingsView: React.FC = () => {
                   <div className="bg-white/80 p-2.5 rounded-lg border border-blue-100 space-y-1">
                     <p className="font-bold text-blue-800 flex items-center gap-1">
                       <span className="w-4 h-4 rounded-full bg-blue-600 text-white inline-flex items-center justify-center text-[10px]">৪</span>
-                      <span>মোবাইলের হোম স্ক্রিনে দেখা</span>
+                      <span>মোবাইলের হোম স্ক্রিনে বৃত্তাকার ও বড় আইকন দেখা</span>
                     </p>
                     <p className="text-slate-600 leading-snug">
-                      মোবাইলে Google Chrome ব্রাউজারের থ্রি-ডট (⋮) মেনু থেকে <strong>"Add to Home screen"</strong> দিলেই আইকনটি ফোনের স্ক্রিনে চলে আসবে।
+                      পূর্বে কোনো পুরনো চারকোনা/ছোট আইকন দিয়ে শর্টকাট থাকলে তা চেপে ধরে ডিলিট করুন। এরপর ব্রাউজার রিফ্রেশ করে <strong>"Add to Home screen"</strong> বা ইনস্টল দিন — সম্পূর্ণ গোল (Circle) এবং স্পষ্ট বড় জুম-ইন আইকন দেখতে পাবেন।
                     </p>
                   </div>
                 </div>
