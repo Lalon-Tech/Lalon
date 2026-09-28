@@ -33,6 +33,8 @@ export function getLogoTransformStyle(
     transform: `translate(${offsetX}%, ${offsetY}%) scale(${scale})`,
     transformOrigin: 'center center',
     transition: 'transform 0.12s ease-out',
+    imageRendering: '-webkit-optimize-contrast',
+    backfaceVisibility: 'hidden',
     ...extraStyle,
   };
 }

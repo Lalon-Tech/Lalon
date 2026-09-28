@@ -95,9 +95,9 @@ export const SettingsView: React.FC = () => {
   // Logo state and handlers
   const [logoUrl, setLogoUrl] = useState(settings.logoUrl || '/logo.png');
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const [logoScale, setLogoScale] = useState<number>(settings.logoScale ?? 1.97);
-  const [logoOffsetX, setLogoOffsetX] = useState<number>(settings.logoOffsetX ?? 3);
-  const [logoOffsetY, setLogoOffsetY] = useState<number>(settings.logoOffsetY ?? -12);
+  const [logoScale, setLogoScale] = useState<number>(settings.logoScale ?? 1.0);
+  const [logoOffsetX, setLogoOffsetX] = useState<number>(settings.logoOffsetX ?? 0);
+  const [logoOffsetY, setLogoOffsetY] = useState<number>(settings.logoOffsetY ?? 0);
   const [logoShape, setLogoShape] = useState<'circle' | 'rounded' | 'square'>(settings.logoShape || 'circle');
   const [logoBgColor, setLogoBgColor] = useState<string>(settings.logoBgColor || '#ffffff');
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -118,9 +118,9 @@ export const SettingsView: React.FC = () => {
       setDefaultAdmissionFee(settings.defaultAdmissionFee ?? 50);
       setDefaultLoanInterestRate(settings.defaultLoanInterestRate ?? 10);
       setDefaultDpsInterestRate(settings.defaultDpsInterestRate ?? 8);
-      setLogoScale(settings.logoScale ?? 1.97);
-      setLogoOffsetX(settings.logoOffsetX ?? 3);
-      setLogoOffsetY(settings.logoOffsetY ?? -12);
+      setLogoScale(settings.logoScale ?? 1.0);
+      setLogoOffsetX(settings.logoOffsetX ?? 0);
+      setLogoOffsetY(settings.logoOffsetY ?? 0);
       setLogoShape(settings.logoShape || 'circle');
       setLogoBgColor(settings.logoBgColor || '#ffffff');
       if (!logoPreview) {
@@ -176,9 +176,9 @@ export const SettingsView: React.FC = () => {
     const defaultLogoUrl = settings.logoUrl || '/logo.png';
     setLogoUrl(defaultLogoUrl);
     setLogoPreview(null);
-    setLogoScale(settings.logoScale ?? 1.97);
-    setLogoOffsetX(settings.logoOffsetX ?? 3);
-    setLogoOffsetY(settings.logoOffsetY ?? -12);
+    setLogoScale(1.0);
+    setLogoOffsetX(0);
+    setLogoOffsetY(0);
     setLogoShape(settings.logoShape || 'circle');
     setLogoBgColor(settings.logoBgColor || '#ffffff');
     if (logoInputRef.current) logoInputRef.current.value = '';

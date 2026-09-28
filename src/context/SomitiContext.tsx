@@ -763,13 +763,19 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const isOversized = typeof loaded.logoUrl === 'string' && loaded.logoUrl.length > 500000;
     const finalLogo = isOversized ? '/logo.png' : (loaded.logoUrl || initialSettings.logoUrl || '/logo.png');
 
+    // If user has old hacky zoom values (e.g. 2.36 or 1.97) from previous low-res crop, normalize to 1.0
+    const isOldHackyScale = loaded.logoScale === 2.36 || loaded.logoScale === 1.97 || (typeof loaded.logoScale === 'number' && loaded.logoScale > 1.8 && (finalLogo === '/logo.png' || finalLogo.includes('custom_default_logo')));
+    const finalScale = isOldHackyScale ? 1.0 : (typeof loaded.logoScale === 'number' && !isNaN(loaded.logoScale) ? loaded.logoScale : initialSettings.logoScale);
+    const finalOffsetX = isOldHackyScale ? 0 : (typeof loaded.logoOffsetX === 'number' && !isNaN(loaded.logoOffsetX) ? loaded.logoOffsetX : initialSettings.logoOffsetX);
+    const finalOffsetY = isOldHackyScale ? 0 : (typeof loaded.logoOffsetY === 'number' && !isNaN(loaded.logoOffsetY) ? loaded.logoOffsetY : initialSettings.logoOffsetY);
+
     return { 
       ...initialSettings,
       ...loaded, 
       logoUrl: finalLogo,
-      logoScale: typeof loaded.logoScale === 'number' && !isNaN(loaded.logoScale) ? loaded.logoScale : initialSettings.logoScale,
-      logoOffsetX: typeof loaded.logoOffsetX === 'number' && !isNaN(loaded.logoOffsetX) ? loaded.logoOffsetX : initialSettings.logoOffsetX,
-      logoOffsetY: typeof loaded.logoOffsetY === 'number' && !isNaN(loaded.logoOffsetY) ? loaded.logoOffsetY : initialSettings.logoOffsetY,
+      logoScale: finalScale,
+      logoOffsetX: finalOffsetX,
+      logoOffsetY: finalOffsetY,
       logoShape: loaded.logoShape || 'circle',
       logoPadding: typeof loaded.logoPadding === 'number' && !isNaN(loaded.logoPadding) ? loaded.logoPadding : 0,
       logoBgColor: loaded.logoBgColor || '#ffffff',

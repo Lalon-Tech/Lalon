@@ -191,7 +191,7 @@ export const compressLogoImage = (file: File): Promise<string> => {
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        const maxDim = 400; // Optimal for header, sidebar, receipt & mobile icon
+        const maxDim = 1024; // Ultra HD resolution for retina screens, mobile app icons and printouts
         let width = img.naturalWidth || img.width;
         let height = img.naturalHeight || img.height;
 
@@ -218,12 +218,12 @@ export const compressLogoImage = (file: File): Promise<string> => {
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-        // Try PNG first (preserves alpha channel transparency)
+        // Try PNG first (preserves alpha channel transparency and sharp vector lines)
         let dataUrl = canvas.toDataURL('image/png');
-        // If PNG base64 exceeds 300KB, fallback to WebP or JPEG for massive compression
-        if (dataUrl.length > 300 * 1024) {
+        // If PNG base64 exceeds 450KB, compress cleanly to stay safe within document limits
+        if (dataUrl.length > 450 * 1024) {
           try {
-            const webpUrl = canvas.toDataURL('image/webp', 0.85);
+            const webpUrl = canvas.toDataURL('image/webp', 0.92);
             if (webpUrl.startsWith('data:image/webp')) {
               dataUrl = webpUrl;
             }
@@ -231,8 +231,8 @@ export const compressLogoImage = (file: File): Promise<string> => {
             // fallback
           }
         }
-        if (dataUrl.length > 300 * 1024) {
-          dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        if (dataUrl.length > 450 * 1024) {
+          dataUrl = canvas.toDataURL('image/jpeg', 0.90);
         }
 
         resolve(dataUrl);

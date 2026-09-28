@@ -1,192 +1,80 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 580 120" width="580" height="120">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 140" width="620" height="140">
   <defs>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@600;700;800&amp;family=Plus+Jakarta+Sans:wght@700;800&amp;display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@700;800&amp;family=Plus+Jakarta+Sans:wght@700;800&amp;display=swap');
+      .h-title {
+        font-family: 'Hind Siliguri', 'Lohit Bengali', sans-serif;
+        font-size: 30px;
+        font-weight: 800;
+        fill: #0f172a;
+      }
+      .h-motto {
+        font-family: 'Hind Siliguri', 'Lohit Bengali', sans-serif;
+        font-size: 13px;
+        font-weight: 700;
+        fill: #15803d;
+      }
+      .h-sub {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-size: 12px;
+        font-weight: 800;
+        fill: #1e3a8a;
+        letter-spacing: 2px;
+      }
     </style>
-    <filter id="h-shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#020617" flood-opacity="0.2"/>
-    </filter>
+    <linearGradient id="h-navy" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="60%" stop-color="#1e3a8a" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <linearGradient id="h-green" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#047857" />
+      <stop offset="60%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#34d399" />
+    </linearGradient>
+    <linearGradient id="h-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24" />
+      <stop offset="50%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
   </defs>
 
-  <!-- Left: Official Metallic Circular Badge Scaled at (60, 60) -->
-  <g transform="translate(60, 60) scale(0.185) translate(-300, -300)" filter="url(#h-shadow)">
-    <!-- Badge Content Included Directly -->
-    <g filter="url(#badge-glow)">
-    <!-- 1. Outer 16-Point Faceted Metallic Border -->
-    <circle cx="300" cy="300" r="252" fill="#0d373d" />
+  <!-- Left Circular Emblem Seal (at cx=70, cy=70, r=60) -->
+  <g transform="translate(70, 70)">
+    <circle cx="0" cy="0" r="60" fill="#ffffff" stroke="#f59e0b" stroke-width="3" />
+    <circle cx="0" cy="0" r="55" fill="none" stroke="#10b981" stroke-width="1.8" opacity="0.5" />
     
-    <path d="M 582.0 300.0 L 547.2 349.2 L 560.5 407.9" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
-    <polygon points="582.0,300.0 547.2,349.2 565.0,300.0" fill="url(#silver-bevel)" />
-    <polygon points="547.2,349.2 560.5,407.9 544.8,401.4" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
-    <circle cx="582.0" cy="300.0" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
-  
-    <path d="M 560.5 407.9 L 509.5 440.0 L 499.4 499.4" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
-    <polygon points="560.5,407.9 509.5,440.0 544.8,401.4" fill="url(#silver-bevel)" />
-    <polygon points="509.5,440.0 499.4,499.4 487.4,487.4" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
-    <circle cx="560.5" cy="407.9" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
-  
-    <path d="M 499.4 499.4 L 440.0 509.5 L 407.9 560.5" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
-    <polygon points="499.4,499.4 440.0,509.5 487.4,487.4" fill="url(#silver-bevel)" />
-    <polygon points="440.0,509.5 407.9,560.5 401.4,544.8" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
-    <circle cx="499.4" cy="499.4" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
-  
-    <path d="M 407.9 560.5 L 349.2 547.2 L 300.0 582.0" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
-    <polygon points="407.9,560.5 349.2,547.2 401.4,544.8" fill="url(#silver-bevel)" />
-    <polygon points="349.2,547.2 300.0,582.0 300.0,565.0" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
-    <circle cx="407.9" cy="560.5" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
-  
-    <path d="M 300.0 582.0 L 250.8 547.2 L 192.1 560.5" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
-    <polygon points="300.0,582.0 250.8,547.2 300.0,565.0" fill="url(#silver-bevel)" />
-    <polygon points="250.8,547.2 192.1,560.5 198.6,544.8" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
-    <circle cx="300.0" cy="582.0" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
-  
-    <path d="M 192.1 560.5 L 160.0 509.5 L 100.6 499.4" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
-    <polygon points="192.1,560.5 160.0,509.5 198.6,544.8" fill="url(#silver-bevel)" />
-    <polygon points="160.0,509.5 100.6,499.4 112.6,487.4" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
-    <circle cx="192.1" cy="560.5" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
-  
-    <path d="M 100.6 499.4 L 90.5 440.0 L 39.5 407.9" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
-    <polygon points="100.6,499.4 90.5,440.0 112.6,487.4" fill="url(#silver-bevel)" />
-    <polygon points="90.5,440.0 39.5,407.9 55.2,401.4" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
-    <circle cx="100.6" cy="499.4" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
-  
-    <path d="M 39.5 407.9 L 52.8 349.2 L 18.0 300.0" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
-    <polygon points="39.5,407.9 52.8,349.2 55.2,401.4" fill="url(#silver-bevel)" />
-    <polygon points="52.8,349.2 18.0,300.0 35.0,300.0" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
-    <circle cx="39.5" cy="407.9" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
-  
-    <path d="M 18.0 300.0 L 52.8 250.8 L 39.5 192.1" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
-    <polygon points="18.0,300.0 52.8,250.8 35.0,300.0" fill="url(#silver-bevel)" />
-    <polygon points="52.8,250.8 39.5,192.1 55.2,198.6" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
-    <circle cx="18.0" cy="300.0" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
-  
-    <path d="M 39.5 192.1 L 90.5 160.0 L 100.6 100.6" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
-    <polygon points="39.5,192.1 90.5,160.0 55.2,198.6" fill="url(#silver-bevel)" />
-    <polygon points="90.5,160.0 100.6,100.6 112.6,112.6" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
-    <circle cx="39.5" cy="192.1" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
-  
-    <path d="M 100.6 100.6 L 160.0 90.5 L 192.1 39.5" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
-    <polygon points="100.6,100.6 160.0,90.5 112.6,112.6" fill="url(#silver-bevel)" />
-    <polygon points="160.0,90.5 192.1,39.5 198.6,55.2" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
-    <circle cx="100.6" cy="100.6" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
-  
-    <path d="M 192.1 39.5 L 250.8 52.8 L 300.0 18.0" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
-    <polygon points="192.1,39.5 250.8,52.8 198.6,55.2" fill="url(#silver-bevel)" />
-    <polygon points="250.8,52.8 300.0,18.0 300.0,35.0" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
-    <circle cx="192.1" cy="39.5" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
-  
-    <path d="M 300.0 18.0 L 349.2 52.8 L 407.9 39.5" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
-    <polygon points="300.0,18.0 349.2,52.8 300.0,35.0" fill="url(#silver-bevel)" />
-    <polygon points="349.2,52.8 407.9,39.5 401.4,55.2" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
-    <circle cx="300.0" cy="18.0" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
-  
-    <path d="M 407.9 39.5 L 440.0 90.5 L 499.4 100.6" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
-    <polygon points="407.9,39.5 440.0,90.5 401.4,55.2" fill="url(#silver-bevel)" />
-    <polygon points="440.0,90.5 499.4,100.6 487.4,112.6" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
-    <circle cx="407.9" cy="39.5" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
-  
-    <path d="M 499.4 100.6 L 509.5 160.0 L 560.5 192.1" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
-    <polygon points="499.4,100.6 509.5,160.0 487.4,112.6" fill="url(#silver-bevel)" />
-    <polygon points="509.5,160.0 560.5,192.1 544.8,198.6" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
-    <circle cx="499.4" cy="100.6" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
-  
-    <path d="M 560.5 192.1 L 547.2 250.8 L 582.0 300.0" fill="none" stroke="url(#silver-bevel)" stroke-width="3" stroke-linejoin="round" />
-    <polygon points="560.5,192.1 547.2,250.8 544.8,198.6" fill="url(#silver-bevel)" />
-    <polygon points="547.2,250.8 582.0,300.0 565.0,300.0" fill="url(#teal-facet)" stroke="#94a3b8" stroke-width="1" />
-    <circle cx="560.5" cy="192.1" r="3" fill="#ffffff" stroke="#475569" stroke-width="1" />
-  
-
-    <!-- 2. Concentric Silver Chrome Rings -->
-    <circle cx="300" cy="300" r="244" fill="none" stroke="url(#silver-bevel)" stroke-width="4.5" />
-    <circle cx="300" cy="300" r="238" fill="none" stroke="#071927" stroke-width="2.5" />
-    <circle cx="300" cy="300" r="234" fill="none" stroke="url(#silver-bright)" stroke-width="3" />
-
-    <!-- 3. Medallion Interior Disc -->
-    <circle cx="300" cy="300" r="232" fill="url(#teal-medallion)" />
-    <circle cx="300" cy="300" r="228" fill="none" stroke="#1e3a5f" stroke-width="1.5" opacity="0.6" />
-
-    <!-- 4. Upper Bengali Curved Typography -->
-    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(-66, 300, 300)">ব</text>
-    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(-57.2, 300, 300)">ন্ধু</text>
-    
-    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(-39.599999999999994, 300, 300)">স</text>
-    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(-30.799999999999997, 300, 300)">ম</text>
-    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(-22, 300, 300)">বা</text>
-    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(-13.199999999999996, 300, 300)">য়</text>
-    
-    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(4.400000000000006, 300, 300)">স</text>
-    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(13.200000000000003, 300, 300)">মি</text>
-    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(22, 300, 300)">তি</text>
-    
-    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(39.60000000000001, 300, 300)">লি</text>
-    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(48.400000000000006, 300, 300)">মি</text>
-    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(57.20000000000002, 300, 300)">টে</text>
-    <text x="300" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-size="26.5" font-weight="800" fill="#f8fafc" text-anchor="middle" transform="rotate(66, 300, 300)">ড</text>
-
-    <!-- 5. Upper-Center Emblem: Ring of 4 Clasped Hands + Growth Trend Arrow -->
-    <g transform="translate(300, 206)">
-      <!-- Outer silver circle frame of the inner emblem -->
-      <circle cx="0" cy="0" r="48" fill="#081726" stroke="url(#silver-bevel)" stroke-width="3" />
-      <circle cx="0" cy="0" r="44" fill="none" stroke="#16324a" stroke-width="1.5" />
-
-      <!-- Ring of 4 Interlocking Cooperative Hands (Silver Metallic) -->
-      <!-- Top Hand & Arm (Clockwise to right) -->
-      <path d="M -18 -32 C -8 -40 14 -40 26 -28 C 30 -24 30 -16 24 -12 C 16 -8 8 -14 0 -18 C -10 -22 -14 -28 -18 -32 Z" fill="url(#silver-bright)" stroke="#475569" stroke-width="1" />
-      <!-- Right Hand & Arm (Clockwise to bottom) -->
-      <path d="M 32 -18 C 40 -8 40 14 28 26 C 24 30 16 30 12 24 C 8 16 14 8 18 0 C 22 -10 28 -14 32 -18 Z" fill="url(#silver-bevel)" stroke="#475569" stroke-width="1" />
-      <!-- Bottom Hand & Arm (Clockwise to left) -->
-      <path d="M 18 32 C 8 40 -14 40 -26 28 C -30 24 -30 16 -24 12 C -16 8 -8 14 0 18 C 10 22 14 28 18 32 Z" fill="url(#silver-bright)" stroke="#475569" stroke-width="1" />
-      <!-- Left Hand & Arm (Clockwise to top) -->
-      <path d="M -32 18 C -40 8 -40 -14 -28 -26 C -24 -30 -16 -30 -12 -24 C -8 -16 -14 -8 -18 0 C -22 10 -28 14 -32 18 Z" fill="url(#silver-bevel)" stroke="#475569" stroke-width="1" />
-
-      <!-- Inner wrist & finger clasps -->
-      <circle cx="0" cy="0" r="26" fill="none" stroke="url(#silver-bevel)" stroke-width="2" />
-
-      <!-- Upward Growth Trend Arrow (Cyan/Silver metallic zigzag surging to top-right) -->
-      <!-- Glow under arrow -->
-      <path d="M -26 20 L -10 -4 L 2 6 L 24 -24" fill="none" stroke="#0369a1" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" opacity="0.5" />
-      <!-- Arrow shaft -->
-      <path d="M -26 20 L -10 -4 L 2 6 L 24 -24" fill="none" stroke="url(#arrow-metal)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
-      <!-- Arrowhead at (24, -24) pointing top-right -->
-      <polygon points="24,-24 10,-24 15,-18 7,-10 15,-6 19,-14 24,-10" fill="url(#arrow-metal)" stroke="#ffffff" stroke-width="1" />
+    <!-- Mini Handshake (scale 0.38) -->
+    <g transform="scale(0.38)">
+      <path d="M -85 -55 C -65 -90 -20 -105 25 -98 C 45 -95 65 -82 78 -65 C 82 -60 80 -52 74 -50 C 66 -48 60 -54 52 -60 C 35 -72 12 -76 -8 -70 C -38 -60 -60 -35 -66 -2 L -85 -55 Z" 
+            fill="url(#h-green)" />
+      <path d="M -66 -2 C -64 28 -45 58 -18 74 C -1 84 22 86 46 78 L 38 56 C 22 60 4 58 -10 50 C -30 38 -44 14 -46 -8 L -66 -2 Z" 
+            fill="url(#h-green)" />
+      <path d="M 85 55 C 65 90 20 105 -25 98 C -45 95 -65 82 -78 65 C -82 60 -80 52 -74 50 C -66 48 -60 54 -52 60 C -35 72 -12 76 8 70 C 38 60 60 35 66 2 L 85 55 Z" 
+            fill="url(#h-navy)" />
+      <path d="M 66 2 C 64 -28 45 -58 18 -74 C 1 -84 -22 -86 -46 -78 L -38 -56 C -22 -60 -4 -58 10 -50 C 30 -38 44 -14 46 8 L 66 2 Z" 
+            fill="url(#h-navy)" />
+      <rect x="-34" y="-22" width="68" height="16" rx="8" fill="url(#h-green)" transform="rotate(-32)" />
+      <rect x="-30" y="4" width="60" height="16" rx="8" fill="url(#h-green)" transform="rotate(-32)" />
+      <rect x="-26" y="30" width="52" height="16" rx="8" fill="url(#h-green)" transform="rotate(-32)" />
+      <rect x="-20" y="-40" width="60" height="16" rx="8" fill="url(#h-navy)" transform="rotate(148)" />
+      <rect x="-22" y="-14" width="64" height="16" rx="8" fill="url(#h-navy)" transform="rotate(148)" />
+      <rect x="-24" y="12" width="56" height="16" rx="8" fill="url(#h-navy)" transform="rotate(148)" />
+      <g transform="translate(0, 0)">
+        <circle cx="0" cy="0" r="32" fill="url(#h-gold)" stroke="#ffffff" stroke-width="3.5" />
+        <path d="M 0 -20 L 5 -5 L 20 0 L 5 5 L 0 20 L -5 5 L -20 0 L -5 -5 Z" fill="#ffffff" />
+        <circle cx="0" cy="0" r="5" fill="url(#h-gold)" />
+      </g>
     </g>
-
-    <!-- 6. Green Plaque / Banner (UNITY • GROWTH • TRUST) -->
-    <g transform="translate(300, 345)">
-      <!-- Outer Plaque Shadow -->
-      <rect x="-184" y="-26" width="368" height="52" rx="16" fill="#020617" opacity="0.4" />
-      <!-- Plaque Body -->
-      <rect x="-182" y="-25" width="364" height="50" rx="15" fill="url(#green-plaque)" stroke="url(#silver-bevel)" stroke-width="3.5" />
-      <!-- Inner Gloss Rim -->
-      <rect x="-179" y="-22" width="358" height="22" rx="12" fill="#ffffff" opacity="0.12" />
-
-      <!-- Text: UNITY • GROWTH • TRUST -->
-      <text x="0" y="7" font-family="'Plus Jakarta Sans', sans-serif" font-size="18.5" font-weight="800" letter-spacing="3.5" fill="#ffffff" text-anchor="middle">
-        UNITY <tspan fill="#6ee7b7">•</tspan> GROWTH <tspan fill="#6ee7b7">•</tspan> TRUST
-      </text>
-    </g>
-
-    <!-- 7. Subtitle: Cooperative Society -->
-    <text x="300" y="406" font-family="'Plus Jakarta Sans', sans-serif" font-size="17.5" font-weight="600" letter-spacing="1.8" fill="#cbd5e1" text-anchor="middle">
-      Cooperative Society
-    </text>
-
-    <!-- 8. Lower Concentric Silver Arcs -->
-    <path d="M 175 442 A 195 195 0 0 0 425 442" fill="none" stroke="url(#silver-bevel)" stroke-width="2.5" stroke-linecap="round" />
-    <path d="M 205 458 A 185 185 0 0 0 395 458" fill="none" stroke="url(#silver-bright)" stroke-width="1.8" stroke-linecap="round" />
-    <path d="M 245 474 A 175 175 0 0 0 355 474" fill="none" stroke="url(#silver-bevel)" stroke-width="1.2" stroke-linecap="round" />
   </g>
 
+  <!-- Right Typography -->
+  <text x="150" y="54" class="h-title">বন্ধু সমবায় সমিতি লিমিটেড</text>
+  
+  <g transform="translate(150, 74)">
+    <rect x="0" y="0" width="180" height="24" rx="6" fill="#f0fdf4" stroke="#16a34a" stroke-width="1" />
+    <text x="90" y="16.5" class="h-motto" text-anchor="middle">ঐক্য • সঞ্চয় • সমৃদ্ধি • সেবা</text>
   </g>
 
-  <!-- Right: Crisp Full Typography -->
-  <text x="135" y="48" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-weight="800" font-size="26" fill="#0f172a">বন্ধু সমবায় সমিতি লিমিটেড</text>
-  <!-- Mini Green Badge Plaque for Motto -->
-  <g transform="translate(135, 62)">
-    <rect x="0" y="0" width="220" height="24" rx="6" fill="#0d5240" stroke="#94a3b8" stroke-width="1" />
-    <text x="110" y="16.5" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="10.5" letter-spacing="2" fill="#ffffff" text-anchor="middle">
-      UNITY • GROWTH • TRUST
-    </text>
-  </g>
-  <text x="135" y="104" font-family="'Hind Siliguri', 'Bangla', sans-serif" font-weight="600" font-size="12" fill="#059669">রেজিস্টার্ড সমবায় আর্থিক ব্যবস্থাপনা • Cooperative Society</text>
+  <text x="150" y="122" class="h-sub">GOVT. REG. NO: 1938/DHAKA/2018 • COOPERATIVE SOCIETY</text>
 </svg>
