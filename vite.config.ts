@@ -64,6 +64,60 @@ function logoAssetsPlugin() {
           res.end();
         }
       });
+
+      // Endpoint to save assetlinks.json for Android TWA / APK verification
+      server.middlewares.use('/api/save-assetlinks', (req: any, res: any) => {
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk: any) => { body += chunk; });
+          req.on('end', () => {
+            try {
+              const { content } = JSON.parse(body);
+              const wellKnownDir = path.resolve(__dirname, 'public', '.well-known');
+              if (!fs.existsSync(wellKnownDir)) {
+                fs.mkdirSync(wellKnownDir, { recursive: true });
+              }
+              const filePath = path.join(wellKnownDir, 'assetlinks.json');
+              const formatted = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
+              fs.writeFileSync(filePath, formatted, 'utf8');
+
+              const distWellKnown = path.resolve(__dirname, 'dist', '.well-known');
+              if (fs.existsSync(path.resolve(__dirname, 'dist'))) {
+                if (!fs.existsSync(distWellKnown)) fs.mkdirSync(distWellKnown, { recursive: true });
+                fs.writeFileSync(path.join(distWellKnown, 'assetlinks.json'), formatted, 'utf8');
+              }
+
+              res.statusCode = 200;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ success: true }));
+            } catch (err) {
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: String(err) }));
+            }
+          });
+        } else {
+          res.statusCode = 405;
+          res.end();
+        }
+      });
+
+      // Serve /.well-known/assetlinks.json with exact required headers for Google verification
+      server.middlewares.use('/.well-known/assetlinks.json', (req: any, res: any) => {
+        const filePath = path.resolve(__dirname, 'public', '.well-known', 'assetlinks.json');
+        if (fs.existsSync(filePath)) {
+          const content = fs.readFileSync(filePath, 'utf8');
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Cache-Control', 'no-cache');
+          res.end(content);
+        } else {
+          res.statusCode = 404;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'assetlinks.json not configured yet' }));
+        }
+      });
     }
   };
 }
@@ -78,6 +132,7 @@ export default defineConfig(() => {
       logoAssetsPlugin(),
       VitePWA({
         registerType: 'autoUpdate',
+        injectRegister: 'auto',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg'],
         manifest: {
           id: '/',
@@ -87,26 +142,43 @@ export default defineConfig(() => {
           theme_color: '#1b2a59',
           background_color: '#ffffff',
           display: 'standalone',
+          display_override: ['standalone', 'minimal-ui', 'window-controls-overlay'],
+          orientation: 'portrait-primary',
           start_url: '/',
           scope: '/',
+          categories: ['finance', 'business', 'productivity'],
           icons: [
             {
-              src: '/pwa-192x192.png',
+              src: '/pwa-192x192.png?v=3',
               sizes: '192x192',
               type: 'image/png',
               purpose: 'any',
             },
             {
-              src: '/pwa-512x512.png',
+              src: '/pwa-maskable-192x192.png?v=3',
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'maskable',
+            },
+            {
+              src: '/pwa-512x512.png?v=3',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any',
+            },
+            {
+              src: '/pwa-maskable-512x512.png?v=3',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'maskable',
             },
           ],
         },
         workbox: {
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+          skipWaiting: true,
+          clientsClaim: true,
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -139,7 +211,8 @@ export default defineConfig(() => {
           ],
         },
         devOptions: {
-          enabled: false,
+          enabled: true,
+          type: 'module',
         },
       }),
     ],

@@ -55,6 +55,29 @@ const AppContent: React.FC = () => {
   // Synchronize browser icon, apple-touch-icon, and PWA manifest dynamically when settings.logoUrl changes
   useDynamicManifest();
 
+  // Invalidate any stale service worker icon caches on load so new PWA logo takes effect immediately
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'caches' in window) {
+      caches.keys().then((names) => {
+        names.forEach((name) => {
+          caches.open(name).then((cache) => {
+            cache.delete('/pwa-192x192.png');
+            cache.delete('/pwa-512x512.png');
+            cache.delete('/pwa-maskable-512x512.png');
+            cache.delete('/apple-touch-icon.png');
+            cache.delete('/logo.png');
+            cache.delete('/custom_default_logo.png');
+            cache.delete('/manifest.webmanifest');
+            cache.delete('/manifest.json');
+          });
+        });
+      });
+    }
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+    }
+  }, []);
+
   const { 
     user, 
     loading, 

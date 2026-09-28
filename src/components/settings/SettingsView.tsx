@@ -290,8 +290,52 @@ export const SettingsView: React.FC = () => {
   // In-app Modal and Feedback States (avoids sandboxed iframe window.confirm/alert blocks)
   const [showClearModal, setShowClearModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [showApkModal, setShowApkModal] = useState(false);
   const [isProcessingClear, setIsProcessingClear] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+  const [assetlinksInput, setAssetlinksInput] = useState('');
+  const [assetlinksStatus, setAssetlinksStatus] = useState<string | null>(null);
+  const [isAssetlinksSaving, setIsAssetlinksSaving] = useState(false);
+  const assetlinksFileRef = useRef<HTMLInputElement>(null);
+
+  const saveAssetlinksToServer = async (content: any) => {
+    try {
+      setIsAssetlinksSaving(true);
+      setAssetlinksStatus('সংরক্ষণ করা হচ্ছে...');
+      const res = await fetch('/api/save-assetlinks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+      });
+      if (res.ok) {
+        setAssetlinksStatus('সফলভাবে assetlinks.json কার্যকর হয়েছে! এখন আপনার APK কোনো ব্রাউজার বার ছাড়াই সরাসরি চলবে।');
+        setTimeout(() => setAssetlinksStatus(null), 6000);
+      } else {
+        setAssetlinksStatus('সংরক্ষণ ব্যর্থ হয়েছে।');
+      }
+    } catch {
+      setAssetlinksStatus('সার্ভারে যোগাযোগ করা যায়নি।');
+    } finally {
+      setIsAssetlinksSaving(false);
+    }
+  };
+
+  const handleAssetlinksFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const text = evt.target?.result as string;
+        const parsed = JSON.parse(text);
+        setAssetlinksInput(JSON.stringify(parsed, null, 2));
+        await saveAssetlinksToServer(parsed);
+      } catch (err) {
+        setAssetlinksStatus('ভুল JSON ফরম্যাট। অনুগ্রহ করে PWABuilder-এর assetlinks.json ফাইল নির্বাচন করুন।');
+      }
+    };
+    reader.readAsText(file);
+  };
 
   const handlePushToCloud = async () => {
     const success = await syncAllToFirestore();
@@ -587,6 +631,16 @@ export const SettingsView: React.FC = () => {
                 >
                   <Download className="w-3.5 h-3.5 text-blue-600" />
                   <span>অ্যাপ আইকন ডাউনলোড (.png)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowApkModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
+                  title="অ্যান্ড্রয়েড APK তৈরি ও ফুলস্ক্রিন ইনস্টল গাইড"
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>Android APK ও ইনস্টল গাইড</span>
                 </button>
 
                 {logoPreview && (
@@ -1478,6 +1532,165 @@ export const SettingsView: React.FC = () => {
               >
                 <RotateCcw className="w-4 h-4" />
                 <span>{language === 'bn' ? 'হ্যাঁ, ডেমো ডাটা লোড করুন' : 'Yes, Load Demo Data'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Android APK & Fullscreen Install Modal */}
+      {showApkModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-emerald-200 space-y-4 animate-in fade-in zoom-in-95 my-auto flex flex-col max-h-[min(94vh,calc(100dvh-2rem))] overflow-y-auto">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3 shrink-0">
+              <div className="flex items-center gap-2.5 text-emerald-700">
+                <div className="p-2 bg-emerald-100 rounded-xl">
+                  <Smartphone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm sm:text-base text-slate-900">
+                    Android APK ও ফুলস্ক্রিন অ্যাপ সেটআপ
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    সরাসরি ফুলস্ক্রিন নেটিভ অ্যাপ চালানো ও .apk ফাইল ডাউনলোড নির্দেশিকা
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setShowApkModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs text-slate-700">
+              {/* Alert notice about why browser bar appeared */}
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-[11.5px] text-amber-900 leading-relaxed">
+                  <span className="font-bold">কেন ব্রাউজার বারের মতো রান হচ্ছিল:</span> আপনি যদি ফেসবুক/মেসেঞ্জার/হোয়াটসঅ্যাপের অভ্যন্তরীণ ব্রাউজার থেকে বা সাধারণ ব্রাউজার শর্টকাট হিসেবে যুক্ত করেন, তবে গুগল ক্রোম এটিকে একটি ওয়েব লিঙ্ক হিসেবে বিবেচনা করে ব্রাউজার ট্যাবে খোলে।
+                </div>
+              </div>
+
+              {/* Method 1: WebAPK */}
+              <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/80 space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[11px]">
+                    ১
+                  </div>
+                  <h5 className="font-bold text-slate-900 text-xs sm:text-sm">
+                    সরাসরি ফুলস্ক্রিন নেটিভ অ্যাপ (কোনো ইউআরএল বার ছাড়া)
+                  </h5>
+                </div>
+                <p className="text-[11.5px] text-slate-600 leading-relaxed pl-7">
+                  গুগল ক্রোমের <strong>WebAPK</strong> ইঞ্জিন আপনার ফোনের ভেতর স্বয়ংক্রিয়ভাবে একটি সত্যিকারের নেটিভ অ্যান্ড্রয়েড অ্যাপ ইনস্টল করে দেয়:
+                </p>
+                <ol className="list-decimal pl-11 space-y-1 text-[11.5px] text-slate-700 font-medium">
+                  <li>আপনার অ্যান্ড্রয়েড ফোনের <strong>Google Chrome</strong> ব্রাউজারে লিংকটি সরাসরি ওপেন করুন।</li>
+                  <li>উপরে ডানদিকের ৩-ডট (<strong>⋮</strong>) মেনুতে চাপুন।</li>
+                  <li>মেনু থেকে <strong>"Install app" (অ্যাপ ইনস্টল করুন)</strong> চাপুন।</li>
+                  <li>ফোনের অ্যাপ ড্রয়ারে আপনার নির্বাচিত লোগো সহ অ্যাপটি ইনস্টল হয়ে যাবে এবং কোনো ব্রাউজার ইউআরএল বার ছাড়াই ১০০% ফুলস্ক্রিনে চলবে!</li>
+                </ol>
+              </div>
+
+              {/* Method 2: PWABuilder direct APK */}
+              <div className="border border-slate-200 rounded-xl p-4 bg-blue-50/50 space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[11px]">
+                    ২
+                  </div>
+                  <h5 className="font-bold text-slate-900 text-xs sm:text-sm">
+                    সরাসরি সাইনড .APK ফাইল ডাউনলোড (PWABuilder)
+                  </h5>
+                </div>
+                <p className="text-[11.5px] text-slate-600 leading-relaxed pl-7">
+                  আপনি যদি সবার সাথে হোয়াটসঅ্যাপ বা ব্লুটুথে শেয়ার করার জন্য একটি আসল <strong>.apk</strong> ফাইল ডাউনলোড করতে চান, তবে মাইক্রোসফটের অফিসিয়াল <strong>PWABuilder</strong> দিয়ে ১-ক্লিকে বিনামূল্যে সাইনড অ্যান্ড্রয়েড APK ডাউনলোড করতে পারবেন:
+                </p>
+                <div className="pl-7 pt-1">
+                  <a
+                    href="https://www.pwabuilder.com/reportcard?site=https://ais-pre-j4v43celshvgs4ehicwqtr-839382629701.europe-west2.run.app"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>PWABuilder-এ ১-ক্লিকে APK তৈরি ও ডাউনলোড করুন</span>
+                  </a>
+                  <p className="text-[10px] text-slate-500 mt-1.5">
+                    * সেখানে গিয়ে "Package for Android" বাটনে চাপলেই সরাসরি ইনস্টলযোগ্য .apk ফাইল পাওয়া যাবে।
+                  </p>
+                </div>
+              </div>
+
+              {/* Method 3: Hide Browser Bar from PWABuilder APK */}
+              <div className="border border-purple-200 rounded-xl p-4 bg-purple-50/60 space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-[11px]">
+                    ৩
+                  </div>
+                  <h5 className="font-bold text-slate-900 text-xs sm:text-sm">
+                    PWABuilder APK-র ব্রাউজার বার দূর করার নিয়ম (Digital AssetLinks)
+                  </h5>
+                </div>
+                <p className="text-[11.5px] text-slate-600 leading-relaxed pl-7">
+                  PWABuilder দিয়ে যে APK বানিয়েছেন, গুগল সিকিউরিটির কারণে ওয়েবসাইটে <code>assetlinks.json</code> না থাকলে ক্রোম এটিকে ব্রাউজার বারের ভেতর খোলে। আপনার ডাউনলোডকৃত PWABuilder ZIP ফাইল থেকে <strong>assetlinks.json</strong> আপলোড করুন:
+                </p>
+                <div className="pl-7 space-y-2.5">
+                  <input
+                    ref={assetlinksFileRef}
+                    type="file"
+                    accept=".json,application/json"
+                    onChange={handleAssetlinksFileUpload}
+                    className="hidden"
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => assetlinksFileRef.current?.click()}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>assetlinks.json ফাইল আপলোড করুন</span>
+                    </button>
+                    <a
+                      href="/.well-known/assetlinks.json"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 px-3 py-2 bg-white text-slate-700 hover:bg-slate-100 rounded-xl text-xs font-semibold border border-slate-300"
+                    >
+                      <ExternalLink className="w-3 h-3 text-purple-600" />
+                      <span>বর্তমান AssetLinks ভিউ</span>
+                    </a>
+                  </div>
+
+                  {assetlinksStatus && (
+                    <div className="p-2.5 bg-white border border-purple-200 rounded-lg text-[11.5px] text-purple-900 font-medium">
+                      {assetlinksStatus}
+                    </div>
+                  )}
+
+                  {assetlinksInput && (
+                    <textarea
+                      value={assetlinksInput}
+                      onChange={(e) => setAssetlinksInput(e.target.value)}
+                      rows={3}
+                      className="w-full text-[11px] font-mono p-2 bg-white border border-purple-200 rounded-lg"
+                      placeholder="assetlinks.json বিষয়বস্তু..."
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowApkModal(false)}
+                className="px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                বুঝেছি (Close)
               </button>
             </div>
           </div>

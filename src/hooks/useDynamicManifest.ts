@@ -16,11 +16,9 @@ export function useDynamicManifest() {
     let createdBlobUrl: string | null = null;
 
     const currentLogo = settings?.logoUrl || '/logo.png';
-    const somitiName = settings?.somitiName || 'বন্ধু সমবায় সমিতি লিমিটেড';
-    const shortName = settings?.somitiName?.split(' ')?.[0] || 'বন্ধু সমিতি';
-    const scale = settings?.logoScale ?? 1.97;
-    const offsetX = settings?.logoOffsetX ?? 3;
-    const offsetY = settings?.logoOffsetY ?? -12;
+    const scale = settings?.logoScale ?? 1.0;
+    const offsetX = settings?.logoOffsetX ?? 0;
+    const offsetY = settings?.logoOffsetY ?? 0;
     const shape = settings?.logoShape ?? 'circle';
     const bgColor = settings?.logoBgColor || '#ffffff';
     const padding = settings?.logoPadding ?? 0;
@@ -37,31 +35,32 @@ export function useDynamicManifest() {
     };
 
     const processIcons = async () => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
+      const v = Date.now();
+      let icon192 = `/pwa-192x192.png?v=${v}`;
+      let appleIcon = `/apple-touch-icon.png?v=${v}`;
 
-      const imageLoaded = new Promise<boolean>((resolve) => {
-        img.onload = () => resolve(true);
-        img.onerror = () => resolve(false);
-      });
+      // If user uploaded a custom dynamic image (e.g. data URL or custom path), generate on canvas
+      if (currentLogo && currentLogo.startsWith('data:')) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
 
-      img.src = currentLogo;
-      const loaded = await imageLoaded;
-      if (isCancelled) return;
+        const imageLoaded = new Promise<boolean>((resolve) => {
+          img.onload = () => resolve(true);
+          img.onerror = () => resolve(false);
+        });
 
-      let icon192 = '/pwa-192x192.png';
-      let icon512 = '/pwa-512x512.png';
-      let iconMaskable = '/pwa-maskable-512x512.png';
-      let appleIcon = '/apple-touch-icon.png';
+        img.src = currentLogo;
+        const loaded = await imageLoaded;
+        if (isCancelled) return;
 
-      if (loaded) {
-        try {
-          icon192 = renderAppIconCanvas(img, 192, { scale, offsetX, offsetY, shape, bgColor, padding, isMaskable: false });
-          icon512 = renderAppIconCanvas(img, 512, { scale, offsetX, offsetY, shape, bgColor, padding, isMaskable: false });
-          iconMaskable = renderAppIconCanvas(img, 512, { scale, offsetX, offsetY, shape, bgColor, padding, isMaskable: true });
-          appleIcon = renderAppIconCanvas(img, 180, { scale, offsetX, offsetY, shape, bgColor, padding, isMaskable: false });
-        } catch {
-          // Fallback to static URLs if canvas export fails
+        if (loaded) {
+          try {
+            icon192 = renderAppIconCanvas(img, 192, { scale, offsetX, offsetY, shape, bgColor, padding, isMaskable: false });
+            appleIcon = renderAppIconCanvas(img, 180, { scale, offsetX, offsetY, shape, bgColor, padding, isApple: true, isMaskable: false });
+          } catch {
+            icon192 = `/pwa-192x192.png?v=${v}`;
+            appleIcon = `/apple-touch-icon.png?v=${v}`;
+          }
         }
       }
 
@@ -71,80 +70,20 @@ export function useDynamicManifest() {
       updateLinkTag('icon', icon192);
       updateLinkTag('apple-touch-icon', appleIcon);
 
-      // 2. Build full PWA Manifest conforming to Chrome, Android WebAPK, and PWABuilder standards
-      try {
-        const dynamicManifest = {
-          id: '/',
-          name: `${somitiName} - সফটওয়্যার`,
-          short_name: shortName,
-          description: `${somitiName} - সঞ্চয়, ঋণ, কিস্তি এবং আর্থিক হিসাব ব্যবস্থাপনা`,
-          theme_color: '#1b2a59',
-          background_color: '#ffffff',
-          display: 'standalone',
-          orientation: 'portrait-primary',
-          start_url: '/',
-          scope: '/',
-          icons: shape === 'circle' 
-            ? [
-                {
-                  src: icon192,
-                  sizes: '192x192',
-                  type: 'image/png',
-                  purpose: 'any'
-                },
-                {
-                  src: icon512,
-                  sizes: '512x512',
-                  type: 'image/png',
-                  purpose: 'any'
-                }
-              ]
-            : [
-                {
-                  src: icon192,
-                  sizes: '192x192',
-                  type: 'image/png',
-                  purpose: 'any'
-                },
-                {
-                  src: icon512,
-                  sizes: '512x512',
-                  type: 'image/png',
-                  purpose: 'any'
-                },
-                {
-                  src: iconMaskable,
-                  sizes: '512x512',
-                  type: 'image/png',
-                  purpose: 'maskable'
-                }
-              ]
-        };
-
-        const manifestBlob = new Blob([JSON.stringify(dynamicManifest, null, 2)], {
-          type: 'application/manifest+json'
-        });
-        createdBlobUrl = URL.createObjectURL(manifestBlob);
-
-        let manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement | null;
-        if (!manifestLink) {
-          manifestLink = document.createElement('link');
-          manifestLink.rel = 'manifest';
-          document.head.appendChild(manifestLink);
-        }
-        manifestLink.href = createdBlobUrl;
-      } catch (e) {
-        console.warn('Could not inject dynamic manifest:', e);
+      // 2. Ensure real static manifest is used (never blob: URLs which fail Chrome WebAPK installation)
+      let manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement | null;
+      if (!manifestLink) {
+        manifestLink = document.createElement('link');
+        manifestLink.rel = 'manifest';
+        document.head.appendChild(manifestLink);
       }
+      manifestLink.href = `/manifest.webmanifest?v=3`;
     };
 
     processIcons();
 
     return () => {
       isCancelled = true;
-      if (createdBlobUrl) {
-        URL.revokeObjectURL(createdBlobUrl);
-      }
     };
   }, [
     settings?.logoUrl, 
