@@ -38,11 +38,14 @@ import {
   Maximize2,
   Minimize2,
   Palette,
-  Layers
+  Layers,
+  Fingerprint
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
+import { useBiometricAuth } from '../../hooks/useBiometricAuth';
 import { compressLogoImage } from '../../utils/imageUtils';
 import { ThemeToggle } from '../common/ThemeToggle';
 import { 
@@ -293,6 +296,34 @@ export const SettingsView: React.FC = () => {
   const [showApkModal, setShowApkModal] = useState(false);
   const [isProcessingClear, setIsProcessingClear] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+  const { user } = useAuth();
+  const {
+    isSupported: isBiometricSupported,
+    enrolledCredentials,
+    registerBiometrics,
+    removeCredential,
+    loading: biometricLoading,
+    error: biometricError,
+    success: biometricSuccess,
+    clearError: clearBiometricError,
+    clearSuccess: clearBiometricSuccess,
+  } = useBiometricAuth();
+
+  const currentDeviceCredential = user
+    ? enrolledCredentials.find((c) => c.user.uid === user.uid || (user.email && c.user.email?.toLowerCase() === user.email.toLowerCase()))
+    : null;
+
+  const handleEnrollDeviceBiometrics = async () => {
+    if (!user) return;
+    clearBiometricError();
+    clearBiometricSuccess();
+    await registerBiometrics({
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName || user.email?.split('@')[0] || 'User',
+      photoURL: user.photoURL || null,
+    });
+  };
   const [assetlinksInput, setAssetlinksInput] = useState('');
   const [assetlinksStatus, setAssetlinksStatus] = useState<string | null>(null);
   const [isAssetlinksSaving, setIsAssetlinksSaving] = useState(false);
@@ -1371,6 +1402,109 @@ export const SettingsView: React.FC = () => {
               />
             </label>
           </div>
+        </div>
+
+        {/* 8. Mobile Biometric Authentication Card */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 className="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
+              <Fingerprint className="w-5 h-5 text-cyan-600" />
+              <span>৮. মোবাইল বায়োমেট্রিক ও ফিঙ্গারপ্রিন্ট লগইন (Biometric Security)</span>
+            </h3>
+            <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${
+              currentDeviceCredential 
+                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                : isBiometricSupported 
+                ? 'bg-cyan-100 text-cyan-800 border border-cyan-300' 
+                : 'bg-slate-100 text-slate-600 border border-slate-300'
+            }`}>
+              {currentDeviceCredential 
+                ? (language === 'bn' ? 'সক্রিয় (Enrolled)' : 'Enrolled') 
+                : isBiometricSupported 
+                ? (language === 'bn' ? 'সাপোর্টেড (Ready)' : 'Supported') 
+                : (language === 'bn' ? 'অসমর্থিত' : 'Not Supported')}
+            </span>
+          </div>
+
+          <p className="text-xs text-slate-500 leading-relaxed">
+            {language === 'bn'
+              ? 'মোবাইল বা ট্যাবলেটের ফিঙ্গারপ্রিন্ট বা ফেস আইডি সেন্সর ব্যবহার করে পাসওয়ার্ড ছাড়া সরাসরি এক ক্লিকে অ্যাকাউন্টে লগইন করুন। আপনার বায়োমেট্রিক তথ্য কখনোই সার্ভারে যায় না, শুধুমাত্র ডিভাইসের নিরাপদ হার্ডওয়্যার চিপে থাকে।'
+              : 'Log in instantly using your mobile or tablet fingerprint/face sensor without typing password. Your biometric data remains securely stored on your local hardware chip.'}
+          </p>
+
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className={`p-2.5 rounded-xl ${currentDeviceCredential ? 'bg-emerald-100 text-emerald-700' : 'bg-cyan-100 text-cyan-700'}`}>
+                <Fingerprint className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="text-xs sm:text-sm font-bold text-slate-800">
+                  {currentDeviceCredential 
+                    ? (language === 'bn' ? 'এই ডিভাইসে বায়োমেট্রিক সক্রিয় রয়েছে' : 'Biometric Active on This Device') 
+                    : (language === 'bn' ? 'এই ডিভাইসে ফিঙ্গারপ্রিন্ট যুক্ত করুন' : 'Enable Fingerprint on This Device')}
+                </h4>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  {currentDeviceCredential 
+                    ? `ডিভাইস: ${currentDeviceCredential.deviceName || 'Android Biometrics'}` 
+                    : isBiometricSupported 
+                    ? (language === 'bn' ? 'নিচের বাটনে ট্যাপ করে আপনার আঙুলের ছাপ স্ক্যান করুন।' : 'Tap below to scan your fingerprint/face scan.') 
+                    : (language === 'bn' ? 'আপনার বর্তমান ব্রাউজারে WebAuthn সক্রিয় নেই।' : 'WebAuthn is not supported on this browser.')}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {currentDeviceCredential ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    removeCredential(currentDeviceCredential.id);
+                    setActionFeedback({
+                      type: 'info',
+                      message: language === 'bn' ? 'এই ডিভাইসে বায়োমেট্রিক লগইন নিষ্ক্রিয় করা হয়েছে।' : 'Biometric login disabled on this device.'
+                    });
+                  }}
+                  className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold border border-rose-200 transition-all cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5 inline mr-1" />
+                  <span>মুছে ফেলুন</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleEnrollDeviceBiometrics}
+                  disabled={biometricLoading || !isBiometricSupported}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50 active:scale-95"
+                >
+                  {biometricLoading ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>স্ক্যান হচ্ছে...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Fingerprint className="w-4 h-4" />
+                      <span>ফিঙ্গারপ্রিন্ট সক্রিয় করুন</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {biometricError && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{biometricError}</span>
+            </div>
+          )}
+
+          {biometricSuccess && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{biometricSuccess}</span>
+            </div>
+          )}
         </div>
 
         {/* Save Button */}

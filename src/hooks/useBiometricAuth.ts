@@ -57,7 +57,7 @@ function detectPlatformDeviceName(): string {
 }
 
 /**
- * Checks whether WebAuthn publickey credentials creation is permitted by the document / iframe permissions policy
+ * Checks whether WebAuthn publickey credentials creation is permitted
  */
 export function checkWebAuthnFeatureAllowed(): boolean {
   if (typeof window === 'undefined') return false;
@@ -68,20 +68,6 @@ export function checkWebAuthnFeatureAllowed(): boolean {
   ) {
     return false;
   }
-
-  try {
-    const doc = document as any;
-    if (doc.permissionsPolicy && typeof doc.permissionsPolicy.allowsFeature === 'function') {
-      if (!doc.permissionsPolicy.allowsFeature('publickey-credentials-create')) {
-        return false;
-      }
-    } else if (doc.featurePolicy && typeof doc.featurePolicy.allowsFeature === 'function') {
-      if (!doc.featurePolicy.allowsFeature('publickey-credentials-create')) {
-        return false;
-      }
-    }
-  } catch {}
-
   return true;
 }
 
@@ -205,39 +191,63 @@ export function useBiometricAuth() {
         const userEmail = user.email || `${userUid}@somiti.local`;
         const displayName = user.displayName || userEmail.split('@')[0];
 
-        // Relying Party configuration
-        const rpId = window.location.hostname;
+        // Relying Party configuration - safe hostname detection
+        const rawHostname = typeof window !== 'undefined' ? window.location.hostname : '';
+        const rpId = rawHostname && !rawHostname.includes(':') && rawHostname !== 'localhost' && !/^\d+\.\d+\.\d+\.\d+$/.test(rawHostname)
+          ? rawHostname
+          : undefined;
 
-        const publicKeyCredentialCreationOptions: CredentialCreationOptions = {
-          publicKey: {
-            challenge,
-            rp: {
-              name: 'বন্ধু সমবায় সমিতি লিমিটেড',
-              id: rpId || undefined,
-            },
-            user: {
-              id: userIdBuffer,
-              name: userEmail,
-              displayName: displayName,
-            },
-            pubKeyCredParams: [
-              { alg: -7, type: 'public-key' },   // ES256 (P-256 with SHA-256)
-              { alg: -257, type: 'public-key' }, // RS256
-              { alg: -8, type: 'public-key' },   // Ed25519
-            ],
-            authenticatorSelection: {
-              authenticatorAttachment: 'platform', // Built-in device scanner (fingerprint / FaceID)
-              userVerification: 'required',        // Requires actual biometric scan or device PIN
-              residentKey: 'preferred',
-            },
-            timeout: 60000,
-            attestation: 'none',
+        const baseCreationOptions = {
+          challenge,
+          rp: {
+            name: 'বন্ধু সমবায় সমিতি লিমিটেড',
+            id: rpId,
           },
+          user: {
+            id: userIdBuffer,
+            name: userEmail,
+            displayName: displayName,
+          },
+          pubKeyCredParams: [
+            { alg: -7, type: 'public-key' as const },   // ES256 (Standard)
+            { alg: -257, type: 'public-key' as const }, // RS256
+            { alg: -37, type: 'public-key' as const },  // PS256 (Common on Android Knox)
+            { alg: -8, type: 'public-key' as const },   // Ed25519
+          ],
+          timeout: 60000,
+          attestation: 'none' as const,
         };
 
-        const credential = (await navigator.credentials.create(
-          publicKeyCredentialCreationOptions
-        )) as PublicKeyCredential | null;
+        let credential: PublicKeyCredential | null = null;
+
+        // Stage 1: Try with authenticatorAttachment: 'platform' and userVerification: 'preferred'
+        try {
+          credential = (await navigator.credentials.create({
+            publicKey: {
+              ...baseCreationOptions,
+              authenticatorSelection: {
+                authenticatorAttachment: 'platform',
+                userVerification: 'preferred',
+                residentKey: 'preferred',
+              },
+            },
+          })) as PublicKeyCredential | null;
+        } catch (platformErr: any) {
+          // Stage 2: If rejected on some Android WebViews/browsers due to strict platform attachment, retry with open attachment
+          if (platformErr?.name === 'NotSupportedError' || platformErr?.name === 'ConstraintError') {
+            credential = (await navigator.credentials.create({
+              publicKey: {
+                ...baseCreationOptions,
+                authenticatorSelection: {
+                  userVerification: 'preferred',
+                  residentKey: 'preferred',
+                },
+              },
+            })) as PublicKeyCredential | null;
+          } else {
+            throw platformErr;
+          }
+        }
 
         if (!credential) {
           throw new Error('বায়োমেট্রিক তথ্য তৈরি করা সম্ভব হয়নি।');
@@ -336,16 +346,20 @@ export function useBiometricAuth() {
       const allowCredentials = credentialsList.map((cred) => ({
         id: base64ToBuffer(cred.id),
         type: 'public-key' as const,
-        transports: ['internal'] as AuthenticatorTransport[],
       }));
+
+      const rawHostname = typeof window !== 'undefined' ? window.location.hostname : '';
+      const rpId = rawHostname && !rawHostname.includes(':') && rawHostname !== 'localhost' && !/^\d+\.\d+\.\d+\.\d+$/.test(rawHostname)
+        ? rawHostname
+        : undefined;
 
       const publicKeyCredentialRequestOptions: CredentialRequestOptions = {
         publicKey: {
           challenge,
           allowCredentials: allowCredentials.length > 0 ? allowCredentials : undefined,
-          userVerification: 'required',
+          userVerification: 'preferred',
           timeout: 60000,
-          rpId: window.location.hostname || undefined,
+          rpId,
         },
       };
 

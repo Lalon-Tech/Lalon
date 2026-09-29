@@ -127,13 +127,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
         // Remember the Login ID across mobile, tablet, and desktop (replaces previously saved ID)
         rememberLoginId(cleanLoginId);
 
-        await signIn(cleanLoginId, password);
-        // Always open Home/Dashboard upon login
-        setActiveTab('dashboard');
-        setSelectedMemberId(null);
-        setSuccessMsg(language === 'bn' ? 'সফলভাবে সাইন-ইন সম্পন্ন হয়েছে!' : 'Successfully signed in!');
-
-        // If user opted to enable biometric on this device and device supports it
+        // If user opted to enable biometric on this device and device supports it, register while component is mounted
         if (enableBiometricsOnLogin && isBiometricSupported && !isBiometricEnrolled) {
           try {
             await registerBiometrics({
@@ -146,6 +140,12 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
             console.warn('Biometric auto-registration notice:', bioErr);
           }
         }
+
+        await signIn(cleanLoginId, password);
+        // Always open Home/Dashboard upon login
+        setActiveTab('dashboard');
+        setSelectedMemberId(null);
+        setSuccessMsg(language === 'bn' ? 'সফলভাবে সাইন-ইন সম্পন্ন হয়েছে!' : 'Successfully signed in!');
       }
     } catch {
       // error in context
