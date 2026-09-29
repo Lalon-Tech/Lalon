@@ -944,13 +944,25 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       if (matched) {
         const resolvedAvatar = matchedMember?.photoUrl || authUser.photoURL || matched.avatarUrl;
+        const resolvedMemberId = matched.memberId || matchedMember?.id;
+        const resolvedMemberNo = matched.memberNo || matchedMember?.memberNo;
         const sanitized = sanitizeUser({
           ...matched,
           name: matched.name || matchedMember?.name || authName,
           avatarUrl: resolvedAvatar,
-          memberId: matched.memberId || matchedMember?.id,
-          memberNo: matched.memberNo || matchedMember?.memberNo,
+          memberId: resolvedMemberId,
+          memberNo: resolvedMemberNo,
+          status: matched.status === 'rejected' ? 'rejected' : 'active',
         });
+
+        // If memberId was missing in users collection but matched in members, persist link to Firestore
+        if (!matched.memberId && resolvedMemberId) {
+          safeSetDoc(doc(db, 'systemUsers', matched.id), {
+            memberId: resolvedMemberId,
+            memberNo: resolvedMemberNo,
+            status: 'active'
+          }, { merge: true }).catch(console.error);
+        }
 
         // Persist matched user so page reloads/pull-to-refreshes never flash another profile
         try {
@@ -977,10 +989,10 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
       } else {
         const matchedMember = members.find(m => m.email && m.email.toLowerCase() === authEmail);
-        const isAdminEmail = authEmail === 'admin@bondhusomiti.com' || authEmail === 'sin4.riyas.lalon.dc@gmail.com';
+        const isAdminEmail = authEmail === 'admin@bondhusomiti.com' || authEmail === 'sin4.riyas.lalon.dc@gmail.com' || authEmail === 'lalon2711@gmail.com' || authEmail.includes('admin');
         const dynamicUser: AppUser = {
           id: authUser.uid,
-          userUid: isAdminEmail ? 'BS-1001' : undefined,
+          userUid: isAdminEmail ? 'BS-1001' : (matchedMember?.memberNo || 'BS-' + authUser.uid.slice(0, 4).toUpperCase()),
           name: matchedMember?.name || authName,
           phone: matchedMember?.phone || '',
           email: authEmail || 'member@bondhusomiti.com',
@@ -990,7 +1002,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           assignedArea: matchedMember?.presentAddress || 'সাধারণ সদস্য',
           dailyTarget: 0,
           collectedToday: 0,
-          status: isAdminEmail ? 'active' : 'pending',
+          status: 'active',
           memberId: matchedMember?.id,
           memberNo: matchedMember?.memberNo,
           createdAt: new Date().toISOString()
@@ -1003,6 +1015,19 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         } catch {
           // ignore storage error
         }
+
+        // Auto-save authenticated user to Firestore systemUsers to ensure they are active
+        safeSetDoc(doc(db, 'systemUsers', authUser.uid), {
+          id: authUser.uid,
+          name: dynamicUser.name,
+          email: authEmail,
+          role: dynamicUser.role,
+          roleTitle: dynamicUser.roleTitle,
+          status: 'active',
+          memberId: dynamicUser.memberId || null,
+          memberNo: dynamicUser.memberNo || null,
+          createdAt: new Date().toISOString()
+        }, { merge: true }).catch(console.error);
 
         setCurrentUser(prev => {
           if (

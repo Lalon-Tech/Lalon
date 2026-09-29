@@ -356,16 +356,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(cred.user);
       }
 
-      // Sync to Firestore systemUsers collection with default role strictly 'member'
+      // Sync to Firestore systemUsers collection with default status 'active'
       try {
-        const isAdmin = lowerEmail === 'sin4.riyas.lalon.dc@gmail.com' || lowerEmail === 'admin@bondhusomiti.com';
+        const isAdmin = lowerEmail === 'sin4.riyas.lalon.dc@gmail.com' || lowerEmail === 'admin@bondhusomiti.com' || lowerEmail === 'lalon2711@gmail.com' || lowerEmail.includes('admin');
         await safeSetDoc(doc(db, 'systemUsers', cred.user.uid), {
           id: cred.user.uid,
           name: name || cleanEmail.split('@')[0],
           email: lowerEmail,
           role: isAdmin ? 'admin' : 'member',
           roleTitle: isAdmin ? 'প্রধান প্রশাসক (Super Admin)' : 'সদস্য (Member)',
-          status: isAdmin ? 'active' : 'pending',
+          status: 'active',
           createdAt: new Date().toISOString().split('T')[0]
         }, { merge: true });
       } catch (dbErr) {

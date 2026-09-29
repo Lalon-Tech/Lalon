@@ -142,7 +142,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         await signUp(cleanLoginId, password);
         setActiveTab('dashboard');
         setSelectedMemberId(null);
-        setSuccessMsg('নিবন্ধন সম্পন্ন হয়েছে! অ্যাকাউন্টটি প্রশাসনিক অনুমোদনের অপেক্ষায় রয়েছে।');
+        setSuccessMsg('নিবন্ধন সফল হয়েছে! স্বাগতম।');
         setTimeout(() => {
           onClose();
         }, 1200);

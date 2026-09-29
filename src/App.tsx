@@ -275,10 +275,8 @@ const AppContent: React.FC = () => {
     return <LoginPage />;
   }
 
-  // Pending Approval Gate: Unapproved or unlinked member accounts cannot access Member Dashboard or financial data
-  const isPendingApproval = 
-    currentUser?.status === 'pending' || 
-    (currentUser?.role === 'member' && !currentUser?.memberId);
+  // Pending Approval Gate: Only block if account status is explicitly 'pending' or 'rejected'
+  const isPendingApproval = currentUser?.status === 'pending' || currentUser?.status === 'rejected';
 
   if (isPendingApproval && currentUser?.role !== 'admin') {
     return <PendingApprovalView />;

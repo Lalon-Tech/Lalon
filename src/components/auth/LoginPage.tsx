@@ -109,7 +109,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
       try {
         await signUp(email.trim(), password);
         rememberLoginId(email.trim());
-        setSuccessMsg(language === 'bn' ? 'নিবন্ধন সফল হয়েছে! অ্যাকাউন্টটি প্রশাসনিক অনুমোদনের অপেক্ষায় রয়েছে।' : 'Registration submitted! Your account is pending administrative approval.');
+        setSuccessMsg(language === 'bn' ? 'নিবন্ধন সফল হয়েছে! সফলভাবে সাইন-ইন সম্পন্ন হয়েছে।' : 'Registration successful! Signed in successfully.');
       } catch {
         // error in context
       } finally {
