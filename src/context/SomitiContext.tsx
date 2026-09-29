@@ -936,11 +936,20 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         u.id === authUser.uid
       );
 
+      // Check if matched user or authEmail corresponds to an existing Member in members
+      const matchedMember = members.find(m => 
+        (matched?.memberId && m.id === matched.memberId) ||
+        (m.email && m.email.toLowerCase() === authEmail)
+      );
+
       if (matched) {
+        const resolvedAvatar = matchedMember?.photoUrl || authUser.photoURL || matched.avatarUrl;
         const sanitized = sanitizeUser({
           ...matched,
-          name: matched.name || authName,
-          avatarUrl: authUser.photoURL || matched.avatarUrl,
+          name: matched.name || matchedMember?.name || authName,
+          avatarUrl: resolvedAvatar,
+          memberId: matched.memberId || matchedMember?.id,
+          memberNo: matched.memberNo || matchedMember?.memberNo,
         });
 
         // Persist matched user so page reloads/pull-to-refreshes never flash another profile
@@ -1944,6 +1953,32 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       safeSetDoc(doc(db, 'members', id), updated).catch(console.error);
       return updated;
     }));
+
+    // If photoUrl was updated, synchronize currentUser.avatarUrl and users collection immediately
+    if (normalizedData.photoUrl) {
+      const newPhoto = normalizedData.photoUrl;
+      const targetMember = members.find(m => m.id === id);
+      setCurrentUser(prev => {
+        if (prev && (prev.memberId === id || prev.id === id || (prev.email && targetMember?.email && prev.email.toLowerCase() === targetMember.email.toLowerCase()))) {
+          const updatedUser = { ...prev, avatarUrl: newPhoto };
+          try {
+            localStorage.setItem('somiti_current_app_user', JSON.stringify(updatedUser));
+            sessionStorage.setItem('somiti_current_app_user', JSON.stringify(updatedUser));
+          } catch {}
+          return updatedUser;
+        }
+        return prev;
+      });
+
+      setUsers(prev => prev.map(u => {
+        if (u.memberId === id || u.id === id || (u.email && targetMember?.email && u.email.toLowerCase() === targetMember.email.toLowerCase())) {
+          const up = { ...u, avatarUrl: newPhoto };
+          safeSetDoc(doc(db, 'systemUsers', u.id), up).catch(console.error);
+          return up;
+        }
+        return u;
+      }));
+    }
 
     // If name was updated, synchronize memberName across all referencing collections
     if (data.name && data.name.trim()) {

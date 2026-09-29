@@ -34,6 +34,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal }) => {
   const { language, t } = useLanguage();
   const { 
+    activeTab,
     currentUser, 
     searchQuery, 
     setSearchQuery, 
@@ -45,6 +46,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
     setShowQuickLoanModal,
     setShowQuickKistiModal,
     setActiveTab,
+    selectedMemberId,
     setSelectedMemberId,
     members,
     loans,
@@ -53,6 +55,28 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
     users,
     settings
   } = useSomiti();
+
+  // Check if viewing a member profile
+  const isViewingMemberProfile = activeTab === 'member_profile' || activeTab === 'members_profile';
+  const viewingMember = isViewingMemberProfile
+    ? (selectedMemberId ? members.find(m => m.id === selectedMemberId) : (currentUser?.memberId ? members.find(m => m.id === currentUser.memberId) : null))
+    : null;
+
+  // If currentUser is linked to a member, prioritize the member's live photoUrl
+  const linkedUserMember = currentUser?.memberId ? members.find(m => m.id === currentUser.memberId) : null;
+  const currentLiveAvatarUrl = linkedUserMember?.photoUrl || currentUser.avatarUrl;
+
+  const headerAvatarUrl = viewingMember 
+    ? (viewingMember.photoUrl || currentLiveAvatarUrl)
+    : currentLiveAvatarUrl;
+  
+  const headerDisplayName = viewingMember 
+    ? viewingMember.name 
+    : currentUser.name;
+
+  const headerSubtitle = viewingMember
+    ? (language === 'bn' ? `সদস্য প্রোফাইল • #${viewingMember.memberNo}` : `Member Profile • #${viewingMember.memberNo}`)
+    : (language === 'bn' ? `${currentUser.roleTitle} • ${t('your_profile')}` : `${currentUser.role === 'admin' ? 'Admin & CEO' : currentUser.roleTitle} • ${t('your_profile')}`);
 
   const pendingApprovalsCount = React.useMemo(() => {
     return getAllPendingApprovals({ loans, businessFundings, businessProfitRecords, members, users }).length;
@@ -139,19 +163,33 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-2.5 cursor-pointer group" onClick={() => setActiveTab('users')}>
+        <div 
+          className="flex items-center gap-1.5 sm:gap-2.5 cursor-pointer group" 
+          onClick={() => {
+            if (isViewingMemberProfile && viewingMember) {
+              setSelectedMemberId(viewingMember.id);
+              setActiveTab('member_profile');
+            } else {
+              setActiveTab('users');
+            }
+          }}
+          title={isViewingMemberProfile ? `${headerDisplayName} - সদস্য প্রোফাইল` : `${currentUser.name} - আপনার প্রোফাইল`}
+        >
           <div className="relative shrink-0">
             <img
-              src={currentUser.avatarUrl}
-              alt={currentUser.name}
-              className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover ring-2 ring-blue-500/20 shadow-xs"
+              src={headerAvatarUrl}
+              alt={headerDisplayName}
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover object-top ring-2 ring-blue-500/20 shadow-xs bg-slate-100"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80';
+              }}
             />
             <span className="absolute bottom-0 right-0 w-2 sm:w-2.5 h-2 sm:h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
           </div>
           <div className="hidden sm:block">
-            <h2 className="text-sm font-bold text-slate-800 leading-tight group-hover:text-blue-600 transition-colors truncate max-w-[120px] md:max-w-[160px]">{currentUser.name}</h2>
+            <h2 className="text-sm font-bold text-slate-800 leading-tight group-hover:text-blue-600 transition-colors truncate max-w-[120px] md:max-w-[160px]">{headerDisplayName}</h2>
             <p className="text-[11px] text-slate-500 truncate max-w-[120px] md:max-w-[160px]">
-              {language === 'bn' ? `${currentUser.roleTitle} • ${t('your_profile')}` : `${currentUser.role === 'admin' ? 'Admin & CEO' : currentUser.roleTitle} • ${t('your_profile')}`}
+              {headerSubtitle}
             </p>
           </div>
         </div>
@@ -275,6 +313,28 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
 
         {/* Global Dark / Light Theme Toggle */}
         <ThemeToggle />
+
+        {/* If viewing a member profile as admin, show logged in admin badge on the right */}
+        {isViewingMemberProfile && viewingMember && viewingMember.id !== currentUser.memberId && (
+          <div 
+            onClick={() => setActiveTab('users')}
+            className="hidden xl:flex items-center gap-2 pl-2 border-l border-slate-200/80 dark:border-slate-800 cursor-pointer group"
+            title={`${currentUser.name} (${currentUser.roleTitle})`}
+          >
+            <img 
+              src={currentLiveAvatarUrl} 
+              alt={currentUser.name} 
+              className="w-7 h-7 rounded-full object-cover object-top ring-1 ring-slate-300 bg-slate-100"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80';
+              }}
+            />
+            <div className="text-left text-[11px]">
+              <p className="font-bold text-slate-700 dark:text-slate-200 leading-tight truncate max-w-[80px]">{currentUser.name.split(' ')[0]}</p>
+              <p className="text-[9px] text-slate-400 truncate max-w-[80px]">{currentUser.roleTitle}</p>
+            </div>
+          </div>
+        )}
 
         {/* Quick Add Button & Dropdown - hidden on mobile */}
         <div ref={addMenuRef} className="hidden sm:block relative shrink-0">
