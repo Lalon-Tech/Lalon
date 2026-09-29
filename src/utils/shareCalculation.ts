@@ -72,13 +72,7 @@ export function calculateMemberRemainingShares(
     return Math.max(0, totalPurchasedFromTxs);
   }
 
-  // If there are transactions in the system or for this member, but no purchase transactions exist:
-  if (completedTxs.length > 0 && purchaseTxs.length === 0) {
-    // Member has transaction history, but has 0 share purchase transactions
-    return 0;
-  }
-
-  // Fallback to member's recorded shareCount
+  // Baseline shareCount from member registration/record
   return Math.max(0, Number(member.shareCount) || 0);
 }
 
@@ -198,6 +192,8 @@ export function recalculateMemberShareFinancials(
   // Requirement: When a member surrenders/deletes all of their shares, all share-related values for that member must become 0
   // Base Deposit must become 0 when the member has no remaining shares.
   // Share Capital related to those shares must also be 0.
+  const breakdown = calculateMemberSavingsBreakdown(member, transactions, shareClosures);
+
   // When remainingShares <= 0, any share-related value is 0. If no DPS/FDR records exist, totalSavings is 0.
   if (remainingShares <= 0) {
     const finalDps = dpsTxs.length > 0 ? dpsFromTxs : 0;
@@ -210,11 +206,9 @@ export function recalculateMemberShareFinancials(
       dpsSavingsBalance: finalDps,
       fdrSavingsBalance: finalFdr,
       totalSavings: finalDps + finalFdr,
+      totalDeposit: breakdown.totalDeposits,
     };
   }
-
-  // Calculate pure savings strictly based on actual recorded deposits and profit
-  const breakdown = calculateMemberSavingsBreakdown(member, transactions, shareClosures);
 
   return {
     ...member,
@@ -224,6 +218,7 @@ export function recalculateMemberShareFinancials(
     dpsSavingsBalance: breakdown.dpsSavingsBalance,
     fdrSavingsBalance: breakdown.fdrSavingsBalance,
     totalSavings: breakdown.totalSavings,
+    totalDeposit: breakdown.totalDeposits,
   };
 }
 

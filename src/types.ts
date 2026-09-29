@@ -156,6 +156,7 @@ export interface Member {
   dpsSavingsBalance: number;
   fdrSavingsBalance: number;
   totalSavings: number;
+  totalDeposit?: number;
   activeLoanBalance: number;
   nominees: Nominee[];
   assignedCollectorId?: string;
