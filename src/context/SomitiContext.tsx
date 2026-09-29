@@ -32,7 +32,8 @@ import {
   MonthlyProfitDistribution,
   MemberProfitShareItem,
   AuditLog,
-  MemberUpdateRequest
+  MemberUpdateRequest,
+  ClearDataOptions
 } from '../types';
 import { 
   initialMembers, 
@@ -619,7 +620,7 @@ interface SomitiContextType {
   };
   
   // Data Reset & Backup
-  clearAllData: () => Promise<void> | void;
+  clearAllData: (options?: ClearDataOptions) => Promise<void> | void;
   resetToDemoData: () => void;
   exportDatabaseJson: () => void;
   importDatabaseJson: (jsonString: string) => boolean;
@@ -4931,77 +4932,149 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // Reset & Backup
-  const clearAllData = async () => {
+  const clearAllData = async (options?: ClearDataOptions) => {
     isInitialLoadDone.current = true;
-    setMembers([]);
-    setLoans([]);
-    setSavingsSchemes([]);
-    setShareClosures([]);
-    setTransactions([]);
-    setVouchers([]);
-    setBusinessFundings([]);
-    setBusinessProfitRecords([]);
-    setProfitDistributions([]);
-    
+
+    // Determine what to clear (default all true if no options specified)
+    const clearMembers = options ? Boolean(options.members) : true;
+    const clearTransactions = options ? Boolean(options.transactions) : true;
+    const clearLoans = options ? Boolean(options.loans) : true;
+    const clearSavings = options ? Boolean(options.savings) : true;
+    const clearBusiness = options ? Boolean(options.business) : true;
+    const clearShareClosures = options ? Boolean(options.shareClosures) : true;
+    const clearBank = options ? Boolean(options.bankAccounts) : true;
+    const clearAudit = options ? Boolean(options.auditLogs) : true;
+
+    // 1. Members
+    if (clearMembers) {
+      setMembers([]);
+      try {
+        localStorage.removeItem('bondhu_members');
+        localStorage.setItem('bondhu_members', JSON.stringify([]));
+      } catch (_) {}
+    } else {
+      // If members are KEPT, but transactions, loans, or savings are cleared:
+      // Reset members' financial balances to 0 so there are no ghost ledger numbers
+      setMembers(prev => {
+        const updated = prev.map(m => {
+          const up = {
+            ...m,
+            totalDeposit: clearTransactions ? 0 : m.totalDeposit,
+            totalLoan: clearLoans ? 0 : m.totalLoan,
+            totalInterestPaid: clearLoans ? 0 : (m.totalInterestPaid || 0),
+            shareCount: clearTransactions ? (m.shareCount || 0) : m.shareCount,
+          };
+          safeSetDoc(doc(db, 'members', m.id), up, { merge: true }).catch(console.error);
+          return up;
+        });
+        try {
+          localStorage.setItem('bondhu_members', JSON.stringify(updated));
+        } catch (_) {}
+        return updated;
+      });
+    }
+
+    // 2. Loans
+    if (clearLoans) {
+      setLoans([]);
+      try {
+        localStorage.removeItem('bondhu_loans');
+        localStorage.setItem('bondhu_loans', JSON.stringify([]));
+      } catch (_) {}
+    }
+
+    // 3. Savings Schemes (DPS, FDR)
+    if (clearSavings) {
+      setSavingsSchemes([]);
+      try {
+        localStorage.removeItem('bondhu_savings');
+        localStorage.setItem('bondhu_savings', JSON.stringify([]));
+      } catch (_) {}
+    }
+
+    // 4. Share Closures
+    if (clearShareClosures) {
+      setShareClosures([]);
+      try {
+        localStorage.removeItem('bondhu_share_closures');
+        localStorage.setItem('bondhu_share_closures', JSON.stringify([]));
+      } catch (_) {}
+    }
+
+    // 5. Transactions & Vouchers
+    if (clearTransactions) {
+      setTransactions([]);
+      setVouchers([]);
+      try {
+        localStorage.removeItem('bondhu_transactions');
+        localStorage.removeItem('bondhu_vouchers');
+        localStorage.removeItem('bondhu_income_expenses');
+        localStorage.setItem('bondhu_transactions', JSON.stringify([]));
+        localStorage.setItem('bondhu_vouchers', JSON.stringify([]));
+      } catch (_) {}
+    }
+
+    // 6. Business Fundings & Profit Distributions
+    if (clearBusiness) {
+      setBusinessFundings([]);
+      setBusinessProfitRecords([]);
+      setProfitDistributions([]);
+      try {
+        localStorage.removeItem('bondhu_business_fundings');
+        localStorage.removeItem('bondhu_business_profit_records');
+        localStorage.removeItem('bondhu_profit_distributions');
+        localStorage.setItem('bondhu_business_fundings', JSON.stringify([]));
+        localStorage.setItem('bondhu_business_profit_records', JSON.stringify([]));
+        localStorage.setItem('bondhu_profit_distributions', JSON.stringify([]));
+      } catch (_) {}
+    }
+
+    // 7. Bank Accounts
+    if (clearBank) {
+      const cleanBank: BankAccount[] = [
+        {
+          id: 'bank-1',
+          bankName: 'সোনালী ব্যাংক পিএলসি',
+          branchName: 'প্রধান শাখা',
+          accountName: settings.somitiName || 'সমিতি অ্যাকাউন্ট',
+          accountNumber: '০২০০০০১০০৯৮৭২',
+          accountType: 'current',
+          balance: 0,
+          updatedAt: getTodayDateStr(),
+        }
+      ];
+      setBankAccounts(cleanBank);
+      try {
+        localStorage.setItem('bondhu_bank_accounts', JSON.stringify(cleanBank));
+      } catch (_) {}
+    }
+
+    // 8. Audit Logs
+    if (clearAudit) {
+      setAuditLogs([]);
+      try {
+        localStorage.removeItem('bondhu_audit_logs');
+      } catch (_) {}
+    }
+
     // Preserve existing admin/staff users so user doesn't get locked out
     const preservedUsers = users.length > 0 ? users : initialUsers;
     setUsers(preservedUsers);
-    
-    const cleanBank: BankAccount[] = [
-      {
-        id: 'bank-1',
-        bankName: 'সোনালী ব্যাংক পিএলসি',
-        branchName: 'প্রধান শাখা',
-        accountName: settings.somitiName || 'সমিতি অ্যাকাউন্ট',
-        accountNumber: '০২০০০০১০০৯৮৭২',
-        accountType: 'current',
-        balance: 0,
-        updatedAt: getTodayDateStr(),
-      }
-    ];
-    setBankAccounts(cleanBank);
-
-    // Clear localStorage
-    const storageKeys = [
-      'bondhu_members', 'bondhu_loans', 'bondhu_savings', 'bondhu_share_closures', 'bondhu_transactions',
-      'bondhu_vouchers', 'bondhu_somiti_members',
-      'bondhu_somiti_loans', 'bondhu_somiti_savings', 'bondhu_somiti_transactions',
-      'bondhu_somiti_income_expense',
-      'bondhu_business_fundings', 'bondhu_business_profit_records', 'bondhu_profit_distributions'
-    ];
-    storageKeys.forEach(k => {
-      try {
-        localStorage.removeItem(k);
-      } catch (_) {}
-    });
     try {
-      localStorage.setItem('bondhu_members', JSON.stringify([]));
-      localStorage.setItem('bondhu_loans', JSON.stringify([]));
-      localStorage.setItem('bondhu_savings', JSON.stringify([]));
-      localStorage.setItem('bondhu_share_closures', JSON.stringify([]));
-      localStorage.setItem('bondhu_transactions', JSON.stringify([]));
-      localStorage.setItem('bondhu_vouchers', JSON.stringify([]));
-      localStorage.setItem('bondhu_business_fundings', JSON.stringify([]));
-      localStorage.setItem('bondhu_business_profit_records', JSON.stringify([]));
-      localStorage.setItem('bondhu_profit_distributions', JSON.stringify([]));
-      localStorage.setItem('bondhu_bank_accounts', JSON.stringify(cleanBank));
       localStorage.setItem('bondhu_users', JSON.stringify(preservedUsers));
     } catch (_) {}
 
     // Clear Firestore documents if connected
     try {
-      const collectionsToClear = [
-        'members', 
-        'loans', 
-        'savings', 
-        'shareClosures', 
-        'transactions', 
-        'incomeExpenses', 
-        'vouchers', 
-        'businessFundings', 
-        'businessProfitRecords', 
-        'profitDistributions'
-      ];
+      const collectionsToClear: string[] = [];
+      if (clearMembers) collectionsToClear.push('members');
+      if (clearLoans) collectionsToClear.push('loans');
+      if (clearSavings) collectionsToClear.push('savings');
+      if (clearShareClosures) collectionsToClear.push('shareClosures');
+      if (clearTransactions) collectionsToClear.push('transactions', 'incomeExpenses', 'vouchers');
+      if (clearBusiness) collectionsToClear.push('businessFundings', 'businessProfitRecords', 'profitDistributions');
+      if (clearAudit) collectionsToClear.push('auditLogs');
+
       for (const col of collectionsToClear) {
         const snap = await getDocs(collection(db, col));
         if (!snap.empty) {
@@ -5010,11 +5083,26 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           await batch.commit();
         }
       }
-      const bankSnap = await getDocs(collection(db, 'bankAccounts'));
-      const bankBatch = writeBatch(db);
-      bankSnap.forEach(d => bankBatch.delete(d.ref));
-      safeBatchSet(bankBatch, doc(db, 'bankAccounts', 'bank-1'), cleanBank[0]);
-      await bankBatch.commit();
+
+      if (clearBank) {
+        const bankSnap = await getDocs(collection(db, 'bankAccounts'));
+        const bankBatch = writeBatch(db);
+        bankSnap.forEach(d => bankBatch.delete(d.ref));
+        const cleanBank = [
+          {
+            id: 'bank-1',
+            bankName: 'সোনালী ব্যাংক পিএলসি',
+            branchName: 'প্রধান শাখা',
+            accountName: settings.somitiName || 'সমিতি অ্যাকাউন্ট',
+            accountNumber: '০২০০০০১০০৯৮৭২',
+            accountType: 'current',
+            balance: 0,
+            updatedAt: getTodayDateStr(),
+          }
+        ];
+        safeBatchSet(bankBatch, doc(db, 'bankAccounts', 'bank-1'), cleanBank[0]);
+        await bankBatch.commit();
+      }
 
       // Ensure preserved users exist in systemUsers
       for (const u of preservedUsers) {

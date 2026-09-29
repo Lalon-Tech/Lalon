@@ -39,7 +39,12 @@ import {
   Minimize2,
   Palette,
   Layers,
-  Fingerprint
+  Fingerprint,
+  Users,
+  CheckSquare,
+  PiggyBank,
+  CreditCard,
+  Briefcase
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useSomiti } from '../../context/SomitiContext';
@@ -69,6 +74,11 @@ export const SettingsView: React.FC = () => {
     members,
     loans,
     transactions,
+    savingsSchemes,
+    businessFundings,
+    shareClosures,
+    vouchers,
+    auditLogs,
     clearAllData,
     resetToDemoData,
     exportDatabaseJson,
@@ -292,6 +302,25 @@ export const SettingsView: React.FC = () => {
 
   // In-app Modal and Feedback States (avoids sandboxed iframe window.confirm/alert blocks)
   const [showClearModal, setShowClearModal] = useState(false);
+  const [selectedClearCategories, setSelectedClearCategories] = useState<{
+    members: boolean;
+    transactions: boolean;
+    loans: boolean;
+    savings: boolean;
+    business: boolean;
+    shareClosures: boolean;
+    bankAccounts: boolean;
+    auditLogs: boolean;
+  }>({
+    members: false, // Default to FALSE as requested: keep all members, clear the rest
+    transactions: true,
+    loans: true,
+    savings: true,
+    business: true,
+    shareClosures: true,
+    bankAccounts: true,
+    auditLogs: true,
+  });
   const [showResetModal, setShowResetModal] = useState(false);
   const [showApkModal, setShowApkModal] = useState(false);
   const [isProcessingClear, setIsProcessingClear] = useState(false);
@@ -488,15 +517,30 @@ export const SettingsView: React.FC = () => {
   };
 
   const confirmClearAllData = async () => {
+    const hasSelection = Object.values(selectedClearCategories).some(Boolean);
+    if (!hasSelection) {
+      setActionFeedback({
+        type: 'error',
+        message: language === 'bn' ? 'অনুগ্রহ করে কমপক্ষে একটি ক্যাটাগরি সিলেক্ট করুন।' : 'Please select at least one category to clear.'
+      });
+      return;
+    }
+
     try {
       setIsProcessingClear(true);
-      await clearAllData();
+      await clearAllData(selectedClearCategories);
       setShowClearModal(false);
+      
+      const keptMembers = !selectedClearCategories.members && members.length > 0;
       setActionFeedback({
         type: 'success',
         message: language === 'bn' 
-          ? 'সফল হয়েছে! সমস্ত ডেমো ডাটা মুছে ডাটাবেজ সম্পূর্ণ শূন্য (০ সদস্য) করা হয়েছে। আপনি এখন আপনার সমিতির সদস্যদের আসল তথ্য এন্ট্রি করতে পারবেন।'
-          : 'Success! Database cleared to 0 members. You can now start entering your own members and transactions.'
+          ? keptMembers 
+            ? `সফল হয়েছে! সদস্য তালিকা (${members.length} জন) অক্ষত রেখে বাকি নির্বাচিত সকল ডাটা সফলভাবে মুছে ফেলা হয়েছে।` 
+            : 'সফল হয়েছে! নির্বাচিত সকল ডেমো ডাটা ডাটাবেজ থেকে সম্পূর্ণ মুছে ডাটাবেজ আপডেট করা হয়েছে।'
+          : keptMembers
+            ? `Success! Kept all ${members.length} members intact and cleared selected transactions & records.`
+            : 'Success! Selected demo data cleared from database.'
       });
       try {
         confetti({ particleCount: 50, spread: 70, origin: { y: 0.6 } });
@@ -1519,21 +1563,24 @@ export const SettingsView: React.FC = () => {
         </div>
       </form>
 
-      {/* Clear All Data Modal */}
+      {/* Clear All Data Modal (with Selective Category Checkboxes) */}
       {showClearModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex min-h-full items-center justify-center animate-fadeIn">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-rose-200 space-y-4 animate-in fade-in zoom-in-95 my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))] overflow-y-auto">
-            <div className="flex items-start justify-between gap-3 border-b pb-3 shrink-0">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl border border-rose-200 space-y-4 animate-in fade-in zoom-in-95 my-auto flex flex-col max-h-[min(92vh,calc(100dvh-2rem))] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3 shrink-0">
               <div className="flex items-center gap-2.5 text-rose-600">
-                <div className="p-2 bg-rose-100 rounded-xl">
+                <div className="p-2.5 bg-rose-100 rounded-xl">
                   <AlertTriangle className="w-6 h-6 text-rose-600" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-800">
-                    {language === 'bn' ? 'সব ডেমো ডাটা মুছে ০ সদস্য থেকে শুরু' : 'Clear All Demo Data (Start Fresh)'}
+                  <h3 className="text-base sm:text-lg font-bold text-slate-800">
+                    {language === 'bn' ? 'ডাটাবেজ পরিষ্কার ও ডেমো ডাটা রিসেট' : 'Clear Demo Data / Selective Reset'}
                   </h3>
-                  <p className="text-xs text-rose-600 font-medium">
-                    {language === 'bn' ? '⚠️ সতর্কতা: এই প্রক্রিয়াটি অপরিবর্তনীয়' : '⚠️ Warning: This action is irreversible'}
+                  <p className="text-xs text-slate-500">
+                    {language === 'bn'
+                      ? 'যেসব ডাটা মুছতে চান সেগুলো সিলেক্ট করুন, যা রাখতে চান তা আন-সিলেক্ট রাখুন'
+                      : 'Select categories to delete, keep unselected to preserve'}
                   </p>
                 </div>
               </div>
@@ -1541,78 +1588,295 @@ export const SettingsView: React.FC = () => {
                 type="button" 
                 disabled={isProcessingClear}
                 onClick={() => setShowClearModal(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs text-slate-600">
-              <p className="leading-relaxed">
-                {language === 'bn'
-                  ? 'আপনি কি নিশ্চিত যে সমস্ত টেস্ট/ডেমো মেম্বার এবং তাদের সব ঋণ ও লেনদেনের ডাটা মুছে ফেলতে চান? এটি সম্পন্ন হলে আপনার ডাটাবেজে ০ জন সদস্য থাকবে এবং আপনি সম্পূর্ণ নতুন করে আপনার আসল সমিতির ডাটা এন্ট্রি করতে পারবেন।'
-                  : 'Are you sure you want to delete all test/demo members and all associated transactions? Your database will be reset to 0 members, ready for your real somiti records.'}
-              </p>
-
-              <div className="grid grid-cols-2 gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <div className="space-y-1">
-                  <span className="font-bold text-rose-700 block">{language === 'bn' ? 'যা যা মুছে যাবে:' : 'What will be removed:'}</span>
-                  <ul className="space-y-0.5 text-slate-600 list-disc list-inside">
-                    <li>{language === 'bn' ? 'সব সদস্য তালিকা' : 'All members'}</li>
-                    <li>{language === 'bn' ? 'সকল ঋণ ও কিস্তি' : 'All loans & installments'}</li>
-                    <li>{language === 'bn' ? 'সঞ্চয়, DPS ও FDR' : 'All savings & DPS'}</li>
-                    <li>{language === 'bn' ? 'ব্যবসা ফান্ডিং ও লাভ' : 'Business fundings & profit'}</li>
-                    <li>{language === 'bn' ? 'সমস্ত লেনদেন ও ভাউচার' : 'All transactions & vouchers'}</li>
-                  </ul>
-                </div>
-                <div className="space-y-1 border-l pl-3 border-slate-200">
-                  <span className="font-bold text-emerald-700 block">{language === 'bn' ? 'যা সুরক্ষিত থাকবে:' : 'What stays safe:'}</span>
-                  <ul className="space-y-0.5 text-slate-600 list-disc list-inside">
-                    <li>{language === 'bn' ? 'সমিতির নাম ও তথ্য' : 'Somiti name & info'}</li>
-                    <li>{language === 'bn' ? 'আপনার অ্যাডমিন অ্যাকাউন্ট' : 'Your admin account'}</li>
-                    <li>{language === 'bn' ? 'সুদের হার ও সেটিংস' : 'Interest rates & settings'}</li>
-                    <li>{language === 'bn' ? 'ব্যাংক হিসাব (ব্যালেন্স ০)' : 'Bank account (balance 0)'}</li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-800 flex items-start gap-2">
-                <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                <span>
-                  {language === 'bn'
-                    ? 'পরামর্শ: ডাটা মুছে ফেলার আগে বর্তমান ডাটার একটি কপি রাখতে চাইলে "সম্পূর্ণ ডাটাবেজ ব্যাকআপ (JSON)" ডাউনলোড করে নিতে পারেন।'
-                    : 'Tip: You can download a complete JSON backup before wiping out demo records.'}
+            {/* Quick Presets Bar */}
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700">
+                  {language === 'bn' ? '⚡ দ্রুত নির্বাচন অপশন (Presets):' : '⚡ Quick Presets:'}
                 </span>
+                <span className="text-[11px] text-slate-500 font-mono">
+                  {language === 'bn' ? `নির্বাচিত: ${Object.values(selectedClearCategories).filter(Boolean).length}/8 টি` : `Selected: ${Object.values(selectedClearCategories).filter(Boolean).length}/8`}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedClearCategories({
+                    members: false,
+                    transactions: true,
+                    loans: true,
+                    savings: true,
+                    business: true,
+                    shareClosures: true,
+                    bankAccounts: true,
+                    auditLogs: true,
+                  })}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    !selectedClearCategories.members && selectedClearCategories.transactions
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-white text-blue-700 hover:bg-blue-50 border border-blue-200 shadow-2xs'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>{language === 'bn' ? 'সদস্য রেখে বাকি সব মুছুন (প্রস্তাবিত)' : 'Keep Members, Clear Rest'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedClearCategories({
+                    members: true,
+                    transactions: true,
+                    loans: true,
+                    savings: true,
+                    business: true,
+                    shareClosures: true,
+                    bankAccounts: true,
+                    auditLogs: true,
+                  })}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    Object.values(selectedClearCategories).every(Boolean)
+                      ? 'bg-rose-600 text-white shadow-xs'
+                      : 'bg-white text-rose-700 hover:bg-rose-50 border border-rose-200 shadow-2xs'
+                  }`}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{language === 'bn' ? 'সবকিছু মুছুন (০ সদস্য)' : 'Select All (0 Members)'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedClearCategories({
+                    members: false,
+                    transactions: false,
+                    loans: false,
+                    savings: false,
+                    business: false,
+                    shareClosures: false,
+                    bankAccounts: false,
+                    auditLogs: false,
+                  })}
+                  className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 shadow-2xs transition-all cursor-pointer"
+                >
+                  <span>{language === 'bn' ? 'সব আন-সিলেক্ট' : 'Deselect All'}</span>
+                </button>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-2 border-t">
-              <button
-                type="button"
-                disabled={isProcessingClear}
-                onClick={() => setShowClearModal(false)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all"
-              >
-                {language === 'bn' ? 'বাতিল' : 'Cancel'}
-              </button>
-              <button
-                type="button"
-                disabled={isProcessingClear}
-                onClick={confirmClearAllData}
-                className="flex items-center gap-2 px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-md disabled:opacity-60 cursor-pointer"
-              >
-                {isProcessingClear ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>{language === 'bn' ? 'মুছে ফেলা হচ্ছে...' : 'Wiping database...'}</span>
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="w-4 h-4" />
-                    <span>{language === 'bn' ? 'হ্যাঁ, সব ডাটা মুছুন (০ সদস্য)' : 'Yes, Delete All Data (0 Members)'}</span>
-                  </>
-                )}
-              </button>
+            {/* Checklist of Categories */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-700">
+                {language === 'bn' ? 'নিচের ক্যাটাগরিগুলো থেকে নির্বাচন করুন:' : 'Choose categories to clear:'}
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {[
+                  {
+                    id: 'members' as const,
+                    label: language === 'bn' ? 'সদস্য তালিকা (Members)' : 'All Members',
+                    desc: language === 'bn' ? 'সকল সাধারণ ও ডেমো সদস্যের প্রোফাইল' : 'All member profiles & directory',
+                    count: members.length,
+                    unit: language === 'bn' ? 'জন' : 'members',
+                    icon: Users,
+                    isCritical: true,
+                  },
+                  {
+                    id: 'transactions' as const,
+                    label: language === 'bn' ? 'লেনদেন ও ভাউচার (Transactions)' : 'Transactions & Vouchers',
+                    desc: language === 'bn' ? 'সঞ্চয় জমা, উত্তোলন, আয়-ব্যয় ও ভাউচার' : 'Deposits, withdrawals, income/expenses',
+                    count: transactions.length + vouchers.length,
+                    unit: language === 'bn' ? 'টি' : 'records',
+                    icon: Coins,
+                  },
+                  {
+                    id: 'loans' as const,
+                    label: language === 'bn' ? 'ঋণ ও কিস্তি (Loans & Installments)' : 'Loans & Installments',
+                    desc: language === 'bn' ? 'সকল ঋণ হিসাব, কিস্তি পরিশোধ ও শিডিউল' : 'All loan accounts & installment records',
+                    count: loans.length,
+                    unit: language === 'bn' ? 'টি' : 'loans',
+                    icon: CreditCard,
+                  },
+                  {
+                    id: 'savings' as const,
+                    label: language === 'bn' ? 'সঞ্চয় স্কিম (DPS ও FDR)' : 'Savings Schemes (DPS/FDR)',
+                    desc: language === 'bn' ? 'ডিপিএস ও ফিক্সড ডিপোজিট অ্যাকাউন্ট' : 'All DPS and FDR member savings schemes',
+                    count: savingsSchemes.length,
+                    unit: language === 'bn' ? 'টি' : 'schemes',
+                    icon: PiggyBank,
+                  },
+                  {
+                    id: 'business' as const,
+                    label: language === 'bn' ? 'ব্যবসা ফান্ডিং ও বিনিয়োগ' : 'Business Funding & Profit',
+                    desc: language === 'bn' ? 'বিনিয়োগ প্রজেক্ট ও মুনাফা বণ্টন রেকর্ড' : 'Business projects & profit distributions',
+                    count: businessFundings.length,
+                    unit: language === 'bn' ? 'টি' : 'projects',
+                    icon: Briefcase,
+                  },
+                  {
+                    id: 'shareClosures' as const,
+                    label: language === 'bn' ? 'শেয়ার অবসান রেকর্ড' : 'Share Closures',
+                    desc: language === 'bn' ? 'সদস্যপদ ও শেয়ার ফেরত সংক্রান্ত রেকর্ড' : 'Share closure & settlement logs',
+                    count: shareClosures.length,
+                    unit: language === 'bn' ? 'টি' : 'records',
+                    icon: RotateCcw,
+                  },
+                  {
+                    id: 'bankAccounts' as const,
+                    label: language === 'bn' ? 'ব্যাংক অ্যাকাউন্টের ব্যালেন্স' : 'Bank Account Balances',
+                    desc: language === 'bn' ? 'সমিতির ব্যাংক হিসাবের ব্যালেন্স ৳০ রিসেট' : 'Reset bank account balances to 0',
+                    count: 1,
+                    unit: language === 'bn' ? 'টি' : 'account',
+                    icon: Building,
+                  },
+                  {
+                    id: 'auditLogs' as const,
+                    label: language === 'bn' ? 'অডিট ও অ্যাক্টিভিটি হিস্টোরি' : 'Audit & Activity Logs',
+                    desc: language === 'bn' ? 'সিস্টেম অ্যাকশন ও অডিট ট্রায়াল হিস্ট্রি' : 'System action history & activity logs',
+                    count: auditLogs.length,
+                    unit: language === 'bn' ? 'টি' : 'logs',
+                    icon: FileCode,
+                  },
+                ].map((cat) => {
+                  const isChecked = selectedClearCategories[cat.id];
+                  const Icon = cat.icon;
+                  return (
+                    <div
+                      key={cat.id}
+                      onClick={() =>
+                        setSelectedClearCategories((prev) => ({
+                          ...prev,
+                          [cat.id]: !prev[cat.id],
+                        }))
+                      }
+                      className={`p-3 rounded-xl border transition-all cursor-pointer select-none flex items-start gap-2.5 ${
+                        isChecked
+                          ? cat.isCritical
+                            ? 'bg-rose-50/70 border-rose-300 ring-1 ring-rose-400/40'
+                            : 'bg-amber-50/60 border-amber-300 ring-1 ring-amber-400/40'
+                          : 'bg-slate-50/70 border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {}} // controlled via container onClick
+                        className="mt-0.5 h-4 w-4 rounded-md border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-1.5">
+                          <span className={`text-xs font-bold truncate flex items-center gap-1.5 ${
+                            isChecked ? (cat.isCritical ? 'text-rose-900' : 'text-amber-950') : 'text-slate-800'
+                          }`}>
+                            <Icon className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                            <span>{cat.label}</span>
+                          </span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md shrink-0 ${
+                            isChecked
+                              ? 'bg-rose-100 text-rose-700'
+                              : 'bg-emerald-100 text-emerald-800'
+                          }`}>
+                            {isChecked 
+                              ? (language === 'bn' ? 'মুছে যাবে' : 'Will Delete') 
+                              : (language === 'bn' ? 'সুরক্ষিত' : 'Kept Safe')}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5 leading-tight line-clamp-1">
+                          {cat.desc}
+                        </p>
+                        <div className="mt-1 text-[10px] text-slate-400 font-mono">
+                          {cat.count} {cat.unit}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Dynamic Status / Protection Note */}
+            {!selectedClearCategories.members ? (
+              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-900 flex items-start gap-2.5 text-xs">
+                <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold block">
+                    {language === 'bn'
+                      ? `🛡️ সদস্যদের সুরক্ষা সক্রিয়: ${members.length} জন সদস্যের প্রোফাইল ডাটাবেজে অক্ষত থাকবে!`
+                      : `🛡️ Member Protection Active: All ${members.length} member profiles will stay intact!`}
+                  </span>
+                  <p className="text-[11px] text-emerald-700 mt-0.5 leading-relaxed">
+                    {language === 'bn'
+                      ? 'সদস্যদের নাম, মোবাইল, ছবি, ঠিকানা ও অ্যাকাউন্ট অক্ষত রেখে তাদের পূর্বের টেস্ট লেনদেন ও লোন ব্যালেন্স ০ করা হবে, যাতে নতুন করে আসল লেনদেন এন্ট্রি করা যায়।'
+                      : 'Member profiles stay completely intact with financial balances reset to 0 for fresh entries.'}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 text-rose-900 flex items-start gap-2.5 text-xs">
+                <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold block">
+                    {language === 'bn'
+                      ? '⚠️ সতর্কতা: সদস্য তালিকা সহ নির্বাচিত সকল ডাটা মুছে যাবে!'
+                      : '⚠️ Warning: Member directory and all selected records will be deleted!'}
+                  </span>
+                  <p className="text-[11px] text-rose-700 mt-0.5 leading-relaxed">
+                    {language === 'bn'
+                      ? 'ডাটাবেজে ০ জন সদস্য থাকবে। আপনি চাইলে ওপরের অপশন থেকে "সদস্য রেখে বাকি সব মুছুন" সিলেক্ট করে সদস্যদের রেখে দিতে পারেন।'
+                      : 'Database will be reset to 0 members. You can uncheck "All Members" to keep existing member profiles.'}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Modal Footer Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
+              <span className="text-xs text-slate-500">
+                {language === 'bn'
+                  ? `মোট ${Object.values(selectedClearCategories).filter(Boolean).length}টি ক্যাটাগরি নির্বাচিত`
+                  : `${Object.values(selectedClearCategories).filter(Boolean).length} categories selected`}
+              </span>
+
+              <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  disabled={isProcessingClear}
+                  onClick={() => setShowClearModal(false)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                >
+                  {language === 'bn' ? 'বাতিল' : 'Cancel'}
+                </button>
+                <button
+                  type="button"
+                  disabled={isProcessingClear || !Object.values(selectedClearCategories).some(Boolean)}
+                  onClick={confirmClearAllData}
+                  className={`flex items-center justify-center gap-2 px-5 py-2.5 text-white rounded-xl text-xs font-bold transition-all shadow-md disabled:opacity-50 cursor-pointer active:scale-95 ${
+                    selectedClearCategories.members
+                      ? 'bg-rose-600 hover:bg-rose-700'
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                >
+                  {isProcessingClear ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>{language === 'bn' ? 'মুছে ফেলা হচ্ছে...' : 'Wiping database...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      <span>
+                        {!selectedClearCategories.members 
+                          ? (language === 'bn' ? 'নির্বাচিত ডাটা মুছুন (সদস্যরা সংরক্ষিত)' : 'Clear Selected (Keep Members)') 
+                          : (language === 'bn' ? 'হ্যাঁ, সব ডাটা মুছুন (০ সদস্য)' : 'Yes, Delete All Data (0 Members)')}
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

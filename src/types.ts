@@ -412,3 +412,14 @@ export interface MemberUpdateRequest {
   reviewNotes?: string;
 }
 
+export interface ClearDataOptions {
+  members?: boolean;
+  transactions?: boolean;
+  loans?: boolean;
+  savings?: boolean;
+  business?: boolean;
+  shareClosures?: boolean;
+  bankAccounts?: boolean;
+  auditLogs?: boolean;
+}
+
