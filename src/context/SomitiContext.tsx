@@ -4960,6 +4960,11 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const up = {
             ...m,
             totalDeposit: clearTransactions ? 0 : m.totalDeposit,
+            generalSavingsBalance: clearTransactions ? 0 : (m.generalSavingsBalance || 0),
+            dpsSavingsBalance: clearSavings || clearTransactions ? 0 : (m.dpsSavingsBalance || 0),
+            fdrSavingsBalance: clearSavings || clearTransactions ? 0 : (m.fdrSavingsBalance || 0),
+            totalSavings: clearTransactions ? 0 : (m.totalSavings || 0),
+            activeLoanBalance: clearLoans ? 0 : (m.activeLoanBalance || 0),
             totalLoan: clearLoans ? 0 : m.totalLoan,
             totalInterestPaid: clearLoans ? 0 : (m.totalInterestPaid || 0),
             shareCount: clearTransactions ? (m.shareCount || 0) : m.shareCount,
