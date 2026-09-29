@@ -73,7 +73,20 @@ export function calculateMemberRemainingShares(
   }
 
   // Baseline shareCount from member registration/record
-  return Math.max(0, Number(member.shareCount) || 0);
+  let initialShares = Number(member.shareCount) || 0;
+  if (initialShares === 0) {
+    const depositWithShares = completedTxs.find(t => t.totalMemberShares || (t.selectedShares && t.selectedShares.length > 0));
+    if (depositWithShares) {
+      initialShares = Number(depositWithShares.totalMemberShares) || (depositWithShares.selectedShares ? Math.max(...depositWithShares.selectedShares) : 0);
+    }
+  }
+
+  const baseShares = totalPurchasedFromTxs > 0 ? Math.max(totalPurchasedFromTxs, initialShares) : initialShares;
+
+  if (totalClosed >= baseShares) {
+    return 0;
+  }
+  return Math.max(0, baseShares - totalClosed);
 }
 
 /**
@@ -88,17 +101,22 @@ export function calculateMemberBaseDeposit(
 ): number {
   if (!member) return 0;
 
-  const remainingShares = calculateMemberRemainingShares(member, transactions, shareClosures);
-
-  // Requirement: When a member surrenders/deletes all of their shares, all share-related values and Base Deposit must become 0
-  if (remainingShares <= 0) {
-    return 0;
-  }
-
   const memberId = member.id;
   const completedTxs = (transactions || []).filter(t => t.memberId === memberId && t.status === 'completed');
   const sharePurchaseTxs = completedTxs.filter(t => t.type === 'share_purchase');
   const depositTxs = completedTxs.filter(t => t.type === 'deposit');
+
+  const remainingShares = calculateMemberRemainingShares(member, transactions, shareClosures);
+
+  // If member has 0 shares, check if they have direct deposit records
+  if (remainingShares <= 0) {
+    const totalDep = depositTxs.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    const totalWith = completedTxs.filter(t => t.type === 'withdraw').reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    if (totalDep > 0) {
+      return Math.max(0, totalDep - totalWith);
+    }
+    return 0;
+  }
 
   // Share-wise breakdown calculation for active shares 1 .. remainingShares
   let accumulatedForActiveShares = 0;
@@ -202,10 +220,10 @@ export function recalculateMemberShareFinancials(
       ...member,
       shareCount: 0,
       shareValue: 0,
-      generalSavingsBalance: 0,
+      generalSavingsBalance: breakdown.generalSavingsBalance,
       dpsSavingsBalance: finalDps,
       fdrSavingsBalance: finalFdr,
-      totalSavings: finalDps + finalFdr,
+      totalSavings: breakdown.totalSavings,
       totalDeposit: breakdown.totalDeposits,
     };
   }

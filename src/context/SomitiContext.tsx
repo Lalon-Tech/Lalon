@@ -80,19 +80,16 @@ const sanitizeMember = (m: any): Member => {
   const general = Number(m.generalSavingsBalance) || 0;
   const dps = Number(m.dpsSavingsBalance) || 0;
   const fdr = Number(m.fdrSavingsBalance) || 0;
-  let shareCount = Number(m.shareCount) || 0;
+  const shareCount = Math.max(0, Number(m.shareCount) || 0);
   const activeLoan = Number(m.activeLoanBalance) || 0;
   const admissionFee = Number(m.admissionFee) || 0;
-
-  let cleanGeneral = general;
-  if (shareCount <= 0) {
-    shareCount = 0;
-    cleanGeneral = 0;
-  }
+  const totalDeposit = Number(m.totalDeposit) || general;
 
   // Accounting Rule 2 & 8: Total Member Savings = Deposits + Profit.
   // Never add shareCount * ৳1,000 to member's savings!
-  const totalSavings = shareCount === 0 ? (dps + fdr) : (cleanGeneral + dps + fdr);
+  const totalSavings = Number(m.totalSavings) !== undefined && !isNaN(Number(m.totalSavings)) && Number(m.totalSavings) > 0
+    ? Number(m.totalSavings)
+    : (general + dps + fdr);
 
   return {
     ...m,
@@ -107,10 +104,11 @@ const sanitizeMember = (m: any): Member => {
     shareCount,
     shareValue: 0,
     admissionFee,
-    generalSavingsBalance: cleanGeneral,
+    generalSavingsBalance: general,
     dpsSavingsBalance: dps,
     fdrSavingsBalance: fdr,
     totalSavings,
+    totalDeposit,
     activeLoanBalance: activeLoan,
     nominees: Array.isArray(m.nominees) ? m.nominees : [],
     isDeleted: Boolean(m.isDeleted),
@@ -1315,26 +1313,11 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               const data = docSnap.data();
               const sanitized = sanitizeMember({ ...data, id: docSnap.id });
               const needsUpdate = 
-                (data.shareValue !== undefined && Number(data.shareValue) !== sanitized.shareValue) ||
-                (data.shareCount !== undefined && Number(data.shareCount) !== sanitized.shareCount) ||
-                (sanitized.shareCount === 0 && (
-                  (data.generalSavingsBalance !== undefined && Number(data.generalSavingsBalance) !== sanitized.generalSavingsBalance) ||
-                  (data.totalSavings !== undefined && Number(data.totalSavings) !== sanitized.totalSavings)
-                ));
+                (data.shareValue !== undefined && Number(data.shareValue) !== 0);
 
               if (needsUpdate) {
-                // Permanently clean up stale shareValue, shareCount, generalSavingsBalance, totalSavings in Firestore
                 safeSetDoc(doc(db, 'members', sanitized.id), { 
-                  shareValue: sanitized.shareValue,
-                  shareCount: sanitized.shareCount,
-                  generalSavingsBalance: sanitized.generalSavingsBalance,
-                  totalSavings: sanitized.totalSavings 
-                }, { merge: true }).catch(console.warn);
-                safeSetDoc(doc(db, 'memberFinancials', sanitized.id), { 
-                  shareValue: sanitized.shareValue,
-                  shareCount: sanitized.shareCount,
-                  generalSavingsBalance: sanitized.generalSavingsBalance,
-                  totalSavings: sanitized.totalSavings 
+                  shareValue: 0,
                 }, { merge: true }).catch(console.warn);
               }
               list.push(sanitized);
