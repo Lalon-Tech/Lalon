@@ -19,7 +19,7 @@ export const QuickKistiModal: React.FC<{ isOpen: boolean; onClose: () => void }>
     settings 
   } = useSomiti();
 
-  const activeLoans = loans.filter(l => l.status === 'active');
+  const activeLoans = loans.filter(l => l.status === 'active' && (Number(l.remainingAmount) > 0 || (Number(l.totalAmount) - Number(l.paidAmount)) > 0));
   const [selectedLoanId, setSelectedLoanId] = useState(activeLoans[0]?.id || '');
   const [manualAmount, setManualAmount] = useState<number | string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
@@ -32,7 +32,7 @@ export const QuickKistiModal: React.FC<{ isOpen: boolean; onClose: () => void }>
   if (!isOpen) return null;
 
   const currentLoan = loans.find(l => l.id === selectedLoanId);
-  const nextUnpaidInstallment = currentLoan?.schedule.find(s => s.status === 'unpaid');
+  const nextUnpaidInstallment = currentLoan?.schedule.find(s => s.status !== 'paid');
   const defaultInstallmentAmount = nextUnpaidInstallment ? nextUnpaidInstallment.amount : (currentLoan?.installmentAmount || 0);
   const currentAmount = manualAmount !== '' ? Number(manualAmount) : defaultInstallmentAmount;
   const installmentNo = nextUnpaidInstallment ? nextUnpaidInstallment.installmentNo : (currentLoan ? currentLoan.paidInstallmentsCount + 1 : 1);
@@ -40,7 +40,7 @@ export const QuickKistiModal: React.FC<{ isOpen: boolean; onClose: () => void }>
   const handleLoanChange = (loanId: string) => {
     setSelectedLoanId(loanId);
     const sel = loans.find(l => l.id === loanId);
-    const nextUnpaid = sel?.schedule.find(s => s.status === 'unpaid');
+    const nextUnpaid = sel?.schedule.find(s => s.status !== 'paid');
     const amt = nextUnpaid ? nextUnpaid.amount : (sel?.installmentAmount || 0);
     setManualAmount(amt);
   };

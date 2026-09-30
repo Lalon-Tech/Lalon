@@ -89,7 +89,7 @@ export const DashboardView: React.FC = () => {
     const effectiveMemberId = myMember.id;
     const myTransactions = transactions.filter(t => t.memberId === effectiveMemberId && t.status === 'completed');
     const myLoans = loans.filter(l => l.memberId === effectiveMemberId);
-    const myActiveLoans = myLoans.filter(l => l.status === 'active');
+    const myActiveLoans = myLoans.filter(l => l.status === 'active' && (Number(l.remainingAmount) > 0 || (Number(l.totalAmount) - Number(l.paidAmount)) > 0));
     const mySavings = savingsSchemes.filter(s => s.memberId === effectiveMemberId);
 
     const mySharesCount = Number(myMember?.shareCount ?? (myMember as any)?.sharesCount ?? 0);

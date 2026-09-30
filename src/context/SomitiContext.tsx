@@ -76,6 +76,15 @@ import {
 } from '../utils/accountingRules';
 
 // Sanitization helpers to eliminate any NaN or undefined data
+// Helper date - returns local YYYY-MM-DD
+const getTodayDateStr = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const sanitizeMember = (m: any): Member => {
   const general = Number(m.generalSavingsBalance) || 0;
   const dps = Number(m.dpsSavingsBalance) || 0;
@@ -125,13 +134,40 @@ const sanitizeLoan = (l: any): Loan => {
   const totalInterest = Number(l.totalInterest ?? l.interestAmount) || (principal * (interestRate / 100));
   const totalAmount = Number(l.totalAmount ?? l.totalPayable) || (principal + totalInterest);
   const paidAmount = Number(l.paidAmount) || 0;
-  const remaining = Number(l.remainingAmount) !== undefined && !isNaN(Number(l.remainingAmount)) 
-    ? Number(l.remainingAmount) 
+  
+  const rawRemaining = Number(l.remainingAmount);
+  const remaining = !isNaN(rawRemaining) && rawRemaining >= 0
+    ? rawRemaining 
     : Math.max(0, totalAmount - paidAmount);
 
   const sched = Array.isArray(l.schedule) && l.schedule.length > 0
     ? l.schedule
     : (Array.isArray(l.installmentSchedule) ? l.installmentSchedule : []);
+
+  // Determine authoritative cleared status:
+  // If remaining is 0 (and paidAmount > 0) or paidAmount reaches totalAmount, the loan is fully cleared!
+  const isCleared = (remaining <= 0 && paidAmount > 0) || (paidAmount >= totalAmount && totalAmount > 0) || l.status === 'cleared';
+  const cleanRemaining = isCleared ? 0 : Math.max(0, remaining);
+  const cleanPaid = isCleared ? Math.max(paidAmount, totalAmount) : paidAmount;
+  const cleanStatus = l.status === 'rejected' ? 'rejected' : (isCleared ? 'cleared' : (l.status || 'active'));
+
+  // Ensure all schedule installments reflect the cleared state
+  const cleanSchedule = sched.map((s: any) => {
+    if (isCleared) {
+      return {
+        ...s,
+        status: 'paid' as const,
+        paidAmount: Number(s.paidAmount) || Number(s.amount) || 0,
+        paidDate: s.paidDate || l.clearedDate || l.updatedAt || getTodayDateStr(),
+      };
+    }
+    return s;
+  });
+
+  const totalInst = Number(l.totalInstallments) || (cleanSchedule.length || 1);
+  const paidInstCount = isCleared 
+    ? (cleanSchedule.length || totalInst)
+    : cleanSchedule.filter((s: any) => s.status === 'paid').length;
 
   return {
     ...l,
@@ -143,16 +179,16 @@ const sanitizeLoan = (l: any): Loan => {
     totalAmount,
     totalPayable: totalAmount,
     installmentAmount: Number(l.installmentAmount) || 0,
-    totalInstallments: Number(l.totalInstallments) || (sched.length || 1),
-    paidInstallments: Number(l.paidInstallments ?? l.paidInstallmentsCount) || 0,
-    paidInstallmentsCount: Number(l.paidInstallmentsCount ?? l.paidInstallments) || 0,
-    paidAmount,
-    remainingAmount: remaining,
+    totalInstallments: totalInst,
+    paidInstallments: paidInstCount,
+    paidInstallmentsCount: paidInstCount,
+    paidAmount: cleanPaid,
+    remainingAmount: cleanRemaining,
     fineCollected: Number(l.fineCollected) || 0,
     discountGiven: Number(l.discountGiven) || 0,
-    status: l.status || (remaining <= 0 ? 'cleared' : 'active'),
-    schedule: sched,
-    installmentSchedule: sched,
+    status: cleanStatus,
+    schedule: cleanSchedule,
+    installmentSchedule: cleanSchedule,
   };
 };
 
@@ -854,11 +890,25 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return Array.isArray(raw) ? raw : [];
   });
 
-  // Dynamically reconcile member share financials from verified transactions and share closures
-  // Ensures that when all shares are surrendered or deleted, all share-related values, Base Deposit, and Share Capital become strictly 0
+  // Dynamically reconcile member share financials and active loan balances
+  // Ensures that when loans are cleared/paid off, active loan balance is strictly 0 and all share-related values remain exact
   const reconciledMembers = useMemo(() => {
-    return members.map(m => recalculateMemberShareFinancials(m, transactions, shareClosures, settings?.sharePricePerUnit || 1000));
-  }, [members, transactions, shareClosures, settings?.sharePricePerUnit]);
+    return members.map(m => {
+      const shareFin = recalculateMemberShareFinancials(m, transactions, shareClosures, settings?.sharePricePerUnit || 1000);
+      const memberActiveLoans = loans.filter(l => 
+        l.memberId === m.id && 
+        l.status === 'active' && 
+        (Number(l.remainingAmount) > 0 || (Number(l.totalAmount) - Number(l.paidAmount)) > 0)
+      );
+      const realActiveLoanBal = memberActiveLoans.reduce((sum, l) => 
+        sum + (Number(l.remainingAmount) || Math.max(0, Number(l.totalAmount) - Number(l.paidAmount))), 0
+      );
+      return {
+        ...shareFin,
+        activeLoanBalance: Math.max(0, realActiveLoanBal),
+      };
+    });
+  }, [members, transactions, shareClosures, loans, settings?.sharePricePerUnit]);
 
   const [currentUser, setCurrentUser] = useState<AppUser>(() => {
     // 1. Prioritize reading the actively authenticated cached user profile to prevent any flash of another member
@@ -1342,7 +1392,15 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const list: Loan[] = [];
             snapshot.forEach(docSnap => {
               const data = docSnap.data();
-              list.push(sanitizeLoan({ ...data, id: docSnap.id }));
+              const sanitized = sanitizeLoan({ ...data, id: docSnap.id });
+              const needsUpdate = 
+                (sanitized.status === 'cleared' && (data.status !== 'cleared' || data.remainingAmount !== 0 || data.paidInstallmentsCount !== sanitized.totalInstallments)) ||
+                (sanitized.remainingAmount === 0 && data.remainingAmount !== 0);
+
+              if (needsUpdate) {
+                safeSetDoc(doc(db, 'loans', sanitized.id), sanitized).catch(console.warn);
+              }
+              list.push(sanitized);
             });
             setLoans(list);
           } else {
@@ -1710,7 +1768,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       if (!loansSnap.empty) {
         const list: Loan[] = [];
-        loansSnap.forEach(d => list.push(d.data() as Loan));
+        loansSnap.forEach(d => list.push(sanitizeLoan({ ...d.data(), id: d.id })));
         setLoans(list);
       }
 
@@ -3017,6 +3075,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (params.installmentFrequency === 'weekly') totalInstallments = params.termMonths * 4;
     if (params.installmentFrequency === 'daily') totalInstallments = params.termMonths * 30;
 
+    const baseInstallmentAmount = Math.floor(totalAmount / totalInstallments);
+    const remainder = totalAmount - (baseInstallmentAmount * totalInstallments);
     const installmentAmount = Math.ceil(totalAmount / totalInstallments);
     const principalPerInst = Math.round(params.principalAmount / totalInstallments);
     const interestPerInst = Math.round(totalInterest / totalInstallments);
@@ -3027,10 +3087,12 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       else if (params.installmentFrequency === 'weekly') d.setDate(d.getDate() + (i + 1) * 7);
       else d.setDate(d.getDate() + i + 1);
 
+      const exactAmount = i < remainder ? (baseInstallmentAmount + 1) : baseInstallmentAmount;
+
       return {
         installmentNo: i + 1,
         dueDate: d.toISOString().split('T')[0],
-        amount: installmentAmount,
+        amount: exactAmount,
         principal: principalPerInst,
         interest: interestPerInst,
         status: 'unpaid',
@@ -3199,6 +3261,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (params.installmentFrequency === 'daily') totalInstallments = params.termMonths * 30;
     if (params.installmentFrequency === 'weekly') totalInstallments = params.termMonths * 4;
 
+    const baseInstallmentAmount = Math.floor(totalAmount / totalInstallments);
+    const remainder = totalAmount - (baseInstallmentAmount * totalInstallments);
     const installmentAmount = Math.ceil(totalAmount / totalInstallments);
     const principalPerInst = Math.round(params.principalAmount / totalInstallments);
     const interestPerInst = Math.round(totalInterest / totalInstallments);
@@ -3211,10 +3275,12 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       else if (params.installmentFrequency === 'weekly') d.setDate(d.getDate() + (i + 1) * 7);
       else d.setMonth(d.getMonth() + i + 1);
 
+      const exactAmount = i < remainder ? (baseInstallmentAmount + 1) : baseInstallmentAmount;
+
       return {
         installmentNo: i + 1,
         dueDate: d.toISOString().split('T')[0],
-        amount: installmentAmount,
+        amount: exactAmount,
         principal: principalPerInst,
         interest: interestPerInst,
         status: 'unpaid',
@@ -3517,40 +3583,57 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               ? [...(loan as any).installmentSchedule]
               : []);
 
+        const isFullPayoff = 
+          payAmount >= (Number(loan.remainingAmount) || 0) || 
+          ((Number(loan.paidAmount) || 0) + payAmount) >= (Number(loan.totalAmount) || 0) ||
+          (tx.notes || '').includes('সম্পূর্ণ ঋণ পরিশোধ');
+
         let remainingPay = payAmount;
         let actualInstallmentNo = tx.installmentNo;
 
         let updatedSchedule: LoanInstallmentSchedule[];
         if (scheduleList.length > 0) {
-          updatedSchedule = scheduleList.map(s => {
-            if (s.status !== 'paid' && remainingPay > 0) {
-              const instDue = Number(s.amount) || 0;
-              if (!actualInstallmentNo) actualInstallmentNo = s.installmentNo;
-              if (remainingPay >= instDue) {
-                remainingPay -= instDue;
-                return {
-                  ...s,
-                  status: 'paid' as const,
-                  paidDate: tx.date || getTodayDateStr(),
-                  paidAmount: instDue,
-                  fine: fineAmount,
-                  receiptNo: tx.voucherNo,
-                };
-              } else {
-                const alreadyPaid = Number(s.paidAmount) || 0;
-                const paidThisTime = remainingPay;
-                remainingPay = 0;
-                return {
-                  ...s,
-                  paidDate: tx.date || getTodayDateStr(),
-                  paidAmount: alreadyPaid + paidThisTime,
-                  fine: fineAmount,
-                  receiptNo: tx.voucherNo,
-                };
+          if (isFullPayoff) {
+            // Mark every installment as completely paid
+            updatedSchedule = scheduleList.map(s => ({
+              ...s,
+              status: 'paid' as const,
+              paidDate: s.paidDate || tx.date || getTodayDateStr(),
+              paidAmount: Number(s.paidAmount) || Number(s.amount) || 0,
+              receiptNo: s.receiptNo || tx.voucherNo,
+            }));
+          } else {
+            updatedSchedule = scheduleList.map((s, idx) => {
+              if (s.status !== 'paid' && remainingPay > 0) {
+                const instDue = Math.max(0, (Number(s.amount) || 0) - (Number(s.paidAmount) || 0));
+                if (!actualInstallmentNo) actualInstallmentNo = s.installmentNo;
+                const isLastUnpaid = !scheduleList.slice(idx + 1).some(other => other.status !== 'paid');
+                if (remainingPay >= instDue || (isLastUnpaid && remainingPay >= instDue - 10)) {
+                  remainingPay = Math.max(0, remainingPay - instDue);
+                  return {
+                    ...s,
+                    status: 'paid' as const,
+                    paidDate: tx.date || getTodayDateStr(),
+                    paidAmount: Number(s.amount) || instDue,
+                    fine: fineAmount,
+                    receiptNo: tx.voucherNo,
+                  };
+                } else {
+                  const alreadyPaid = Number(s.paidAmount) || 0;
+                  const paidThisTime = remainingPay;
+                  remainingPay = 0;
+                  return {
+                    ...s,
+                    paidDate: tx.date || getTodayDateStr(),
+                    paidAmount: alreadyPaid + paidThisTime,
+                    fine: fineAmount,
+                    receiptNo: tx.voucherNo,
+                  };
+                }
               }
-            }
-            return s;
-          });
+              return s;
+            });
+          }
         } else {
           updatedSchedule = [{
             installmentNo: tx.installmentNo || 1,
@@ -3566,17 +3649,30 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }];
         }
 
-        const paidCount = updatedSchedule.filter(s => s.status === 'paid').length;
         const newPaidAmount = (Number(loan.paidAmount) || 0) + payAmount;
-        const newRemaining = Math.max(0, (Number(loan.totalAmount) || 0) - newPaidAmount);
-        const isCleared = newRemaining <= 0 || paidCount >= (loan.totalInstallments || 1);
+        const rawRemaining = Math.max(0, (Number(loan.totalAmount) || 0) - newPaidAmount);
+        const isCleared = isFullPayoff || rawRemaining <= 0;
+        const newRemaining = isCleared ? 0 : rawRemaining;
+        const finalPaidAmount = isCleared ? Math.max(newPaidAmount, Number(loan.totalAmount) || 0) : newPaidAmount;
+
+        if (isCleared) {
+          updatedSchedule = updatedSchedule.map(s => ({
+            ...s,
+            status: 'paid' as const,
+            paidAmount: Number(s.paidAmount) || Number(s.amount) || 0,
+            paidDate: s.paidDate || tx.date || getTodayDateStr(),
+          }));
+        }
+
+        const paidCount = isCleared ? updatedSchedule.length : updatedSchedule.filter(s => s.status === 'paid').length;
 
         const updatedLoan: Loan = {
           ...loan,
-          paidAmount: newPaidAmount,
+          paidAmount: finalPaidAmount,
           remainingAmount: newRemaining,
           paidInstallmentsCount: paidCount,
           status: isCleared ? 'cleared' : 'active',
+          clearedDate: isCleared ? (loan.clearedDate || tx.date || getTodayDateStr()) : undefined,
           schedule: updatedSchedule,
           installmentSchedule: updatedSchedule,
         };
@@ -3603,18 +3699,26 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (member) {
       const recalculated = recalculateMemberShareFinancials(member, nextTxs, nextClosures, settings?.sharePricePerUnit || 1000);
-      setMembers(prev => prev.map(m => m.id === member.id ? recalculated : m));
-      safeSetDoc(doc(db, 'members', member.id), recalculated).catch(console.error);
+      const remainingForMember = loans
+        .filter(l => l.memberId === member.id && l.id !== tx.loanId && l.status === 'active')
+        .reduce((sum, l) => sum + (Number(l.remainingAmount) || 0), 0);
+
+      const finalMemberObj = {
+        ...recalculated,
+        activeLoanBalance: Math.max(0, remainingForMember),
+      };
+      setMembers(prev => prev.map(m => m.id === member.id ? finalMemberObj : m));
+      safeSetDoc(doc(db, 'members', member.id), finalMemberObj).catch(console.error);
       safeSetDoc(doc(db, 'memberFinancials', member.id), {
         memberId: member.id,
         memberNo: member.memberNo,
-        generalSavingsBalance: recalculated.generalSavingsBalance,
-        dpsSavingsBalance: recalculated.dpsSavingsBalance,
-        fdrSavingsBalance: recalculated.fdrSavingsBalance,
-        shareCount: recalculated.shareCount,
-        shareValue: recalculated.shareValue,
-        totalSavings: recalculated.totalSavings,
-        activeLoanBalance: recalculated.activeLoanBalance,
+        generalSavingsBalance: finalMemberObj.generalSavingsBalance,
+        dpsSavingsBalance: finalMemberObj.dpsSavingsBalance,
+        fdrSavingsBalance: finalMemberObj.fdrSavingsBalance,
+        shareCount: finalMemberObj.shareCount,
+        shareValue: finalMemberObj.shareValue,
+        totalSavings: finalMemberObj.totalSavings,
+        activeLoanBalance: finalMemberObj.activeLoanBalance,
         updatedAt: new Date().toISOString(),
       }, { merge: true }).catch(console.error);
     }
@@ -3875,23 +3979,55 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             ? [...(loan as any).installmentSchedule]
             : []);
 
+      const isFullPayoff = 
+        payAmount >= (Number(loan.remainingAmount) || 0) || 
+        ((Number(loan.paidAmount) || 0) + payAmount) >= (Number(loan.totalAmount) || 0);
+
+      let remainingPay = payAmount;
+      let actualInstallmentNo = params.installmentNo || (loan ? (loan.paidInstallmentsCount || 0) + 1 : 1);
+
       let updatedSchedule: LoanInstallmentSchedule[];
       if (scheduleList.length > 0) {
-        let matched = false;
-        updatedSchedule = scheduleList.map(s => {
-          if (s.installmentNo === actualInstallmentNo || (!matched && s.status !== 'paid' && !params.installmentNo)) {
-            matched = true;
-            return {
-              ...s,
-              status: 'paid' as const,
-              paidDate: getTodayDateStr(),
-              paidAmount: payAmount,
-              fine: fineAmount,
-              receiptNo: voucherNo,
-            };
-          }
-          return s;
-        });
+        if (isFullPayoff) {
+          // Mark all installments paid
+          updatedSchedule = scheduleList.map(s => ({
+            ...s,
+            status: 'paid' as const,
+            paidDate: s.paidDate || getTodayDateStr(),
+            paidAmount: Number(s.paidAmount) || Number(s.amount) || 0,
+            receiptNo: s.receiptNo || voucherNo,
+          }));
+        } else {
+          updatedSchedule = scheduleList.map((s, idx) => {
+            if (s.status !== 'paid' && remainingPay > 0) {
+              const instDue = Math.max(0, (Number(s.amount) || 0) - (Number(s.paidAmount) || 0));
+              const isLastUnpaid = !scheduleList.slice(idx + 1).some(other => other.status !== 'paid');
+              if (remainingPay >= instDue || (isLastUnpaid && remainingPay >= instDue - 10)) {
+                remainingPay = Math.max(0, remainingPay - instDue);
+                return {
+                  ...s,
+                  status: 'paid' as const,
+                  paidDate: getTodayDateStr(),
+                  paidAmount: Number(s.amount) || instDue,
+                  fine: fineAmount,
+                  receiptNo: voucherNo,
+                };
+              } else {
+                const alreadyPaid = Number(s.paidAmount) || 0;
+                const paidThisTime = remainingPay;
+                remainingPay = 0;
+                return {
+                  ...s,
+                  paidDate: getTodayDateStr(),
+                  paidAmount: alreadyPaid + paidThisTime,
+                  fine: fineAmount,
+                  receiptNo: voucherNo,
+                };
+              }
+            }
+            return s;
+          });
+        }
       } else {
         updatedSchedule = [{
           installmentNo: actualInstallmentNo,
@@ -3907,17 +4043,30 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }];
       }
 
-      const paidCount = updatedSchedule.filter(s => s.status === 'paid').length;
       const newPaidAmount = (Number(loan.paidAmount) || 0) + payAmount;
-      const newRemaining = Math.max(0, (Number(loan.totalAmount) || 0) - newPaidAmount);
-      const isCleared = newRemaining <= 0 || paidCount >= (loan.totalInstallments || 1);
+      const rawRemaining = Math.max(0, (Number(loan.totalAmount) || 0) - newPaidAmount);
+      const isCleared = isFullPayoff || rawRemaining <= 0;
+      const newRemaining = isCleared ? 0 : rawRemaining;
+      const finalPaidAmount = isCleared ? Math.max(newPaidAmount, Number(loan.totalAmount) || 0) : newPaidAmount;
+
+      if (isCleared) {
+        updatedSchedule = updatedSchedule.map(s => ({
+          ...s,
+          status: 'paid' as const,
+          paidAmount: Number(s.paidAmount) || Number(s.amount) || 0,
+          paidDate: s.paidDate || getTodayDateStr(),
+        }));
+      }
+
+      const paidCount = isCleared ? updatedSchedule.length : updatedSchedule.filter(s => s.status === 'paid').length;
 
       const updatedLoan: Loan = {
         ...loan,
-        paidAmount: newPaidAmount,
+        paidAmount: finalPaidAmount,
         remainingAmount: newRemaining,
         paidInstallmentsCount: paidCount,
         status: isCleared ? 'cleared' : 'active',
+        clearedDate: isCleared ? (loan.clearedDate || getTodayDateStr()) : undefined,
         schedule: updatedSchedule,
         installmentSchedule: updatedSchedule,
       };

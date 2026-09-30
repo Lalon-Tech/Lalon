@@ -399,10 +399,10 @@ export const LoansView: React.FC = () => {
   const [kistiNotes, setKistiNotes] = useState('');
   const [kistiSuccessMsg, setKistiSuccessMsg] = useState<string | null>(null);
 
-  // Available active loans for selected member or all active loans
+  // Available active loans for selected member or all active loans (strictly un-cleared)
   const availableKistiLoans = useMemo(() => {
-    if (!kistiMemberId) return activeLoans;
-    return activeLoans.filter(l => l.memberId === kistiMemberId);
+    const list = kistiMemberId ? activeLoans.filter(l => l.memberId === kistiMemberId) : activeLoans;
+    return list.filter(l => l.status === 'active' && Number(l.remainingAmount) > 0);
   }, [activeLoans, kistiMemberId]);
 
   const selectedKistiLoan = useMemo(() => {
@@ -855,18 +855,22 @@ export const LoansView: React.FC = () => {
                           {formatCurrency(loan.paidAmount, isBn && useBengaliDigits)}
                         </td>
 
-                        <td className="py-3 px-4 text-right font-bold text-rose-600 text-sm">
-                          {formatCurrency(loan.remainingAmount, isBn && useBengaliDigits)}
+                        <td className="py-3 px-4 text-right font-bold text-sm">
+                          <span className={loan.status === 'cleared' || Number(loan.remainingAmount) <= 0 ? 'text-emerald-700' : 'text-rose-600'}>
+                            {loan.status === 'cleared' || Number(loan.remainingAmount) <= 0
+                              ? (isBn ? 'পরিশোধিত (৳০)' : 'Cleared (৳0)')
+                              : formatCurrency(loan.remainingAmount, isBn && useBengaliDigits)}
+                          </span>
                         </td>
 
                         <td className="py-3 px-4 text-center">
                           <div className="font-bold text-slate-700 text-xs">
-                            {displayCount(loan.paidInstallmentsCount)} / {displayCount(loan.totalInstallments)}
+                            {displayCount(loan.status === 'cleared' || Number(loan.remainingAmount) <= 0 ? (loan.totalInstallments || loan.paidInstallmentsCount) : loan.paidInstallmentsCount)} / {displayCount(loan.totalInstallments)}
                           </div>
                           <div className="w-20 bg-slate-200 h-1.5 rounded-full mx-auto mt-1 overflow-hidden">
                             <div 
-                              className="bg-indigo-600 h-full rounded-full" 
-                              style={{ width: `${(loan.paidInstallmentsCount / (loan.totalInstallments || 1)) * 100}%` }}
+                              className={`h-full rounded-full ${loan.status === 'cleared' || Number(loan.remainingAmount) <= 0 ? 'bg-emerald-600' : 'bg-indigo-600'}`}
+                              style={{ width: `${Math.min(100, Math.round(((loan.status === 'cleared' || Number(loan.remainingAmount) <= 0 ? (loan.totalInstallments || 1) : loan.paidInstallmentsCount) / (loan.totalInstallments || 1)) * 100))}%` }}
                             />
                           </div>
                         </td>

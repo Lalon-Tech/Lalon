@@ -2022,114 +2022,122 @@ export const MemberProfileView: React.FC<{
                   {isBn ? 'এই সদস্যের কোনো ঋণ হিসাব চালু নেই।' : 'No active loan accounts for this member.'}
                 </div>
               ) : (
-                memberLoans.map((loan) => (
-                  <div key={loan.id} className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs space-y-4 p-5">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-200">
-                            {loan.loanNo}
-                          </span>
-                          <h4 className="font-bold text-sm text-slate-800">{loan.purpose}</h4>
+                memberLoans.map((loan) => {
+                  const isLoanCleared = loan.status === 'cleared' || Number(loan.remainingAmount) <= 0 || (Number(loan.paidAmount) >= Number(loan.totalAmount) && Number(loan.totalAmount) > 0);
+                  return (
+                    <div key={loan.id} className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs space-y-4 p-5">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-200">
+                              {loan.loanNo}
+                            </span>
+                            <h4 className="font-bold text-sm text-slate-800">{loan.purpose}</h4>
+                          </div>
+                          <p className="text-xs text-slate-400 mt-1">
+                            {isBn ? `বিতরণের তারিখ: ${formatBengaliDate(loan.disbursedDate, isBn)} • জামিনদার: ${loan.guarantorName || 'তথ্য নেই'}` : `Disbursement Date: ${formatBengaliDate(loan.disbursedDate, isBn)} • Guarantor: ${loan.guarantorName || 'N/A'}`}
+                          </p>
                         </div>
-                        <p className="text-xs text-slate-400 mt-1">
-                          {isBn ? `বিতরণের তারিখ: ${formatBengaliDate(loan.disbursedDate, isBn)} • জামিনদার: ${loan.guarantorName || 'তথ্য নেই'}` : `Disbursement Date: ${formatBengaliDate(loan.disbursedDate, isBn)} • Guarantor: ${loan.guarantorName || 'N/A'}`}
-                        </p>
+
+                        <div className="text-right">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                            isLoanCleared ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'
+                          }`}>
+                            {isLoanCleared ? (isBn ? 'ঋণ সম্পূর্ণ পরিশোধিত ✓' : 'Fully Cleared ✓') : (isBn ? 'চলমান কিস্তি' : 'Active')}
+                          </span>
+                        </div>
                       </div>
 
-                      <div className="text-right">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                          loan.status === 'cleared' ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'
-                        }`}>
-                          {loan.status === 'cleared' ? (isBn ? 'ঋণ পরিশোধিত' : 'Cleared') : (isBn ? 'চলমান কিস্তি' : 'Active')}
-                        </span>
+                      {/* Loan Metrics */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3 rounded-lg text-xs">
+                        <div>
+                          <span className="text-slate-400 block">{isBn ? 'মূল ঋণ:' : 'Principal:'}</span>
+                          <span className="font-bold text-slate-800">{formatCurrency(loan.principalAmount, isBn && useBengaliDigits)}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">{isBn ? 'মোট প্রদেয় (লাভসহ):' : 'Total Payable:'}</span>
+                          <span className="font-bold text-slate-800">{formatCurrency(loan.totalAmount, isBn && useBengaliDigits)}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">{isBn ? 'মোট পরিশোধ:' : 'Total Repaid:'}</span>
+                          <span className="font-bold text-emerald-700">{formatCurrency(loan.paidAmount, isBn && useBengaliDigits)}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">{isBn ? 'অবশিষ্ট বকেয়া:' : 'Remaining:'}</span>
+                          <span className={`font-bold ${isLoanCleared ? 'text-emerald-700' : 'text-rose-600'}`}>
+                            {isLoanCleared ? (isBn ? 'পরিশোধিত (৳০)' : 'Cleared (৳0)') : formatCurrency(loan.remainingAmount, isBn && useBengaliDigits)}
+                          </span>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Loan Metrics */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3 rounded-lg text-xs">
+                      {/* Installment Table */}
                       <div>
-                        <span className="text-slate-400 block">{isBn ? 'মূল ঋণ:' : 'Principal:'}</span>
-                        <span className="font-bold text-slate-800">{formatCurrency(loan.principalAmount, isBn && useBengaliDigits)}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 block">{isBn ? 'মোট প্রদেয় (লাভসহ):' : 'Total Payable:'}</span>
-                        <span className="font-bold text-slate-800">{formatCurrency(loan.totalAmount, isBn && useBengaliDigits)}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 block">{isBn ? 'মোট পরিশোধ:' : 'Total Repaid:'}</span>
-                        <span className="font-bold text-emerald-700">{formatCurrency(loan.paidAmount, isBn && useBengaliDigits)}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 block">{isBn ? 'অবশিষ্ট বকেয়া:' : 'Remaining:'}</span>
-                        <span className="font-bold text-rose-600">{formatCurrency(loan.remainingAmount, isBn && useBengaliDigits)}</span>
-                      </div>
-                    </div>
-
-                    {/* Installment Table */}
-                    <div>
-                      <h5 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                        {isBn ? 'কিস্তি পরিশোধের বিস্তারিত শিডিউল' : 'Installment Repayment Schedule'}
-                      </h5>
-                      <div className="border border-slate-200 rounded-lg overflow-x-auto">
-                        <table className="w-full text-left text-xs min-w-[550px]">
-                          <thead className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
-                            <tr>
-                              <th className="py-2 px-3">{isBn ? 'কিস্তি নং' : 'Installment No'}</th>
-                              <th className="py-2 px-3">{isBn ? 'প্রদেয় তারিখ' : 'Due Date'}</th>
-                              <th className="py-2 px-3 text-right">{isBn ? 'কিস্তির পরিমাণ' : 'Amount'}</th>
-                              <th className="py-2 px-3 text-center">{isBn ? 'পরিশোধের অবস্থা' : 'Status'}</th>
-                              <th className="py-2 px-3">{isBn ? 'পরিশোধের তারিখ' : 'Paid Date'}</th>
-                              <th className="py-2 px-3 text-right">{isBn ? 'অ্যাকশন' : 'Action'}</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 text-slate-600">
-                            {loan.schedule.map((sch) => (
-                              <tr key={sch.installmentNo} className={sch.status === 'paid' ? 'bg-emerald-50/40' : ''}>
-                                <td className="py-2 px-3 font-mono font-bold">
-                                  #{displayCount(sch.installmentNo)}
-                                </td>
-                                <td className="py-2 px-3">
-                                  {formatBengaliDate(sch.dueDate, isBn)}
-                                </td>
-                                <td className="py-2 px-3 text-right font-bold">
-                                  {formatCurrency(sch.amount, isBn && useBengaliDigits)}
-                                </td>
-                                <td className="py-2 px-3 text-center">
-                                  <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                    sch.status === 'paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                                  }`}>
-                                    {sch.status === 'paid' ? (isBn ? 'পরিশোধিত ✓' : 'Paid ✓') : (isBn ? 'অপরিশোধিত' : 'Due')}
-                                  </span>
-                                </td>
-                                <td className="py-2 px-3 text-slate-500">
-                                  {sch.paidDate ? formatBengaliDate(sch.paidDate, isBn) : '-'}
-                                </td>
-                                <td className="py-2 px-3 text-right">
-                                  {isUserAdmin && sch.status !== 'paid' && (
-                                    <button
-                                      onClick={() => {
-                                        payLoanInstallment({
-                                          loanId: loan.id,
-                                          installmentNo: sch.installmentNo,
-                                          amount: sch.amount,
-                                          paymentMethod: 'cash',
-                                        });
-                                      }}
-                                      className="px-2.5 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded text-[11px] font-bold transition-colors cursor-pointer"
-                                    >
-                                      {isBn ? 'কিস্তি আদায়' : 'Collect'}
-                                    </button>
-                                  )}
-                                </td>
+                        <h5 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                          {isBn ? 'কিস্তি পরিশোধের বিস্তারিত শিডিউল' : 'Installment Repayment Schedule'}
+                        </h5>
+                        <div className="border border-slate-200 rounded-lg overflow-x-auto">
+                          <table className="w-full text-left text-xs min-w-[550px]">
+                            <thead className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
+                              <tr>
+                                <th className="py-2 px-3">{isBn ? 'কিস্তি নং' : 'Installment No'}</th>
+                                <th className="py-2 px-3">{isBn ? 'প্রদেয় তারিখ' : 'Due Date'}</th>
+                                <th className="py-2 px-3 text-right">{isBn ? 'কিস্তির পরিমাণ' : 'Amount'}</th>
+                                <th className="py-2 px-3 text-center">{isBn ? 'পরিশোধের অবস্থা' : 'Status'}</th>
+                                <th className="py-2 px-3">{isBn ? 'পরিশোধের তারিখ' : 'Paid Date'}</th>
+                                <th className="py-2 px-3 text-right">{isBn ? 'অ্যাকশন' : 'Action'}</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 text-slate-600">
+                              {loan.schedule.map((sch) => {
+                                const isPaid = sch.status === 'paid' || isLoanCleared;
+                                return (
+                                  <tr key={sch.installmentNo} className={isPaid ? 'bg-emerald-50/40' : ''}>
+                                    <td className="py-2 px-3 font-mono font-bold">
+                                      #{displayCount(sch.installmentNo)}
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      {formatBengaliDate(sch.dueDate, isBn)}
+                                    </td>
+                                    <td className="py-2 px-3 text-right font-bold">
+                                      {formatCurrency(sch.amount, isBn && useBengaliDigits)}
+                                    </td>
+                                    <td className="py-2 px-3 text-center">
+                                      <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                        isPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                                      }`}>
+                                        {isPaid ? (isBn ? 'পরিশোধিত ✓' : 'Paid ✓') : (isBn ? 'অপরিশোধিত' : 'Due')}
+                                      </span>
+                                    </td>
+                                    <td className="py-2 px-3 text-slate-500">
+                                      {sch.paidDate ? formatBengaliDate(sch.paidDate, isBn) : (isLoanCleared ? (loan.clearedDate ? formatBengaliDate(loan.clearedDate, isBn) : '-') : '-')}
+                                    </td>
+                                    <td className="py-2 px-3 text-right">
+                                      {isUserAdmin && !isPaid && (
+                                        <button
+                                          onClick={() => {
+                                            payLoanInstallment({
+                                              loanId: loan.id,
+                                              installmentNo: sch.installmentNo,
+                                              amount: sch.amount,
+                                              paymentMethod: 'cash',
+                                            });
+                                          }}
+                                          className="px-2.5 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded text-[11px] font-bold transition-colors cursor-pointer"
+                                        >
+                                          {isBn ? 'কিস্তি আদায়' : 'Collect'}
+                                        </button>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           )
