@@ -15,7 +15,8 @@ import {
   Layers,
   Sparkles,
   Building,
-  Clock
+  Clock,
+  Briefcase
 } from 'lucide-react';
 import { useSomiti } from '../../context/SomitiContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -37,6 +38,7 @@ export const DashboardView: React.FC = () => {
     members, 
     loans, 
     savingsSchemes, 
+    businessFundings,
     transactions, 
     users, 
     currentUser,
@@ -101,6 +103,13 @@ export const DashboardView: React.FC = () => {
     const myApprovedProfit = myTransactions
       .filter(t => t.type === 'profit_share' && t.status === 'completed')
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+    const myBusinessFundings = (businessFundings || []).filter(f => f.memberId === effectiveMemberId);
+    const myActiveBusinessFundings = myBusinessFundings.filter(f => f.status === 'active' || f.status === 'approved');
+    const myBusinessFundingTotal = myActiveBusinessFundings.reduce(
+      (sum, f) => sum + (Number(f.approvedAmount || f.amountRequested) || 0),
+      0
+    );
 
     return (
       <div className="space-y-6 pb-12">
@@ -216,21 +225,31 @@ export const DashboardView: React.FC = () => {
             </div>
           </div>
 
-          {/* Card 4: Active Savings Schemes */}
-          <div className="bg-white p-4.5 rounded-xl border border-blue-200/80 shadow-2xs">
+          {/* Card 4: Member Business Funding */}
+          <div 
+            onClick={() => setActiveTab('business_funding')}
+            className="bg-white p-4.5 rounded-xl border border-purple-200/80 shadow-2xs hover:border-purple-300 hover:shadow-xs transition-all cursor-pointer group"
+          >
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-blue-700">
-                {isBn ? 'সক্রিয় স্কিম (DPS/FDR)' : 'Active Schemes'}
+              <span className="text-xs font-bold text-purple-700">
+                {isBn ? 'আমার ব্যবসা ফান্ডিং' : 'My Business Funding'}
               </span>
-              <span className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
-                <Clock className="w-4 h-4" />
+              <span className="p-1.5 bg-purple-50 text-purple-600 rounded-lg group-hover:bg-purple-100 transition-colors">
+                <Briefcase className="w-4 h-4" />
               </span>
             </div>
             <div className="text-xl font-black text-slate-800 tracking-tight">
-              {num(mySavings.length)} <span className="text-xs font-medium text-slate-500">{isBn ? 'টি' : 'schemes'}</span>
+              {formatCurrency(myBusinessFundingTotal, isBengaliNum)}
             </div>
-            <div className="text-[11px] text-slate-500 mt-2">
-              {isBn ? 'মেয়াদি সঞ্চয় স্কিম তালিকা' : 'Term savings schemes'}
+            <div className="text-[11px] text-slate-500 mt-2 flex items-center justify-between">
+              <span>
+                {myActiveBusinessFundings.length > 0 
+                  ? (isBn ? `${num(myActiveBusinessFundings.length)} টি সক্রিয় বিনিয়োগ` : `${myActiveBusinessFundings.length} active funding`)
+                  : (myBusinessFundings.some(f => f.status === 'pending')
+                      ? (isBn ? 'আবেদন পর্যালোচনায় রয়েছে' : 'Application under review')
+                      : (isBn ? 'কোনো চলমান ফান্ডিং নেই' : 'No active funding'))}
+              </span>
+              <ChevronRight className="w-3.5 h-3.5 text-purple-400 group-hover:translate-x-0.5 transition-transform" />
             </div>
           </div>
 
