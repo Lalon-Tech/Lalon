@@ -27,8 +27,6 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
   const { 
     signIn, 
     signUp, 
-    signInWithGoogle, 
-    signInAsDemo, 
     signInWithBiometricProfile,
     resetPassword, 
     error, 
@@ -40,7 +38,6 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
   const {
     isSupported: isBiometricSupported,
     isEnrolled: isBiometricEnrolled,
-    lastEnrolledUser,
     authenticateWithBiometrics,
     registerBiometrics,
     loading: biometricLoading,
@@ -58,7 +55,6 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
   const [rememberMe, setRememberMe] = useState(true);
   const [enableBiometricsOnLogin, setEnableBiometricsOnLogin] = useState<boolean>(true);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
   // Persists or updates the remembered Login ID (Email or User ID)
@@ -152,32 +148,6 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleGoogleSignIn = async () => {
-    clearError();
-    setSuccessMsg('');
-    setGoogleLoading(true);
-    try {
-      await signInWithGoogle();
-      setActiveTab('dashboard');
-      setSelectedMemberId(null);
-      setSuccessMsg(language === 'bn' ? 'Google একাউন্ট দিয়ে সফলভাবে লগইন হয়েছে!' : 'Logged in with Google successfully!');
-    } catch {
-      // error in context
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
-
-  const handleQuickPresetLogin = (presetEmail: string, presetRole: string) => {
-    clearError();
-    clearBiometricError();
-    setSuccessMsg('');
-    rememberLoginId(presetEmail);
-    signInAsDemo(presetRole);
-    setActiveTab('dashboard');
-    setSelectedMemberId(null);
   };
 
   const handleBiometricLogin = async () => {
@@ -494,7 +464,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
           <div className="flex items-stretch gap-2 sm:gap-2.5 mt-2">
             <button
               type="submit"
-              disabled={loading || googleLoading}
+              disabled={loading}
               className={`${mode === 'signin' && isBiometricSupported ? 'flex-1' : 'w-full'} py-3 sm:py-3.5 px-4 bg-cyan-400 hover:bg-cyan-300 active:scale-[0.99] text-slate-950 rounded-xl sm:rounded-2xl font-black text-sm tracking-wide shadow-lg shadow-cyan-500/25 transition-colors duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60`}
             >
               {loading ? (
@@ -516,7 +486,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
                 type="button"
                 id="btn-biometric-icon-signin"
                 onClick={handleBiometricLogin}
-                disabled={biometricLoading || loading || googleLoading}
+                disabled={biometricLoading || loading}
                 title={language === 'bn' ? 'বায়োমেট্রিক দিয়ে লগইন (ফিঙ্গারপ্রিন্ট / ফেস আইডি)' : 'Sign In with Biometrics (Fingerprint / Face ID)'}
                 aria-label="Sign In with Biometrics"
                 className="w-12 sm:w-14 shrink-0 bg-[#131d36] hover:bg-[#1b2b4f] active:scale-95 border border-cyan-500/40 hover:border-cyan-400 text-cyan-400 hover:text-cyan-300 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg transition-colors duration-150 cursor-pointer disabled:opacity-50 group"
@@ -530,56 +500,6 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
             )}
           </div>
         </form>
-
-        {/* OR Divider */}
-        {mode !== 'forgot' && (
-          <>
-            <div className="relative flex items-center justify-center my-3 sm:my-4">
-              <div className="border-t border-slate-800 w-full"></div>
-              <span className="bg-[#0c142b] px-3 text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                OR
-              </span>
-              <div className="border-t border-slate-800 w-full"></div>
-            </div>
-
-            {/* Dark Google Pill Button [ Continue with Google ] */}
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              disabled={googleLoading || loading}
-              className="w-full py-2.5 sm:py-3 px-4 bg-[#131d36] hover:bg-[#192644] border border-slate-700/90 text-white rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm shadow-sm transition-all flex items-center justify-center gap-2.5 sm:gap-3 cursor-pointer active:scale-[0.99] disabled:opacity-60"
-            >
-              {googleLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
-                  <span>Connecting to Google...</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                    <path
-                      fill="#4285F4"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                    />
-                    <path
-                      fill="#EA4335"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                    />
-                  </svg>
-                  <span>Continue with Google</span>
-                </>
-              )}
-            </button>
-          </>
-        )}
 
         {/* Footer switchers */}
         <div className="mt-4 sm:mt-5 text-center text-xs text-slate-400">
@@ -630,28 +550,6 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
           )}
         </div>
 
-        {/* Optional Demo preview button / Quick role login */}
-        <div className="mt-4 sm:mt-5 pt-3 sm:pt-4 border-t border-slate-800/80">
-          <div className="text-[10px] sm:text-[11px] font-semibold text-slate-400 text-center mb-2">
-            {language === 'bn' ? 'এক ক্লিকে সরাসরি প্রবেশ করুন:' : 'One-Click Quick Login:'}
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => handleQuickPresetLogin('admin@bondhusomiti.com', 'Super Admin')}
-              className="py-2 px-2 sm:px-2.5 bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-500/30 text-cyan-300 rounded-xl text-xs font-bold transition-all text-center cursor-pointer active:scale-95"
-            >
-              👑 {language === 'bn' ? 'সুপার এডমিন' : 'Super Admin'}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickPresetLogin('manager@bondhusomiti.com', 'Manager')}
-              className="py-2 px-2 sm:px-2.5 bg-blue-950/40 hover:bg-blue-900/60 border border-blue-500/30 text-blue-300 rounded-xl text-xs font-bold transition-all text-center cursor-pointer active:scale-95"
-            >
-              👔 {language === 'bn' ? 'ম্যানেজার' : 'Manager'}
-            </button>
-          </div>
-        </div>
         {/* Security badge footer on mobile */}
         <div className="mt-4 flex sm:hidden items-center justify-center gap-1.5 text-[11px] text-slate-400 text-center pb-2">
           <ShieldCheck className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
