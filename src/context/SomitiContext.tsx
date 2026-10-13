@@ -499,7 +499,7 @@ interface SomitiContextType {
   addLoan: (params: {
     memberId: string;
     principalAmount: number;
-    interestRate: number;
+    interestRate?: number;
     termMonths: number;
     installmentFrequency: 'daily' | 'weekly' | 'monthly';
     purpose: string;
@@ -515,7 +515,7 @@ interface SomitiContextType {
   applyForLoan: (params: {
     memberId: string;
     principalAmount: number;
-    interestRate: number;
+    interestRate?: number;
     termMonths: number;
     installmentFrequency: 'daily' | 'weekly' | 'monthly';
     purpose: string;
@@ -3018,7 +3018,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const addLoan = (params: {
     memberId: string;
     principalAmount: number;
-    interestRate: number;
+    interestRate?: number;
     termMonths: number;
     installmentFrequency: 'daily' | 'weekly' | 'monthly';
     purpose: string;
@@ -3068,8 +3068,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const member = members.find(m => m.id === params.memberId);
     const guarantorMember = params.guarantorMemberId ? members.find(m => m.id === params.guarantorMemberId) : null;
 
-    const totalInterest = params.principalAmount * (params.interestRate / 100);
-    const totalAmount = params.principalAmount + totalInterest;
+    // Zero interest (সুদমুক্ত ঋণ)
+    const totalInterest = 0;
+    const totalAmount = params.principalAmount;
     
     let totalInstallments = params.termMonths;
     if (params.installmentFrequency === 'weekly') totalInstallments = params.termMonths * 4;
@@ -3079,7 +3080,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const remainder = totalAmount - (baseInstallmentAmount * totalInstallments);
     const installmentAmount = Math.ceil(totalAmount / totalInstallments);
     const principalPerInst = Math.round(params.principalAmount / totalInstallments);
-    const interestPerInst = Math.round(totalInterest / totalInstallments);
+    const interestPerInst = 0;
 
     const schedule: LoanInstallmentSchedule[] = Array.from({ length: totalInstallments }, (_, i) => {
       const d = new Date();
@@ -3106,7 +3107,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       memberName: member?.name || '',
       memberPhone: member?.phone || '',
       principalAmount: params.principalAmount,
-      interestRate: params.interestRate,
+      interestRate: 0,
       totalAmount,
       termMonths: params.termMonths,
       installmentFrequency: params.installmentFrequency,
@@ -3203,7 +3204,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const applyForLoan = (params: {
     memberId: string;
     principalAmount: number;
-    interestRate: number;
+    interestRate?: number;
     termMonths: number;
     installmentFrequency: 'daily' | 'weekly' | 'monthly';
     purpose: string;
@@ -3254,8 +3255,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return { success: false, message: 'সদস্য খুঁজে পাওয়া যায়নি।' };
     }
 
-    const totalInterest = Math.round((params.principalAmount * params.interestRate) / 100);
-    const totalAmount = params.principalAmount + totalInterest;
+    // Zero interest (সুদমুক্ত ঋণ)
+    const totalInterest = 0;
+    const totalAmount = params.principalAmount;
 
     let totalInstallments = params.termMonths;
     if (params.installmentFrequency === 'daily') totalInstallments = params.termMonths * 30;
@@ -3265,7 +3267,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const remainder = totalAmount - (baseInstallmentAmount * totalInstallments);
     const installmentAmount = Math.ceil(totalAmount / totalInstallments);
     const principalPerInst = Math.round(params.principalAmount / totalInstallments);
-    const interestPerInst = Math.round(totalInterest / totalInstallments);
+    const interestPerInst = 0;
 
     const guarantorMember = params.guarantorMemberId ? members.find(m => m.id === params.guarantorMemberId) : null;
 
@@ -3300,7 +3302,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       memberPhone: member.phone,
       memberNo: member.memberNo,
       principalAmount: params.principalAmount,
-      interestRate: params.interestRate,
+      interestRate: 0,
       totalAmount,
       termMonths: params.termMonths,
       installmentFrequency: params.installmentFrequency,
@@ -4190,9 +4192,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     const principalAmount = Number(updatedFields.principalAmount ?? oldLoan.principalAmount) || 0;
-    const interestRate = Number(updatedFields.interestRate ?? oldLoan.interestRate) || 0;
-    const totalInterest = Number(updatedFields.interestAmount ?? (principalAmount * (interestRate / 100))) || 0;
-    const totalAmount = Number(updatedFields.totalAmount ?? (principalAmount + totalInterest)) || 0;
+    const interestRate = 0;
+    const totalInterest = 0;
+    const totalAmount = principalAmount;
     const termMonths = Number(updatedFields.termMonths ?? oldLoan.termMonths) || 1;
     const installmentFrequency = updatedFields.installmentFrequency ?? oldLoan.installmentFrequency ?? 'monthly';
     const totalInstallments = Number(updatedFields.totalInstallments ?? oldLoan.totalInstallments) || 1;

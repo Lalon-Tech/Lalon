@@ -180,7 +180,7 @@ export const translations: Record<string, { bn: string; en: string }> = {
   member_no: { bn: 'সদস্য নং', en: 'Member No' },
   loan_purpose: { bn: 'উদ্দেশ্য', en: 'Purpose' },
   principal_loan_taka: { bn: 'মূল ঋণ (৳)', en: 'Principal (৳)' },
-  total_payable_taka: { bn: 'সুদসহ মোট প্রদেয় (৳)', en: 'Total Payable (৳)' },
+  total_payable_taka: { bn: 'মোট প্রদেয় (৳)', en: 'Total Payable (৳)' },
   total_repaid_taka: { bn: 'মোট আদায় (৳)', en: 'Total Repaid (৳)' },
   outstanding_taka: { bn: 'অবশিষ্ট বকেয়া (৳)', en: 'Outstanding (৳)' },
   installment_count: { bn: 'কিস্তি সংখ্যা', en: 'Installments' },

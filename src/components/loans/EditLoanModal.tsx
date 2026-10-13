@@ -36,7 +36,6 @@ export const EditLoanModal: React.FC<EditLoanModalProps> = ({
   const { updateLoan, useBengaliDigits, transactions } = useSomiti();
 
   const [principal, setPrincipal] = useState<number | ''>('');
-  const [interestRate, setInterestRate] = useState<number | ''>('');
   const [termMonths, setTermMonths] = useState<number | ''>('');
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
   const [totalInstallments, setTotalInstallments] = useState<number | ''>('');
@@ -55,7 +54,6 @@ export const EditLoanModal: React.FC<EditLoanModalProps> = ({
   useEffect(() => {
     if (loan) {
       setPrincipal(loan.principalAmount || 0);
-      setInterestRate(loan.interestRate || 0);
       setTermMonths(loan.termMonths || 12);
       setFrequency(loan.installmentFrequency || 'monthly');
       setTotalInstallments(loan.totalInstallments || 12);
@@ -90,12 +88,10 @@ export const EditLoanModal: React.FC<EditLoanModalProps> = ({
     };
   }, [loan, transactions]);
 
-  // Real-time calculations
+  // Real-time calculations (Interest-free loan)
   const numPrincipal = Number(principal) || 0;
-  const numRate = Number(interestRate) || 0;
   const numInstallments = Number(totalInstallments) || 1;
-  const computedTotalInterest = Math.round(numPrincipal * (numRate / 100));
-  const computedTotalPayable = numPrincipal + computedTotalInterest;
+  const computedTotalPayable = numPrincipal;
   const computedPerInstallment = Math.round(computedTotalPayable / Math.max(1, numInstallments));
   const computedRemaining = Math.max(0, computedTotalPayable - existingPaidInfo.paidAmount);
 
@@ -130,8 +126,8 @@ export const EditLoanModal: React.FC<EditLoanModalProps> = ({
         loan.id,
         {
           principalAmount: numPrincipal,
-          interestRate: numRate,
-          interestAmount: computedTotalInterest,
+          interestRate: 0,
+          interestAmount: 0,
           totalAmount: computedTotalPayable,
           termMonths: Number(termMonths) || 1,
           installmentFrequency: frequency,
@@ -214,7 +210,7 @@ export const EditLoanModal: React.FC<EditLoanModalProps> = ({
               <span>{isBn ? '১. মূল ঋণের অংক ও পরিশোধ শর্তাবলী' : '1. Loan Amount & Terms'}</span>
             </h4>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   {isBn ? 'মূল ঋণ পরিমাণ (৳) *' : 'Principal Amount (৳) *'}
@@ -225,21 +221,6 @@ export const EditLoanModal: React.FC<EditLoanModalProps> = ({
                   step="100"
                   value={principal}
                   onChange={(e) => setPrincipal(e.target.value === '' ? '' : Number(e.target.value))}
-                  required
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {isBn ? 'সুদের হার (%) *' : 'Interest Rate (%) *'}
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={interestRate}
-                  onChange={(e) => setInterestRate(e.target.value === '' ? '' : Number(e.target.value))}
                   required
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500"
                 />
@@ -320,12 +301,12 @@ export const EditLoanModal: React.FC<EditLoanModalProps> = ({
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div className="bg-white p-2.5 rounded-lg border border-indigo-200/60">
-                <span className="text-slate-500 block text-[10px]">{isBn ? 'সুদসহ মোট প্রদেয়:' : 'Total Payable:'}</span>
+                <span className="text-slate-500 block text-[10px]">{isBn ? 'সর্বমোট প্রদেয়:' : 'Total Payable:'}</span>
                 <span className="text-sm font-black text-indigo-950">
                   {formatCurrency(computedTotalPayable, isBn && useBengaliDigits)}
                 </span>
                 <span className="text-[10px] text-slate-400 block">
-                  ({isBn ? 'সুদ' : 'Int'}: {formatCurrency(computedTotalInterest, isBn && useBengaliDigits)})
+                  {isBn ? '(সুদমুক্ত ঋণ)' : '(Interest-Free)'}
                 </span>
               </div>
 
@@ -424,7 +405,7 @@ export const EditLoanModal: React.FC<EditLoanModalProps> = ({
               value={auditReason}
               onChange={(e) => setAuditReason(e.target.value)}
               required
-              placeholder={isBn ? 'যেমন: কিস্তি সংখ্যা ভুল ছিল, বা সুদের হার সমন্বয়...' : 'e.g. Corrected principal amount per approved deed...'}
+              placeholder={isBn ? 'যেমন: কিস্তি সংখ্যা ভুল ছিল, বা কিস্তির পরিমাণ সমন্বয়...' : 'e.g. Corrected principal amount or schedule per approved deed...'}
               className="w-full px-3 py-2 bg-white border border-amber-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 font-medium"
             />
             <p className="text-[11px] text-amber-800 mt-1">

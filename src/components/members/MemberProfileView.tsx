@@ -2055,7 +2055,7 @@ export const MemberProfileView: React.FC<{
                           <span className="font-bold text-slate-800">{formatCurrency(loan.principalAmount, isBn && useBengaliDigits)}</span>
                         </div>
                         <div>
-                          <span className="text-slate-400 block">{isBn ? 'মোট প্রদেয় (লাভসহ):' : 'Total Payable:'}</span>
+                          <span className="text-slate-400 block">{isBn ? 'মোট প্রদেয়:' : 'Total Payable:'}</span>
                           <span className="font-bold text-slate-800">{formatCurrency(loan.totalAmount, isBn && useBengaliDigits)}</span>
                         </div>
                         <div>

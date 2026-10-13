@@ -47,7 +47,7 @@ export function getAllPendingApprovals(sources: ApprovalCollectorSources): Pendi
           statusLabelEn: 'Pending Approval',
           title: loan.purpose || 'ব্যক্তিগত ঋণ আবেদন',
           subTitle: loan.totalInstallments ? `${loan.totalInstallments} কিস্তি` : undefined,
-          profitOrInterestRate: loan.interestRate ? `${loan.interestRate}% মুনাফা/সুদ` : undefined,
+          profitOrInterestRate: undefined,
           rawItem: loan,
         });
       });

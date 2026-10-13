@@ -200,7 +200,6 @@ export const LoansView: React.FC = () => {
 
   const [applyPrincipal, setApplyPrincipal] = useState(50000);
   const [applyTermMonths, setApplyTermMonths] = useState(12);
-  const [applyInterestRate, setApplyInterestRate] = useState(12);
   const [applyFrequency, setApplyFrequency] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
   const [applyPurpose, setApplyPurpose] = useState('');
   const [applyGuarantorName, setApplyGuarantorName] = useState('');
@@ -231,24 +230,21 @@ export const LoansView: React.FC = () => {
     };
   }, [applyMemberId, members, loans]);
 
-  // Calculation for live application breakdown
+  // Calculation for live application breakdown (Interest-Free)
   const liveApplyCalc = useMemo(() => {
     const p = Number(applyPrincipal) || 0;
-    const r = Number(applyInterestRate) || 0;
     const m = Number(applyTermMonths) || 12;
 
-    const totalInterest = Math.round(p * (r / 100) * (m / 12));
-    const totalPayable = p + totalInterest;
+    const totalPayable = p;
     const installmentAmount = Math.ceil(totalPayable / m);
 
     return {
       principal: p,
-      totalInterest,
       totalPayable,
       installmentCount: m,
       installmentAmount
     };
-  }, [applyPrincipal, applyInterestRate, applyTermMonths]);
+  }, [applyPrincipal, applyTermMonths]);
 
   const handleApplySubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -287,7 +283,7 @@ export const LoansView: React.FC = () => {
     const res = applyForLoan({
       memberId: applyMemberId,
       principalAmount: Number(applyPrincipal),
-      interestRate: Number(applyInterestRate),
+      interestRate: 0,
       termMonths: Number(applyTermMonths),
       installmentFrequency: applyFrequency,
       purpose: applyPurpose.trim() || (isBn ? 'ব্যক্তিগত ব্যবসা' : 'Personal Business'),
@@ -481,29 +477,25 @@ export const LoansView: React.FC = () => {
   };
 
   // ==========================================
-  // CALCULATOR TAB STATE
+  // CALCULATOR TAB STATE (Interest-Free)
   // ==========================================
   const [calcPrincipal, setCalcPrincipal] = useState(100000);
-  const [calcRate, setCalcRate] = useState(12);
   const [calcMonths, setCalcMonths] = useState(12);
 
   const calcOutput = useMemo(() => {
     const p = Number(calcPrincipal) || 0;
-    const r = Number(calcRate) || 0;
     const m = Number(calcMonths) || 1;
 
-    const totalInterest = Math.round(p * (r / 100) * (m / 12));
-    const totalPayable = p + totalInterest;
+    const totalPayable = p;
     const emi = Math.ceil(totalPayable / m);
 
     return {
       principal: p,
-      interest: totalInterest,
       total: totalPayable,
       emi,
       months: m
     };
-  }, [calcPrincipal, calcRate, calcMonths]);
+  }, [calcPrincipal, calcMonths]);
 
   // Excel Export
   const exportExcel = () => {
@@ -513,7 +505,7 @@ export const LoansView: React.FC = () => {
       [isBn ? 'সদস্য নং' : 'Member No']: l.memberNo,
       [isBn ? 'উদ্দেশ্য' : 'Purpose']: l.purpose,
       [isBn ? 'মূল ঋণ (৳)' : 'Principal (৳)']: l.principalAmount,
-      [isBn ? 'সুদসহ মোট প্রদেয় (৳)' : 'Total Payable (৳)']: l.totalAmount,
+      [isBn ? 'মোট প্রদেয় (৳)' : 'Total Payable (৳)']: l.totalAmount,
       [isBn ? 'মোট আদায় (৳)' : 'Total Repaid (৳)']: l.paidAmount,
       [isBn ? 'অবশিষ্ট বকেয়া (৳)' : 'Outstanding (৳)']: l.remainingAmount,
       [isBn ? 'কিস্তি সংখ্যা' : 'Installment']: `${l.paidInstallmentsCount}/${l.totalInstallments}`,
@@ -846,9 +838,6 @@ export const LoansView: React.FC = () => {
 
                         <td className="py-3 px-4 text-right font-bold text-indigo-900 text-sm">
                           {formatCurrency(loan.totalAmount, isBn && useBengaliDigits)}
-                          <span className="block text-[10px] text-slate-400">
-                            {isBn ? `সুদ: ${formatCurrency(loan.interestAmount, isBn && useBengaliDigits)}` : `Interest: ${formatCurrency(loan.interestAmount, isBn && useBengaliDigits)}`}
-                          </span>
                         </td>
 
                         <td className="py-3 px-4 text-right font-bold text-emerald-700 text-sm">
@@ -1041,7 +1030,7 @@ export const LoansView: React.FC = () => {
             </div>
 
             {/* Loan Principal & Term */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   {isBn ? 'ঋণের মূল পরিমাণ (৳) *' : 'Principal Amount (৳) *'}
@@ -1086,22 +1075,6 @@ export const LoansView: React.FC = () => {
                   <option value={24}>{isBn ? '২৪ মাস (২ বছর)' : '24 Months (2 Years)'}</option>
                   <option value={36}>{isBn ? '৩৬ মাস (৩ বছর)' : '36 Months (3 Years)'}</option>
                 </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {isBn ? 'বার্ষিক লভ্যাংশ/সুদের হার (%) *' : 'Interest Rate (%) *'}
-                </label>
-                <input
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  max="100"
-                  value={applyInterestRate}
-                  onChange={(e) => setApplyInterestRate(Number(e.target.value))}
-                  required
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500"
-                />
               </div>
             </div>
 
@@ -1251,16 +1224,12 @@ export const LoansView: React.FC = () => {
             {/* Live Calculation Preview Card */}
             <div className="bg-indigo-50/70 border border-indigo-200 rounded-xl p-4.5">
               <div className="text-xs font-bold text-indigo-900 uppercase tracking-wider mb-3">
-                {isBn ? '📊 ঋণের প্রাক্কলিত হিসাব বিবরণী (Live Breakdown)' : '📊 Loan Breakdown Summary'}
+                {isBn ? '📊 ঋণের প্রাক্কলিত হিসাব বিবরণী (সুদমুক্ত)' : '📊 Loan Breakdown Summary (Interest-Free)'}
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                 <div className="bg-white p-3 rounded-lg border border-indigo-100">
                   <span className="text-slate-500 block mb-0.5">{isBn ? 'মূল ঋণ:' : 'Principal:'}</span>
                   <span className="text-sm font-bold text-slate-800">{formatCurrency(liveApplyCalc.principal, isBn && useBengaliDigits)}</span>
-                </div>
-                <div className="bg-white p-3 rounded-lg border border-indigo-100">
-                  <span className="text-slate-500 block mb-0.5">{isBn ? 'মোট লাভ/সুদ:' : 'Total Interest:'}</span>
-                  <span className="text-sm font-bold text-indigo-700">{formatCurrency(liveApplyCalc.totalInterest, isBn && useBengaliDigits)}</span>
                 </div>
                 <div className="bg-white p-3 rounded-lg border border-indigo-100">
                   <span className="text-slate-500 block mb-0.5">{isBn ? 'মোট প্রদেয়:' : 'Total Payable:'}</span>
@@ -1444,7 +1413,7 @@ export const LoansView: React.FC = () => {
                           <span className="font-bold text-slate-900">{formatCurrency(loan.principalAmount, isBn && useBengaliDigits)}</span>
                         </div>
                         <div>
-                          <span className="text-slate-400 block text-[10px]">{isBn ? 'সুদসহ মোট' : 'Total'}</span>
+                          <span className="text-slate-400 block text-[10px]">{isBn ? 'মোট প্রদেয়' : 'Total'}</span>
                           <span className="font-bold text-indigo-700">{formatCurrency(loan.totalAmount, isBn && useBengaliDigits)}</span>
                         </div>
                         <div>
@@ -1747,7 +1716,7 @@ export const LoansView: React.FC = () => {
                       <span className="font-bold text-sm">{formatCurrency(approvingLoan.principalAmount, isBn && useBengaliDigits)}</span>
                     </div>
                     <div className="flex justify-between text-[11px]">
-                      <span>{isBn ? 'সুদসহ মোট আদায় হবে:' : 'Total to be collected:'}</span>
+                      <span>{isBn ? 'মোট আদায় হবে:' : 'Total to be collected:'}</span>
                       <span>{formatCurrency(approvingLoan.totalAmount, isBn && useBengaliDigits)}</span>
                     </div>
                   </div>
@@ -2161,12 +2130,12 @@ export const LoansView: React.FC = () => {
                 {isBn ? 'ঋণ ও কিস্তি ক্যালকুলেটর (Loan EMI Calculator)' : 'Loan EMI Calculator'}
               </h3>
               <p className="text-xs text-slate-500">
-                {isBn ? 'ঋণের পরিমাণ, সুদের হার ও মেয়াদ অনুযায়ী কিস্তির পরিমাণ হিসাব করুন' : 'Calculate monthly EMI and total interest'}
+                {isBn ? 'ঋণের পরিমাণ ও মেয়াদ অনুযায়ী কিস্তির পরিমাণ হিসাব করুন (সুদমুক্ত)' : 'Calculate monthly EMI (Interest-Free)'}
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 {isBn ? 'ঋণের পরিমাণ (৳)' : 'Principal Amount (৳)'}
@@ -2177,21 +2146,6 @@ export const LoansView: React.FC = () => {
                 min="5000"
                 value={calcPrincipal}
                 onChange={(e) => setCalcPrincipal(Number(e.target.value))}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm font-bold text-slate-900"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                {isBn ? 'বার্ষিক সুদের হার (%)' : 'Interest Rate (%)'}
-              </label>
-              <input
-                type="number"
-                step="0.5"
-                min="0"
-                max="50"
-                value={calcRate}
-                onChange={(e) => setCalcRate(Number(e.target.value))}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm font-bold text-slate-900"
               />
             </div>
@@ -2212,14 +2166,10 @@ export const LoansView: React.FC = () => {
           </div>
 
           {/* Calculator Output Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
               <span className="text-xs text-slate-500 block mb-1">{isBn ? 'মূল ঋণ' : 'Principal'}</span>
               <span className="text-lg font-bold text-slate-900">{formatCurrency(calcOutput.principal, isBn && useBengaliDigits)}</span>
-            </div>
-            <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-200">
-              <span className="text-xs text-indigo-700 block mb-1">{isBn ? 'মোট লাভ/সুদ' : 'Total Interest'}</span>
-              <span className="text-lg font-bold text-indigo-800">{formatCurrency(calcOutput.interest, isBn && useBengaliDigits)}</span>
             </div>
             <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-200">
               <span className="text-xs text-emerald-700 block mb-1">{isBn ? 'মোট পরিশোধযোগ্য' : 'Total Payable'}</span>
@@ -2235,7 +2185,6 @@ export const LoansView: React.FC = () => {
             <button
               onClick={() => {
                 setApplyPrincipal(calcOutput.principal);
-                setApplyInterestRate(calcRate);
                 setApplyTermMonths(calcOutput.months);
                 setCurrentTab('apply');
               }}

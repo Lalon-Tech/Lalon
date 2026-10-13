@@ -127,7 +127,7 @@ export const BackupRestoreCenter: React.FC = () => {
       'সদস্যের নাম': l.memberName,
       'সদস্য নং': l.memberNo,
       'মঞ্জুরকৃত টাকা (৳)': l.principalAmount,
-      'সুদ/মুনাফা (৳)': l.interestAmount || 0,
+      'ঋণের ধরন': 'সুদমুক্ত',
       'মোট প্রদেয় (৳)': l.totalAmount,
       'মোট কিস্তি': l.totalInstallments,
       'প্রতি কিস্তির টাকা (৳)': l.installmentAmount,

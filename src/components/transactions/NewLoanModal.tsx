@@ -52,7 +52,6 @@ export const NewLoanModal: React.FC<NewLoanModalProps> = ({
     }
   }, [isOpen, initialMemberId, selectedMemberId, members]);
   const [principalAmount, setPrincipalAmount] = useState<number>(50000);
-  const [interestRate, setInterestRate] = useState<number>(settings.defaultLoanInterestRate || 12);
   const [termMonths, setTermMonths] = useState<number>(12);
   const [installmentFrequency, setInstallmentFrequency] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
   const [purpose, setPurpose] = useState(isBn ? 'ব্যবসায়িক চলতি মূলধন' : 'Working Capital Investment');
@@ -68,9 +67,8 @@ export const NewLoanModal: React.FC<NewLoanModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Real-time calculation
-  const totalInterest = (principalAmount * (interestRate / 100));
-  const totalPayable = principalAmount + totalInterest;
+  // Real-time calculation (Interest-free loan)
+  const totalPayable = principalAmount;
 
   let totalInstallments = termMonths;
   if (installmentFrequency === 'weekly') totalInstallments = termMonths * 4;
@@ -88,7 +86,7 @@ export const NewLoanModal: React.FC<NewLoanModalProps> = ({
     const res = applyForLoan({
       memberId,
       principalAmount: Number(principalAmount),
-      interestRate: Number(interestRate),
+      interestRate: 0,
       termMonths: Number(termMonths),
       installmentFrequency,
       purpose: purpose.trim(),
@@ -250,7 +248,7 @@ export const NewLoanModal: React.FC<NewLoanModalProps> = ({
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 {isBn ? 'মূল ঋণের পরিমাণ (৳)' : 'Principal Amount (৳)'} <span className="text-rose-500">*</span>
@@ -262,19 +260,6 @@ export const NewLoanModal: React.FC<NewLoanModalProps> = ({
                 value={principalAmount}
                 onChange={(e) => setPrincipalAmount(Number(e.target.value))}
                 className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm font-bold text-indigo-900 focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                {isBn ? 'বার্ষিক লাভ / মুনাফার হার (%)' : 'Interest Rate (%)'}
-              </label>
-              <input
-                type="number"
-                step="0.1"
-                value={interestRate}
-                onChange={(e) => setInterestRate(Number(e.target.value))}
-                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
               />
             </div>
 
@@ -327,13 +312,9 @@ export const NewLoanModal: React.FC<NewLoanModalProps> = ({
           <div className="bg-indigo-50/80 border border-indigo-200 rounded-xl p-4 text-xs space-y-2">
             <div className="flex items-center gap-1.5 font-bold text-indigo-950 pb-1 border-b border-indigo-200">
               <Calculator className="w-4 h-4 text-indigo-700" />
-              <span>{isBn ? 'ঋণ ও কিস্তি হিসাব বিবরণী' : 'Loan & Installment Calculation Breakdown'}</span>
+              <span>{isBn ? 'ঋণ ও কিস্তি হিসাব বিবরণী (সুদমুক্ত)' : 'Loan & Installment Calculation Breakdown (Interest-Free)'}</span>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-              <div>
-                <span className="text-slate-500 block">{isBn ? 'মোট লাভ / মুনাফা:' : 'Total Interest:'}</span>
-                <span className="font-bold text-slate-800">{formatCurrency(totalInterest, isBn && useBengaliDigits)}</span>
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
               <div>
                 <span className="text-slate-500 block">{isBn ? 'সর্বমোট প্রদেয়:' : 'Total Payable:'}</span>
                 <span className="font-bold text-indigo-900">{formatCurrency(totalPayable, isBn && useBengaliDigits)}</span>

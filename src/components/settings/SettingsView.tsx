@@ -102,7 +102,6 @@ export const SettingsView: React.FC = () => {
 
   const [sharePricePerUnit, setSharePricePerUnit] = useState(settings.sharePricePerUnit);
   const [defaultAdmissionFee, setDefaultAdmissionFee] = useState(settings.defaultAdmissionFee);
-  const [defaultLoanInterestRate, setDefaultLoanInterestRate] = useState(settings.defaultLoanInterestRate);
   const [defaultDpsInterestRate, setDefaultDpsInterestRate] = useState(settings.defaultDpsInterestRate);
 
   // Logo state and handlers
@@ -129,7 +128,6 @@ export const SettingsView: React.FC = () => {
       setCashierName(settings.cashierName || '');
       setSharePricePerUnit(settings.sharePricePerUnit ?? 100);
       setDefaultAdmissionFee(settings.defaultAdmissionFee ?? 50);
-      setDefaultLoanInterestRate(settings.defaultLoanInterestRate ?? 10);
       setDefaultDpsInterestRate(settings.defaultDpsInterestRate ?? 8);
       setLogoScale(settings.logoScale ?? 1.0);
       setLogoOffsetX(settings.logoOffsetX ?? 0);
@@ -437,7 +435,7 @@ export const SettingsView: React.FC = () => {
       logoBgColor: logoBgColor,
       sharePricePerUnit: Number(sharePricePerUnit),
       defaultAdmissionFee: Number(defaultAdmissionFee),
-      defaultLoanInterestRate: Number(defaultLoanInterestRate),
+      defaultLoanInterestRate: 0,
       defaultDpsInterestRate: Number(defaultDpsInterestRate),
     });
 
@@ -1248,19 +1246,6 @@ export const SettingsView: React.FC = () => {
                 type="number"
                 value={defaultAdmissionFee}
                 onChange={(e) => setDefaultAdmissionFee(Number(e.target.value))}
-                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                ডিফল্ট ঋণের মুনাফা (%)
-              </label>
-              <input
-                type="number"
-                step="0.1"
-                value={defaultLoanInterestRate}
-                onChange={(e) => setDefaultLoanInterestRate(Number(e.target.value))}
                 className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
               />
             </div>
