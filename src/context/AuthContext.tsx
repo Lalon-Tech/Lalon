@@ -44,9 +44,44 @@ interface AuthContextType {
 
 const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 const INACTIVITY_WARNING_MS = 9 * 60 * 1000;  // 9 minutes (warning 60 seconds before logout)
+const LAST_ACTIVITY_KEY = 'somiti_last_activity_time';
+const AUTO_LOGOUT_NOTICE_KEY = 'somiti_auto_logout_notice';
+
+export const getLastActivityTime = (): number => {
+  try {
+    const saved = localStorage.getItem(LAST_ACTIVITY_KEY);
+    const parsed = saved ? Number(saved) : 0;
+    return isNaN(parsed) || parsed <= 0 ? 0 : parsed;
+  } catch {
+    return 0;
+  }
+};
+
+export const setLastActivityTime = (time: number) => {
+  try {
+    localStorage.setItem(LAST_ACTIVITY_KEY, String(time));
+  } catch {}
+};
+
+export const clearActivityStorage = () => {
+  try {
+    localStorage.removeItem(LAST_ACTIVITY_KEY);
+  } catch {}
+};
 
 const getStoredUser = (): User | AppAuthUser | null => {
   try {
+    const lastActive = getLastActivityTime();
+    // If lastActive timestamp exists and more than 10 minutes have elapsed, session has expired
+    if (lastActive > 0 && (Date.now() - lastActive) >= INACTIVITY_TIMEOUT_MS) {
+      localStorage.removeItem('somiti_auth_user');
+      sessionStorage.removeItem('somiti_session_user');
+      localStorage.removeItem('somiti_current_app_user');
+      sessionStorage.removeItem('somiti_current_app_user');
+      clearActivityStorage();
+      sessionStorage.setItem(AUTO_LOGOUT_NOTICE_KEY, 'true');
+      return null;
+    }
     const saved = localStorage.getItem('somiti_auth_user') || sessionStorage.getItem('somiti_session_user');
     return saved ? JSON.parse(saved) : null;
   } catch {
@@ -85,18 +120,57 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | AppAuthUser | null>(() => getStoredUser());
+  const userRef = useRef<User | AppAuthUser | null>(user);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
   const [loading, setLoading] = useState<boolean>(() => !getStoredUser());
   const [isLoginTransitioning, setIsLoginTransitioning] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   // Auto-logout state
   const [wasAutoLoggedOut, setWasAutoLoggedOut] = useState<boolean>(() => {
-    return sessionStorage.getItem('somiti_auto_logout_notice') === 'true';
+    return sessionStorage.getItem(AUTO_LOGOUT_NOTICE_KEY) === 'true';
   });
   const [inactivityWarning, setInactivityWarning] = useState<boolean>(false);
   const [inactivitySecondsRemaining, setInactivitySecondsRemaining] = useState<number>(60);
-  const lastActivityRef = useRef<number>(Date.now());
+  const lastActivityRef = useRef<number>(() => {
+    const stored = getLastActivityTime();
+    return stored > 0 ? stored : Date.now();
+  });
   const lastThrottleRef = useRef<number>(Date.now());
+
+  const markUserActive = useCallback(() => {
+    const now = Date.now();
+    lastActivityRef.current = now;
+    setLastActivityTime(now);
+    sessionStorage.removeItem(AUTO_LOGOUT_NOTICE_KEY);
+    setWasAutoLoggedOut(false);
+    setInactivityWarning(false);
+  }, []);
+
+  const performAutoLogout = useCallback(async () => {
+    console.warn("User auto-logged out due to 10 minutes of inactivity.");
+    try {
+      sessionStorage.setItem(AUTO_LOGOUT_NOTICE_KEY, 'true');
+      localStorage.removeItem('somiti_auth_user');
+      sessionStorage.removeItem('somiti_session_user');
+      localStorage.removeItem('somiti_current_app_user');
+      sessionStorage.removeItem('somiti_current_app_user');
+      clearActivityStorage();
+    } catch (e) {
+      console.warn("Storage cleanup notice on auto-logout:", e);
+    }
+    setWasAutoLoggedOut(true);
+    setInactivityWarning(false);
+    setUser(null);
+    try {
+      await signOut(auth);
+    } catch (err: any) {
+      console.warn("SignOut notice during auto logout:", err);
+    }
+  }, []);
 
   useEffect(() => {
     // Safety watchdog: In sandboxed iframes or slow networks,
@@ -107,9 +181,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       clearTimeout(safetyTimer);
+      const lastActive = getLastActivityTime();
+      const expired = lastActive > 0 && (Date.now() - lastActive) >= INACTIVITY_TIMEOUT_MS;
+
+      if (expired) {
+        console.warn("Session expired on auth initialization. Signing out...");
+        persistUser(null);
+        clearActivityStorage();
+        setUser(null);
+        sessionStorage.setItem(AUTO_LOGOUT_NOTICE_KEY, 'true');
+        setWasAutoLoggedOut(true);
+        signOut(auth).catch(() => {});
+        setLoading(false);
+        return;
+      }
+
       if (currentUser) {
         setUser(currentUser);
         persistUser(currentUser);
+        if (!lastActive) {
+          const now = Date.now();
+          lastActivityRef.current = now;
+          setLastActivityTime(now);
+        }
       } else {
         const stored = getStoredUser();
         if (stored) {
@@ -139,17 +233,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // 10-Minute Inactivity Auto-Logout Tracker
   const resetActivity = useCallback(() => {
-    const now = Date.now();
-    lastActivityRef.current = now;
-    if (inactivityWarning) {
-      setInactivityWarning(false);
-    }
-  }, [inactivityWarning]);
+    markUserActive();
+  }, [markUserActive]);
 
   const stayLoggedIn = useCallback(() => {
-    resetActivity();
-    setInactivityWarning(false);
-  }, [resetActivity]);
+    markUserActive();
+  }, [markUserActive]);
 
   useEffect(() => {
     if (!user) {
@@ -157,54 +246,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Initialize activity timestamp when user is logged in
-    lastActivityRef.current = Date.now();
+    // Initialize or verify activity timestamp when user is logged in
+    const initialLastActive = getLastActivityTime();
+    const initialElapsed = initialLastActive > 0 ? (Date.now() - initialLastActive) : 0;
+    if (initialLastActive > 0 && initialElapsed >= INACTIVITY_TIMEOUT_MS) {
+      performAutoLogout();
+      return;
+    }
 
-    const handleUserInteraction = (e?: Event) => {
-      // If the inactivity warning modal is actively displayed, ignore passive mouse movement
-      // so the user can clearly see the countdown timer and deliberately choose to stay or logout
-      if (inactivityWarning && e && e.type === 'mousemove') {
-        return;
-      }
-
+    if (initialLastActive <= 0) {
       const now = Date.now();
-      // Throttle event listener updates to every 2 seconds for optimal UI responsiveness
-      if (now - lastThrottleRef.current > 2000) {
-        lastThrottleRef.current = now;
-        lastActivityRef.current = now;
-        if (inactivityWarning) {
-          setInactivityWarning(false);
-        }
-      }
-    };
+      lastActivityRef.current = now;
+      setLastActivityTime(now);
+    } else {
+      lastActivityRef.current = initialLastActive;
+    }
 
-    const events: (keyof WindowEventMap)[] = [
-      'mousedown',
-      'mousemove',
-      'keydown',
-      'scroll',
-      'touchstart',
-      'click'
-    ];
-
-    events.forEach(eventName => {
-      window.addEventListener(eventName, handleUserInteraction, { passive: true });
-    });
-
-    // Check inactivity every second for accurate countdown and logout
-    const interval = setInterval(() => {
+    const checkInactivity = () => {
+      if (!userRef.current) return;
       const now = Date.now();
-      const elapsed = now - lastActivityRef.current;
+      const lastActive = getLastActivityTime() || lastActivityRef.current;
+      const elapsed = now - lastActive;
 
       if (elapsed >= INACTIVITY_TIMEOUT_MS) {
-        // Automatically log out user after 10 minutes of inactivity
-        console.warn("User auto-logged out due to 10 minutes of inactivity.");
-        sessionStorage.setItem('somiti_auto_logout_notice', 'true');
-        setWasAutoLoggedOut(true);
-        setInactivityWarning(false);
-        logOut();
+        performAutoLogout();
       } else if (elapsed >= INACTIVITY_WARNING_MS) {
-        // Warning 1 minute before auto logout
         setInactivityWarning(true);
         const remainingSecs = Math.max(1, Math.round((INACTIVITY_TIMEOUT_MS - elapsed) / 1000));
         setInactivitySecondsRemaining(remainingSecs);
@@ -213,18 +279,114 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setInactivityWarning(false);
         }
       }
-    }, 1000);
+    };
+
+    const handleUserInteraction = (e?: Event) => {
+      if (!userRef.current) return;
+
+      // If the inactivity warning modal is actively displayed, ignore passive mouse movements
+      // so the user can clearly see the countdown timer and deliberately choose to stay or logout
+      if (inactivityWarning && e && (e.type === 'mousemove' || e.type === 'pointermove')) {
+        return;
+      }
+
+      const now = Date.now();
+      const lastActive = getLastActivityTime() || lastActivityRef.current;
+      const elapsed = now - lastActive;
+
+      // CRITICAL CHECK FOR MOBILE / BACKGROUND RESUME:
+      // If 10 minutes have elapsed while app was in background or device was locked,
+      // the first interaction MUST trigger auto-logout and NOT reset the activity timer!
+      if (lastActive > 0 && elapsed >= INACTIVITY_TIMEOUT_MS) {
+        performAutoLogout();
+        return;
+      }
+
+      // Throttle event listener updates to every 1.5 seconds for optimal responsiveness & performance
+      if (now - lastThrottleRef.current > 1500) {
+        lastThrottleRef.current = now;
+        lastActivityRef.current = now;
+        setLastActivityTime(now);
+        if (inactivityWarning) {
+          setInactivityWarning(false);
+        }
+      }
+    };
+
+    // Track user activity: clicks, keyboard input, scrolling, and mobile touch
+    const windowEvents: (keyof WindowEventMap)[] = [
+      'mousedown',
+      'mousemove',
+      'pointerdown',
+      'pointermove',
+      'keydown',
+      'keyup',
+      'scroll',
+      'touchstart',
+      'touchmove',
+      'touchend',
+      'wheel',
+      'click'
+    ];
+
+    windowEvents.forEach(eventName => {
+      window.addEventListener(eventName, handleUserInteraction, { passive: true, capture: true });
+    });
+
+    document.addEventListener('scroll', handleUserInteraction, { passive: true, capture: true });
+
+    // Mobile background / browser tab hidden handling:
+    // When returning from background, wake immediately and check elapsed time
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkInactivity();
+      }
+    };
+    const handleWindowFocus = () => {
+      checkInactivity();
+    };
+    const handlePageShow = () => {
+      checkInactivity();
+    };
+
+    // Multi-tab synchronization
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === LAST_ACTIVITY_KEY && e.newValue) {
+        const val = Number(e.newValue);
+        if (!isNaN(val) && val > 0) {
+          lastActivityRef.current = val;
+          if (Date.now() - val < INACTIVITY_WARNING_MS && inactivityWarning) {
+            setInactivityWarning(false);
+          }
+        }
+      } else if (e.key === 'somiti_auth_user' && !e.newValue && userRef.current) {
+        setUser(null);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('pageshow', handlePageShow);
+    window.addEventListener('storage', handleStorageChange);
+
+    // Check inactivity every second for accurate countdown and logout
+    const interval = setInterval(checkInactivity, 1000);
 
     return () => {
-      events.forEach(eventName => {
-        window.removeEventListener(eventName, handleUserInteraction);
+      windowEvents.forEach(eventName => {
+        window.removeEventListener(eventName, handleUserInteraction, true);
       });
+      document.removeEventListener('scroll', handleUserInteraction, true);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('storage', handleStorageChange);
       clearInterval(interval);
     };
-  }, [user, inactivityWarning]);
+  }, [user, inactivityWarning, performAutoLogout]);
 
   const clearAutoLoggedOut = () => {
-    sessionStorage.removeItem('somiti_auto_logout_notice');
+    sessionStorage.removeItem(AUTO_LOGOUT_NOTICE_KEY);
     setWasAutoLoggedOut(false);
   };
 
@@ -568,6 +730,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logOut = async () => {
     setError(null);
     setIsLoginTransitioning(false);
+    clearActivityStorage();
+    sessionStorage.removeItem(AUTO_LOGOUT_NOTICE_KEY);
+    setWasAutoLoggedOut(false);
+    setInactivityWarning(false);
     persistUser(null);
     try {
       await signOut(auth);

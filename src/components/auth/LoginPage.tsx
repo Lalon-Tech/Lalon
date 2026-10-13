@@ -69,6 +69,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    clearAutoLoggedOut();
     clearError();
     setValidationError('');
     setSuccessMsg('');
@@ -151,6 +152,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
   };
 
   const handleBiometricLogin = async () => {
+    clearAutoLoggedOut();
     clearError();
     clearBiometricError();
     setValidationError('');
