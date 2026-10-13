@@ -40,6 +40,7 @@ interface AuthContextType {
   inactivityWarning: boolean;
   inactivitySecondsRemaining: number;
   stayLoggedIn: () => void;
+  triggerInactivityTest: () => void;
 }
 
 const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
@@ -47,25 +48,36 @@ const INACTIVITY_WARNING_MS = 9 * 60 * 1000;  // 9 minutes (warning 60 seconds b
 const LAST_ACTIVITY_KEY = 'somiti_last_activity_time';
 const AUTO_LOGOUT_NOTICE_KEY = 'somiti_auto_logout_notice';
 
+let inMemoryLastActivityTime: number = Date.now();
+
 export const getLastActivityTime = (): number => {
   try {
-    const saved = localStorage.getItem(LAST_ACTIVITY_KEY);
-    const parsed = saved ? Number(saved) : 0;
-    return isNaN(parsed) || parsed <= 0 ? 0 : parsed;
-  } catch {
-    return 0;
-  }
+    const raw = localStorage.getItem(LAST_ACTIVITY_KEY) || sessionStorage.getItem(LAST_ACTIVITY_KEY);
+    if (raw) {
+      const parsed = parseInt(raw, 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        inMemoryLastActivityTime = parsed;
+        return parsed;
+      }
+    }
+  } catch {}
+  return inMemoryLastActivityTime > 0 ? inMemoryLastActivityTime : Date.now();
 };
 
 export const setLastActivityTime = (time: number) => {
+  const valid = typeof time === 'number' && !isNaN(time) && time > 0 ? time : Date.now();
+  inMemoryLastActivityTime = valid;
   try {
-    localStorage.setItem(LAST_ACTIVITY_KEY, String(time));
+    localStorage.setItem(LAST_ACTIVITY_KEY, String(valid));
+    sessionStorage.setItem(LAST_ACTIVITY_KEY, String(valid));
   } catch {}
 };
 
 export const clearActivityStorage = () => {
+  inMemoryLastActivityTime = 0;
   try {
     localStorage.removeItem(LAST_ACTIVITY_KEY);
+    sessionStorage.removeItem(LAST_ACTIVITY_KEY);
   } catch {}
 };
 
@@ -135,10 +147,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
   const [inactivityWarning, setInactivityWarning] = useState<boolean>(false);
   const [inactivitySecondsRemaining, setInactivitySecondsRemaining] = useState<number>(60);
-  const lastActivityRef = useRef<number>(() => {
-    const stored = getLastActivityTime();
-    return stored > 0 ? stored : Date.now();
-  });
+  
+  // Real numeric timestamp ref (never a function)
+  const lastActivityRef = useRef<number>(Date.now());
   const lastThrottleRef = useRef<number>(Date.now());
 
   const markUserActive = useCallback(() => {
@@ -171,6 +182,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn("SignOut notice during auto logout:", err);
     }
   }, []);
+
+  // Sync activity timestamp when user changes/logs in
+  useEffect(() => {
+    if (user) {
+      const stored = getLastActivityTime();
+      const now = Date.now();
+      if (!stored || stored <= 0) {
+        setLastActivityTime(now);
+        lastActivityRef.current = now;
+      } else {
+        lastActivityRef.current = stored;
+      }
+    }
+  }, [user]);
 
   useEffect(() => {
     // Safety watchdog: In sandboxed iframes or slow networks,
@@ -240,13 +265,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     markUserActive();
   }, [markUserActive]);
 
+  const triggerInactivityTest = useCallback(() => {
+    const testLastActive = Date.now() - INACTIVITY_WARNING_MS;
+    setLastActivityTime(testLastActive);
+    lastActivityRef.current = testLastActive;
+    setInactivityWarning(true);
+    setInactivitySecondsRemaining(60);
+  }, []);
+
   useEffect(() => {
     if (!user) {
       setInactivityWarning(false);
       return;
     }
 
-    // Initialize or verify activity timestamp when user is logged in
+    // Check on mount or resume
     const initialLastActive = getLastActivityTime();
     const initialElapsed = initialLastActive > 0 ? (Date.now() - initialLastActive) : 0;
     if (initialLastActive > 0 && initialElapsed >= INACTIVITY_TIMEOUT_MS) {
@@ -265,7 +298,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const checkInactivity = () => {
       if (!userRef.current) return;
       const now = Date.now();
-      const lastActive = getLastActivityTime() || lastActivityRef.current;
+      const lastActive = getLastActivityTime();
+      if (!lastActive || lastActive <= 0) return;
+
       const elapsed = now - lastActive;
 
       if (elapsed >= INACTIVITY_TIMEOUT_MS) {
@@ -285,19 +320,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!userRef.current) return;
 
       // If the inactivity warning modal is actively displayed, ignore passive mouse movements
-      // so the user can clearly see the countdown timer and deliberately choose to stay or logout
       if (inactivityWarning && e && (e.type === 'mousemove' || e.type === 'pointermove')) {
         return;
       }
 
       const now = Date.now();
-      const lastActive = getLastActivityTime() || lastActivityRef.current;
-      const elapsed = now - lastActive;
+      const lastActive = getLastActivityTime();
 
       // CRITICAL CHECK FOR MOBILE / BACKGROUND RESUME:
       // If 10 minutes have elapsed while app was in background or device was locked,
       // the first interaction MUST trigger auto-logout and NOT reset the activity timer!
-      if (lastActive > 0 && elapsed >= INACTIVITY_TIMEOUT_MS) {
+      if (lastActive > 0 && (now - lastActive) >= INACTIVITY_TIMEOUT_MS) {
         performAutoLogout();
         return;
       }
@@ -314,10 +347,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     // Track user activity: clicks, keyboard input, scrolling, and mobile touch
-    const windowEvents: (keyof WindowEventMap)[] = [
+    const events: (keyof WindowEventMap)[] = [
       'mousedown',
+      'mouseup',
       'mousemove',
       'pointerdown',
+      'pointerup',
       'pointermove',
       'keydown',
       'keyup',
@@ -325,27 +360,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       'touchstart',
       'touchmove',
       'touchend',
+      'touchcancel',
       'wheel',
       'click'
     ];
 
-    windowEvents.forEach(eventName => {
+    // Attach to window and document with capture: true for mobile nested scroll & touch reliability
+    events.forEach(eventName => {
       window.addEventListener(eventName, handleUserInteraction, { passive: true, capture: true });
+      document.addEventListener(eventName, handleUserInteraction, { passive: true, capture: true });
     });
 
-    document.addEventListener('scroll', handleUserInteraction, { passive: true, capture: true });
-
-    // Mobile background / browser tab hidden handling:
-    // When returning from background, wake immediately and check elapsed time
+    // Mobile background / screen lock / browser tab switch handlers
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'hidden') {
+        // Save current timestamp when mobile screen locks or user switches apps
+        setLastActivityTime(lastActivityRef.current);
+      } else if (document.visibilityState === 'visible') {
+        // Evaluate immediately when mobile app returns to foreground
         checkInactivity();
       }
     };
-    const handleWindowFocus = () => {
-      checkInactivity();
-    };
-    const handlePageShow = () => {
+
+    const handleWakeEvent = () => {
       checkInactivity();
     };
 
@@ -355,6 +392,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const val = Number(e.newValue);
         if (!isNaN(val) && val > 0) {
           lastActivityRef.current = val;
+          inMemoryLastActivityTime = val;
           if (Date.now() - val < INACTIVITY_WARNING_MS && inactivityWarning) {
             setInactivityWarning(false);
           }
@@ -365,21 +403,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleWindowFocus);
-    window.addEventListener('pageshow', handlePageShow);
+    document.addEventListener('resume', handleWakeEvent); // Mobile WebView / Page Lifecycle API
+    window.addEventListener('pageshow', handleWakeEvent);  // Mobile bfcache / tab resume
+    window.addEventListener('focus', handleWakeEvent);
     window.addEventListener('storage', handleStorageChange);
 
     // Check inactivity every second for accurate countdown and logout
     const interval = setInterval(checkInactivity, 1000);
 
     return () => {
-      windowEvents.forEach(eventName => {
+      events.forEach(eventName => {
         window.removeEventListener(eventName, handleUserInteraction, true);
+        document.removeEventListener(eventName, handleUserInteraction, true);
       });
-      document.removeEventListener('scroll', handleUserInteraction, true);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleWindowFocus);
-      window.removeEventListener('pageshow', handlePageShow);
+      document.removeEventListener('resume', handleWakeEvent);
+      window.removeEventListener('pageshow', handleWakeEvent);
+      window.removeEventListener('focus', handleWakeEvent);
       window.removeEventListener('storage', handleStorageChange);
       clearInterval(interval);
     };
@@ -762,7 +802,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       clearAutoLoggedOut,
       inactivityWarning,
       inactivitySecondsRemaining,
-      stayLoggedIn
+      stayLoggedIn,
+      triggerInactivityTest
     }}>
       {children}
     </AuthContext.Provider>

@@ -44,7 +44,8 @@ import {
   CheckSquare,
   PiggyBank,
   CreditCard,
-  Briefcase
+  Briefcase,
+  Clock
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useSomiti } from '../../context/SomitiContext';
@@ -323,7 +324,7 @@ export const SettingsView: React.FC = () => {
   const [showApkModal, setShowApkModal] = useState(false);
   const [isProcessingClear, setIsProcessingClear] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
-  const { user } = useAuth();
+  const { user, triggerInactivityTest } = useAuth();
   const {
     isSupported: isBiometricSupported,
     enrolledCredentials,
@@ -1534,6 +1535,54 @@ export const SettingsView: React.FC = () => {
               <span>{biometricSuccess}</span>
             </div>
           )}
+        </div>
+
+        {/* 9. Auto-Logout Security Protocol Card */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 className="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
+              <Clock className="w-5 h-5 text-amber-600" />
+              <span>{language === 'bn' ? '৯. স্বয়ংক্রিয় লগআউট ও সেশন নিরাপত্তা (Auto Logout)' : '9. Auto Logout & Session Security'}</span>
+            </h3>
+            <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              {language === 'bn' ? '১০ মিনিট (সক্রিয়)' : '10 Min (Active)'}
+            </span>
+          </div>
+
+          <p className="text-xs text-slate-500 leading-relaxed">
+            {language === 'bn'
+              ? 'মোবাইল বা কম্পিউটারে টানা ১০ মিনিট কোনো ক্লিক, স্ক্রোল, কীবোর্ড বা টাচ ইনপুট না থাকলে অ্যাকাউন্ট সুরক্ষার্থে সেশনটি স্বয়ংক্রিয়ভাবে সমাপ্ত হবে। মোবাইল স্ক্রিন লক বা ব্যাকগ্রাউন্ডে থাকলেও নিরাপত্তা নিশ্চিত করা হয়।'
+              : 'If there is no click, scroll, touch, or typing activity for 10 minutes, the session will automatically log out for account security. Fully protected on mobile sleep and background.'}
+          </p>
+
+          <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-amber-100 text-amber-700 shrink-0 mt-0.5">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs sm:text-sm font-bold text-slate-800">
+                  {language === 'bn' ? 'সক্রিয় প্রটোকল: ১০ মিনিট অটো-লগআউট' : 'Active Protocol: 10-Minute Auto Logout'}
+                </h4>
+                <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
+                  {language === 'bn'
+                    ? '৯ মিনিট পার হলে ৬০ সেকেন্ডের একটি লাইভ কাউন্টডাউন সতর্কতা প্রদর্শিত হবে।'
+                    : 'A 60-second warning countdown modal appears at 9 minutes of inactivity.'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={triggerInactivityTest}
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer shrink-0"
+              title={language === 'bn' ? 'সতর্কবার্তা ও কাউন্টডাউন টেস্ট করুন' : 'Test Warning Modal'}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>{language === 'bn' ? 'কাউন্টডাউন টেস্ট করুন' : 'Test Countdown Modal'}</span>
+            </button>
+          </div>
         </div>
 
         {/* Save Button */}
