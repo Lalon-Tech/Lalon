@@ -534,10 +534,10 @@ export const SettingsView: React.FC = () => {
         type: 'success',
         message: language === 'bn' 
           ? keptMembers 
-            ? `সফল হয়েছে! সদস্য তালিকা (${members.length} জন) অক্ষত রেখে বাকি নির্বাচিত সকল ডাটা সফলভাবে মুছে ফেলা হয়েছে।` 
+            ? `সফল হয়েছে! সদস্য তালিকা (${members.length} জন) অক্ষত রেখে সমস্ত আর্থিক লেনদেন, ঋণ, সঞ্চয়, পাসবুক ও লেজার রেকর্ড সম্পূর্ণ মুছে ব্যালেন্স শূন্য (০) করা হয়েছে।` 
             : 'সফল হয়েছে! নির্বাচিত সকল ডেমো ডাটা ডাটাবেজ থেকে সম্পূর্ণ মুছে ডাটাবেজ আপডেট করা হয়েছে।'
           : keptMembers
-            ? `Success! Kept all ${members.length} members intact and cleared selected transactions & records.`
+            ? `Success! Kept all ${members.length} members intact and completely cleared all financial transactions, loans, savings & ledger history.`
             : 'Success! Selected demo data cleared from database.'
       });
       try {
@@ -1609,7 +1609,7 @@ export const SettingsView: React.FC = () => {
                   }`}
                 >
                   <Users className="w-3.5 h-3.5" />
-                  <span>{language === 'bn' ? 'সদস্য রেখে বাকি সব মুছুন (প্রস্তাবিত)' : 'Keep Members, Clear Rest'}</span>
+                  <span>{language === 'bn' ? 'সদস্য রেখে বাকি সব মুছুন (Keep Members, Clear Reset)' : 'Keep Members, Clear Reset'}</span>
                 </button>
 
                 <button
@@ -1855,7 +1855,7 @@ export const SettingsView: React.FC = () => {
                       <Trash2 className="w-4 h-4" />
                       <span>
                         {!selectedClearCategories.members 
-                          ? (language === 'bn' ? 'নির্বাচিত ডাটা মুছুন (সদস্যরা সংরক্ষিত)' : 'Clear Selected (Keep Members)') 
+                          ? (language === 'bn' ? 'সদস্য রেখে সব মুছুন (Keep Members, Clear Reset)' : 'Keep Members, Clear Reset') 
                           : (language === 'bn' ? 'হ্যাঁ, সব ডাটা মুছুন (০ সদস্য)' : 'Yes, Delete All Data (0 Members)')}
                       </span>
                     </>

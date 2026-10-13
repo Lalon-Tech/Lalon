@@ -5079,7 +5079,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const clearBank = options ? Boolean(options.bankAccounts) : true;
     const clearAudit = options ? Boolean(options.auditLogs) : true;
 
-    // 1. Members
+    // 1. Members: Keep profiles, IDs, roles & permissions, but zero all transaction & financial balances
+    let updatedMembers: Member[] = [];
     if (clearMembers) {
       setMembers([]);
       try {
@@ -5087,30 +5088,22 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         localStorage.setItem('bondhu_members', JSON.stringify([]));
       } catch (_) {}
     } else {
-      // If members are KEPT, but transactions, loans, or savings are cleared:
-      // Reset members' financial balances to 0 so there are no ghost ledger numbers
-      setMembers(prev => {
-        const updated = prev.map(m => {
-          const up = {
-            ...m,
-            totalDeposit: clearTransactions ? 0 : m.totalDeposit,
-            generalSavingsBalance: clearTransactions ? 0 : (m.generalSavingsBalance || 0),
-            dpsSavingsBalance: clearSavings || clearTransactions ? 0 : (m.dpsSavingsBalance || 0),
-            fdrSavingsBalance: clearSavings || clearTransactions ? 0 : (m.fdrSavingsBalance || 0),
-            totalSavings: clearTransactions ? 0 : (m.totalSavings || 0),
-            activeLoanBalance: clearLoans ? 0 : (m.activeLoanBalance || 0),
-            totalLoan: clearLoans ? 0 : m.totalLoan,
-            totalInterestPaid: clearLoans ? 0 : (m.totalInterestPaid || 0),
-            shareCount: clearTransactions ? (m.shareCount || 0) : m.shareCount,
-          };
-          safeSetDoc(doc(db, 'members', m.id), up, { merge: true }).catch(console.error);
-          return up;
-        });
-        try {
-          localStorage.setItem('bondhu_members', JSON.stringify(updated));
-        } catch (_) {}
-        return updated;
-      });
+      updatedMembers = members.map(m => ({
+        ...m,
+        totalDeposit: 0,
+        generalSavingsBalance: 0,
+        dpsSavingsBalance: 0,
+        fdrSavingsBalance: 0,
+        totalSavings: 0,
+        activeLoanBalance: 0,
+        totalLoan: 0,
+        totalInterestPaid: 0,
+        shareValue: 0,
+      }));
+      setMembers(updatedMembers);
+      try {
+        localStorage.setItem('bondhu_members', JSON.stringify(updatedMembers));
+      } catch (_) {}
     }
 
     // 2. Loans
@@ -5140,10 +5133,11 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } catch (_) {}
     }
 
-    // 5. Transactions & Vouchers
+    // 5. Transactions, Passbook History, General Ledger & Vouchers
     if (clearTransactions) {
       setTransactions([]);
       setVouchers([]);
+      setActiveReceipt(null);
       try {
         localStorage.removeItem('bondhu_transactions');
         localStorage.removeItem('bondhu_vouchers');
@@ -5168,20 +5162,29 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } catch (_) {}
     }
 
-    // 7. Bank Accounts
+    // Clear pending member update requests if transactions or financial records are reset
+    if (clearTransactions || clearLoans || clearBusiness) {
+      setMemberUpdateRequests([]);
+      try {
+        localStorage.removeItem('bondhu_member_updates');
+        localStorage.setItem('bondhu_member_updates', JSON.stringify([]));
+      } catch (_) {}
+    }
+
+    // 7. Bank Accounts (Reset balance to 0)
+    const cleanBank: BankAccount[] = [
+      {
+        id: 'bank-1',
+        bankName: 'সোনালী ব্যাংক পিএলসি',
+        branchName: 'প্রধান শাখা',
+        accountName: settings.somitiName || 'সমিতি অ্যাকাউন্ট',
+        accountNumber: '০২০০০০১০০৯৮৭২',
+        accountType: 'current',
+        balance: 0,
+        updatedAt: getTodayDateStr(),
+      }
+    ];
     if (clearBank) {
-      const cleanBank: BankAccount[] = [
-        {
-          id: 'bank-1',
-          bankName: 'সোনালী ব্যাংক পিএলসি',
-          branchName: 'প্রধান শাখা',
-          accountName: settings.somitiName || 'সমিতি অ্যাকাউন্ট',
-          accountNumber: '০২০০০০১০০৯৮৭২',
-          accountType: 'current',
-          balance: 0,
-          updatedAt: getTodayDateStr(),
-        }
-      ];
       setBankAccounts(cleanBank);
       try {
         localStorage.setItem('bondhu_bank_accounts', JSON.stringify(cleanBank));
@@ -5193,17 +5196,18 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setAuditLogs([]);
       try {
         localStorage.removeItem('bondhu_audit_logs');
+        localStorage.setItem('bondhu_audit_logs', JSON.stringify([]));
       } catch (_) {}
     }
 
-    // Preserve existing admin/staff users so user doesn't get locked out
+    // Preserve existing administrative & staff user credentials so logins remain intact
     const preservedUsers = users.length > 0 ? users : initialUsers;
     setUsers(preservedUsers);
     try {
       localStorage.setItem('bondhu_users', JSON.stringify(preservedUsers));
     } catch (_) {}
 
-    // Clear Firestore documents if connected
+    // Synchronize complete wipe / reset to Firestore (safe chunked batching of 400 docs)
     try {
       const collectionsToClear: string[] = [];
       if (clearMembers) collectionsToClear.push('members');
@@ -5214,38 +5218,78 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (clearBusiness) collectionsToClear.push('businessFundings', 'businessProfitRecords', 'profitDistributions');
       if (clearAudit) collectionsToClear.push('auditLogs');
 
+      // Always clear memberFinancials & memberUpdateRequests collections to prevent ghost balances
+      collectionsToClear.push('memberFinancials', 'memberUpdateRequests');
+
+      // Delete target collections in chunks of 400 (below Firestore 500 batch limit)
       for (const col of collectionsToClear) {
-        const snap = await getDocs(collection(db, col));
-        if (!snap.empty) {
-          const batch = writeBatch(db);
-          snap.forEach(d => batch.delete(d.ref));
-          await batch.commit();
+        try {
+          const snap = await getDocs(collection(db, col));
+          if (!snap.empty) {
+            const docs = snap.docs;
+            for (let i = 0; i < docs.length; i += 400) {
+              const batch = writeBatch(db);
+              const chunk = docs.slice(i, i + 400);
+              chunk.forEach(d => batch.delete(d.ref));
+              await batch.commit();
+            }
+          }
+        } catch (colErr) {
+          console.warn(`Error clearing Firestore collection ${col}:`, colErr);
         }
       }
 
-      if (clearBank) {
-        const bankSnap = await getDocs(collection(db, 'bankAccounts'));
-        const bankBatch = writeBatch(db);
-        bankSnap.forEach(d => bankBatch.delete(d.ref));
-        const cleanBank = [
-          {
-            id: 'bank-1',
-            bankName: 'সোনালী ব্যাংক পিএলসি',
-            branchName: 'প্রধান শাখা',
-            accountName: settings.somitiName || 'সমিতি অ্যাকাউন্ট',
-            accountNumber: '০২০০০০১০০৯৮৭২',
-            accountType: 'current',
-            balance: 0,
-            updatedAt: getTodayDateStr(),
+      // If members are kept, update kept member documents in Firestore with 0 financial balances
+      if (!clearMembers && updatedMembers.length > 0) {
+        try {
+          for (let i = 0; i < updatedMembers.length; i += 400) {
+            const batch = writeBatch(db);
+            const chunk = updatedMembers.slice(i, i + 400);
+            chunk.forEach(m => {
+              safeBatchSet(batch, doc(db, 'members', m.id), {
+                totalDeposit: 0,
+                generalSavingsBalance: 0,
+                dpsSavingsBalance: 0,
+                fdrSavingsBalance: 0,
+                totalSavings: 0,
+                activeLoanBalance: 0,
+                totalLoan: 0,
+                totalInterestPaid: 0,
+                shareValue: 0,
+                updatedAt: new Date().toISOString()
+              }, { merge: true });
+            });
+            await batch.commit();
           }
-        ];
-        safeBatchSet(bankBatch, doc(db, 'bankAccounts', 'bank-1'), cleanBank[0]);
-        await bankBatch.commit();
+        } catch (memErr) {
+          console.warn('Error updating kept members in Firestore:', memErr);
+        }
       }
 
-      // Ensure preserved users exist in systemUsers
+      // Reset bank account balance in Firestore to 0
+      if (clearBank) {
+        try {
+          const bankSnap = await getDocs(collection(db, 'bankAccounts'));
+          if (!bankSnap.empty) {
+            const docs = bankSnap.docs;
+            for (let i = 0; i < docs.length; i += 400) {
+              const batch = writeBatch(db);
+              const chunk = docs.slice(i, i + 400);
+              chunk.forEach(d => batch.delete(d.ref));
+              await batch.commit();
+            }
+          }
+          const bankBatch = writeBatch(db);
+          safeBatchSet(bankBatch, doc(db, 'bankAccounts', 'bank-1'), cleanBank[0]);
+          await bankBatch.commit();
+        } catch (bankErr) {
+          console.warn('Error resetting bank accounts in Firestore:', bankErr);
+        }
+      }
+
+      // Ensure preserved administrative users exist in systemUsers
       for (const u of preservedUsers) {
-        await safeSetDoc(doc(db, 'systemUsers', u.id), u);
+        await safeSetDoc(doc(db, 'systemUsers', u.id), u, { merge: true });
       }
     } catch (e) {
       console.warn('Firestore clearing error:', e);
