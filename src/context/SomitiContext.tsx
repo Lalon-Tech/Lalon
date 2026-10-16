@@ -3216,6 +3216,36 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     bankAccountId?: string;
     processingFee?: number;
   }): { success: boolean; message: string; loan?: Loan } => {
+    // 0. Member Role Restriction: A member can strictly ONLY apply for a loan for themselves!
+    if (currentUser?.role === 'member') {
+      const authEmail = (currentUser?.email || '').toLowerCase().trim();
+      const currentMemberIdProp = currentUser?.memberId;
+      const currentMemberNoProp = currentUser?.memberNo || (currentUser as any)?.userUid;
+      const currentPhone = (currentUser?.phone || '').trim();
+      const currentName = (currentUser?.name || '').trim().toLowerCase();
+
+      const currentMemberRecord = members.find(m => 
+        (currentMemberIdProp && m.id === currentMemberIdProp) ||
+        (currentMemberNoProp && m.memberNo === currentMemberNoProp) ||
+        (currentUser?.id && (m.id === currentUser.id || currentUser.id === 'usr_' + m.id)) ||
+        (authEmail && m.email && m.email.toLowerCase().trim() === authEmail) ||
+        (currentPhone && m.phone && m.phone.trim() === currentPhone) ||
+        (currentName && m.name && m.name.trim().toLowerCase() === currentName)
+      );
+
+      const effectiveSelfId = currentMemberRecord?.id || currentUser?.memberId || currentUser?.id;
+
+      if (effectiveSelfId && params.memberId !== effectiveSelfId) {
+        return {
+          success: false,
+          message: 'অনধিকার আবেদন: একজন সাধারণ সদস্য শুধুমাত্র নিজের অ্যাকাউন্টের জন্য ঋণ আবেদন করতে পারেন, অন্য কোনো সদস্যের জন্য নয়।'
+        };
+      }
+      if (effectiveSelfId) {
+        params.memberId = effectiveSelfId;
+      }
+    }
+
     // 1. Duplicate Loan Check
     const existingActive = loans.find(l => l.memberId === params.memberId && l.status === 'active' && (l.remainingAmount || 0) > 0);
     if (existingActive) {

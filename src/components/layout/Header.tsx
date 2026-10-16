@@ -56,6 +56,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
     settings
   } = useSomiti();
 
+  const isMember = currentUser?.role === 'member';
+
   // Check if viewing a member profile
   const isViewingMemberProfile = activeTab === 'member_profile' || activeTab === 'members_profile';
   const viewingMember = isViewingMemberProfile
@@ -336,87 +338,89 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenAuthModal
           </div>
         )}
 
-        {/* Quick Add Button & Dropdown - hidden on mobile */}
-        <div ref={addMenuRef} className="hidden sm:block relative shrink-0">
-          <button
-            id="quick-action-btn"
-            onClick={() => setShowAddMenu(!showAddMenu)}
-            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3.5 py-1.5 sm:py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-xs sm:text-sm font-medium shadow-xs hover:shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">{t('add_new')}</span>
-            <ChevronDown className="w-3.5 h-3.5 ml-0.5 opacity-80" />
-          </button>
+        {/* Quick Add Button & Dropdown - hidden on mobile and hidden for members */}
+        {!isMember && (
+          <div ref={addMenuRef} className="hidden sm:block relative shrink-0">
+            <button
+              id="quick-action-btn"
+              onClick={() => setShowAddMenu(!showAddMenu)}
+              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3.5 py-1.5 sm:py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-xs sm:text-sm font-medium shadow-xs hover:shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('add_new')}</span>
+              <ChevronDown className="w-3.5 h-3.5 ml-0.5 opacity-80" />
+            </button>
 
-          {showAddMenu && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 text-slate-700 animate-in fade-in-50 zoom-in-95">
-              <div className="px-3 py-1 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                {t('quick_actions')}
+            {showAddMenu && (
+              <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 text-slate-700 animate-in fade-in-50 zoom-in-95">
+                <div className="px-3 py-1 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  {t('quick_actions')}
+                </div>
+                <button
+                  onClick={() => {
+                    setActiveTab('new_member');
+                    setShowAddMenu(false);
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+                >
+                  <UserPlus className="w-4 h-4 text-blue-600" />
+                  <span>{t('new_member_admission')}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('tx_deposit');
+                    setShowAddMenu(false);
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+                >
+                  <ArrowDownRight className="w-4 h-4 text-emerald-600" />
+                  <span>{t('deposit_money_voucher')}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('tx_withdraw');
+                    setShowAddMenu(false);
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-rose-50 hover:text-rose-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+                >
+                  <ArrowUpRight className="w-4 h-4 text-rose-600" />
+                  <span>{t('withdraw_money_voucher')}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('loans_kisti');
+                    setShowAddMenu(false);
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-teal-50 hover:text-teal-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+                >
+                  <Coins className="w-4 h-4 text-teal-600" />
+                  <span>{t('collect_kisti_voucher')}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('loans_apply');
+                    setShowAddMenu(false);
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+                >
+                  <CreditCard className="w-4 h-4 text-indigo-600" />
+                  <span>{t('approve_new_loan')}</span>
+                </button>
+                <div className="border-t border-slate-100 my-1"></div>
+                <button
+                  onClick={() => {
+                    setActiveTab('accounts');
+                    setShowAddMenu(false);
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-slate-100 flex items-center gap-2.5 transition-colors cursor-pointer"
+                >
+                  <FileText className="w-4 h-4 text-slate-600" />
+                  <span>{t('new_voucher_entry')}</span>
+                </button>
               </div>
-              <button
-                onClick={() => {
-                  setActiveTab('new_member');
-                  setShowAddMenu(false);
-                }}
-                className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
-              >
-                <UserPlus className="w-4 h-4 text-blue-600" />
-                <span>{t('new_member_admission')}</span>
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('tx_deposit');
-                  setShowAddMenu(false);
-                }}
-                className="w-full px-3 py-2 text-left text-sm hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2.5 transition-colors cursor-pointer"
-              >
-                <ArrowDownRight className="w-4 h-4 text-emerald-600" />
-                <span>{t('deposit_money_voucher')}</span>
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('tx_withdraw');
-                  setShowAddMenu(false);
-                }}
-                className="w-full px-3 py-2 text-left text-sm hover:bg-rose-50 hover:text-rose-700 flex items-center gap-2.5 transition-colors cursor-pointer"
-              >
-                <ArrowUpRight className="w-4 h-4 text-rose-600" />
-                <span>{t('withdraw_money_voucher')}</span>
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('loans_kisti');
-                  setShowAddMenu(false);
-                }}
-                className="w-full px-3 py-2 text-left text-sm hover:bg-teal-50 hover:text-teal-700 flex items-center gap-2.5 transition-colors cursor-pointer"
-              >
-                <Coins className="w-4 h-4 text-teal-600" />
-                <span>{t('collect_kisti_voucher')}</span>
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('loans_apply');
-                  setShowAddMenu(false);
-                }}
-                className="w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2.5 transition-colors cursor-pointer"
-              >
-                <CreditCard className="w-4 h-4 text-indigo-600" />
-                <span>{t('approve_new_loan')}</span>
-              </button>
-              <div className="border-t border-slate-100 my-1"></div>
-              <button
-                onClick={() => {
-                  setActiveTab('accounts');
-                  setShowAddMenu(false);
-                }}
-                className="w-full px-3 py-2 text-left text-sm hover:bg-slate-100 flex items-center gap-2.5 transition-colors cursor-pointer"
-              >
-                <FileText className="w-4 h-4 text-slate-600" />
-                <span>{t('new_voucher_entry')}</span>
-              </button>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </header>
   );

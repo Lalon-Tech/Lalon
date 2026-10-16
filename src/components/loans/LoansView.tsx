@@ -67,6 +67,60 @@ export const LoansView: React.FC = () => {
 
   const isMember = currentUser?.role === 'member';
 
+  // Identify the logged-in member with comprehensive profile matching & virtual fallback
+  const selfMember = useMemo(() => {
+    if (!isMember) return null;
+    const authEmail = (currentUser?.email || '').toLowerCase().trim();
+    const currentMemberIdProp = currentUser?.memberId;
+    const currentMemberNoProp = currentUser?.memberNo || (currentUser as any)?.userUid;
+    const currentPhone = (currentUser?.phone || '').trim();
+    const currentName = (currentUser?.name || '').trim().toLowerCase();
+
+    const matched = members.find(m => 
+      (currentMemberIdProp && m.id === currentMemberIdProp) ||
+      (currentMemberNoProp && m.memberNo === currentMemberNoProp) ||
+      (currentUser?.id && (m.id === currentUser.id || currentUser.id === 'usr_' + m.id)) ||
+      (authEmail && m.email && m.email.toLowerCase().trim() === authEmail) ||
+      (currentPhone && m.phone && m.phone.trim() === currentPhone) ||
+      (currentName && m.name && m.name.trim().toLowerCase() === currentName)
+    ) || (currentMemberIdProp ? members.find(m => m.id === currentMemberIdProp) : null);
+
+    if (matched) return matched;
+
+    // Fallback self member representation so member login is never empty or unbound
+    return {
+      id: currentUser?.memberId || currentUser?.id || 'self_member',
+      memberNo: currentUser?.memberNo || (currentUser as any)?.userUid || 'BS-MEM',
+      name: currentUser?.name || 'সদস্য',
+      phone: currentUser?.phone || '',
+      email: currentUser?.email || '',
+      photoUrl: currentUser?.avatarUrl || '',
+      shareCount: 1,
+      totalSavings: 0,
+      activeLoanBalance: 0,
+      status: 'active' as const,
+      joiningDate: new Date().toISOString(),
+      fatherName: '',
+      presentAddress: currentUser?.assignedArea || '',
+      permanentAddress: '',
+      nidPassport: '',
+      nomineeName: '',
+      nomineeRelation: '',
+      nomineePhone: ''
+    };
+  }, [isMember, currentUser, members]);
+
+  const loggedInMember = selfMember;
+  const currentMemberId = isMember ? (selfMember?.id || '') : '';
+
+  // Available members list for loan application: strictly selfMember for member users
+  const availableApplyMembers = useMemo(() => {
+    if (isMember) {
+      return selfMember ? [selfMember] : [];
+    }
+    return members;
+  }, [isMember, selfMember, members]);
+
   // Internal tab state synced with activeTab or local navigation
   const [currentTab, setCurrentTab] = useState<'overview' | 'apply' | 'pending' | 'kisti' | 'calculator'>('overview');
   const [pendingSubTab, setPendingSubTab] = useState<'applications' | 'payments'>('applications');
@@ -94,50 +148,55 @@ export const LoansView: React.FC = () => {
   // Pending loans count (applications)
   const pendingLoans = useMemo(() => {
     return loans.filter(l => {
-      if (isMember && currentUser?.memberId && l.memberId !== currentUser.memberId) {
-        return false;
+      if (isMember) {
+        if (!currentMemberId) return false;
+        return l.memberId === currentMemberId && l.status === 'pending';
       }
       return l.status === 'pending';
     });
-  }, [loans, isMember, currentUser]);
+  }, [loans, isMember, currentMemberId]);
 
   // Pending loan payment requests
   const pendingLoanPayments = useMemo(() => {
     return transactions.filter(t => {
       if (t.type !== 'loan_installment' || t.status !== 'pending') return false;
-      if (isMember && currentUser?.memberId && t.memberId !== currentUser.memberId) {
-        return false;
+      if (isMember) {
+        if (!currentMemberId) return false;
+        return t.memberId === currentMemberId;
       }
       return true;
     });
-  }, [transactions, isMember, currentUser]);
+  }, [transactions, isMember, currentMemberId]);
 
   const activeLoans = useMemo(() => {
     return loans.filter(l => {
-      if (isMember && currentUser?.memberId && l.memberId !== currentUser.memberId) {
-        return false;
+      if (isMember) {
+        if (!currentMemberId) return false;
+        return l.memberId === currentMemberId && l.status === 'active';
       }
       return l.status === 'active';
     });
-  }, [loans, isMember, currentUser]);
+  }, [loans, isMember, currentMemberId]);
 
   const clearedLoans = useMemo(() => {
     return loans.filter(l => {
-      if (isMember && currentUser?.memberId && l.memberId !== currentUser.memberId) {
-        return false;
+      if (isMember) {
+        if (!currentMemberId) return false;
+        return l.memberId === currentMemberId && l.status === 'cleared';
       }
       return l.status === 'cleared';
     });
-  }, [loans, isMember, currentUser]);
+  }, [loans, isMember, currentMemberId]);
 
   const rejectedLoans = useMemo(() => {
     return loans.filter(l => {
-      if (isMember && currentUser?.memberId && l.memberId !== currentUser.memberId) {
-        return false;
+      if (isMember) {
+        if (!currentMemberId) return false;
+        return l.memberId === currentMemberId && l.status === 'rejected';
       }
       return l.status === 'rejected';
     });
-  }, [loans, isMember, currentUser]);
+  }, [loans, isMember, currentMemberId]);
 
   // Search & Status filters for Overview table
   const [searchTerm, setSearchTerm] = useState('');
@@ -150,9 +209,11 @@ export const LoansView: React.FC = () => {
 
   const filteredLoans = useMemo(() => {
     return loans.filter((l) => {
-      // Rule 7: Member can only view their own loans
-      if (isMember && currentUser?.memberId && l.memberId !== currentUser.memberId) {
-        return false;
+      // Rule 7: Member can strictly only view their own loans
+      if (isMember) {
+        if (!currentMemberId || l.memberId !== currentMemberId) {
+          return false;
+        }
       }
 
       // Exclude pending from standard overview unless search explicitly matches
@@ -171,7 +232,7 @@ export const LoansView: React.FC = () => {
       if (statusFilter === 'rejected') return l.status === 'rejected';
       return true;
     });
-  }, [loans, searchTerm, statusFilter]);
+  }, [loans, isMember, currentMemberId, searchTerm, statusFilter]);
 
   const totalPrincipalDisbursed = useMemo(() => 
     loans.filter(l => l.status === 'active' || l.status === 'cleared').reduce((s, l) => s + l.principalAmount, 0),
@@ -190,13 +251,14 @@ export const LoansView: React.FC = () => {
   // ==========================================
   // APPLY FORM STATE & DUPLICATE VALIDATION
   // ==========================================
-  const [applyMemberId, setApplyMemberId] = useState(isMember && currentUser?.memberId ? currentUser.memberId : '');
+  const [applyMemberId, setApplyMemberId] = useState(isMember ? (selfMember?.id || currentMemberId || '') : '');
+  const effectiveApplyId = isMember ? (selfMember?.id || currentMemberId) : applyMemberId;
 
   useEffect(() => {
-    if (isMember && currentUser?.memberId) {
-      setApplyMemberId(currentUser.memberId);
+    if (isMember && (selfMember?.id || currentMemberId)) {
+      setApplyMemberId(selfMember?.id || currentMemberId);
     }
-  }, [isMember, currentUser?.memberId]);
+  }, [isMember, selfMember, currentMemberId]);
 
   const [applyPrincipal, setApplyPrincipal] = useState(50000);
   const [applyTermMonths, setApplyTermMonths] = useState(12);
@@ -210,14 +272,15 @@ export const LoansView: React.FC = () => {
   const [applyBankAccountId, setApplyBankAccountId] = useState('');
   const [applyFeedback, setApplyFeedback] = useState<{ success: boolean; message: string } | null>(null);
 
-  // Duplicate active loan check for the chosen member
+  // Duplicate active loan check for the chosen member (strictly selfMember when logged in as member)
   const memberLoanStatus = useMemo(() => {
-    if (!applyMemberId) return null;
-    const member = members.find(m => m.id === applyMemberId);
+    const targetId = isMember ? (selfMember?.id || currentMemberId) : applyMemberId;
+    if (!targetId) return null;
+    const member = isMember ? selfMember : members.find(m => m.id === targetId);
     if (!member) return null;
 
-    const existingActive = loans.find(l => l.memberId === applyMemberId && l.status === 'active');
-    const existingPending = loans.find(l => l.memberId === applyMemberId && l.status === 'pending');
+    const existingActive = loans.find(l => l.memberId === targetId && l.status === 'active');
+    const existingPending = loans.find(l => l.memberId === targetId && l.status === 'pending');
 
     const hasActiveBalance = (member.activeLoanBalance || 0) > 0;
 
@@ -228,7 +291,7 @@ export const LoansView: React.FC = () => {
       hasActiveBalance,
       isBlocked: !!existingActive || !!existingPending || hasActiveBalance
     };
-  }, [applyMemberId, members, loans]);
+  }, [isMember, selfMember, currentMemberId, applyMemberId, members, loans]);
 
   // Calculation for live application breakdown (Interest-Free)
   const liveApplyCalc = useMemo(() => {
@@ -250,7 +313,9 @@ export const LoansView: React.FC = () => {
     e.preventDefault();
     setApplyFeedback(null);
 
-    if (!applyMemberId) {
+    const targetMemberId = isMember ? (selfMember?.id || currentMemberId) : applyMemberId;
+
+    if (!targetMemberId) {
       setApplyFeedback({ success: false, message: isBn ? 'অনুগ্রহ করে সদস্য নির্বাচন করুন।' : 'Please select a member.' });
       return;
     }
@@ -281,7 +346,7 @@ export const LoansView: React.FC = () => {
     }
 
     const res = applyForLoan({
-      memberId: applyMemberId,
+      memberId: targetMemberId,
       principalAmount: Number(applyPrincipal),
       interestRate: 0,
       termMonths: Number(applyTermMonths),
@@ -302,7 +367,7 @@ export const LoansView: React.FC = () => {
       } catch (_) {}
 
       // Reset form
-      setApplyMemberId('');
+      setApplyMemberId(isMember ? (selfMember?.id || currentMemberId || '') : '');
       setApplyPurpose('');
       setApplyGuarantorName('');
       setApplyGuarantorPhone('');
@@ -989,11 +1054,33 @@ export const LoansView: React.FC = () => {
             {/* Member Selection */}
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                {isBn ? '১. ঋণগ্রহীতা সদস্য নির্বাচন করুন *' : '1. Select Borrower Member *'}
+                {isBn ? '১. ঋণগ্রহীতা সদস্য *' : '1. Borrower Member *'}
               </label>
               {isMember ? (
-                <div className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-300 rounded-lg text-sm font-semibold text-slate-800">
-                  {members.find(m => m.id === currentUser?.memberId)?.memberNo} - {members.find(m => m.id === currentUser?.memberId)?.name} ({members.find(m => m.id === currentUser?.memberId)?.phone})
+                <div className="w-full p-3.5 bg-white border border-indigo-200 rounded-xl shadow-2xs flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 font-black text-sm flex items-center justify-center shrink-0 overflow-hidden border border-indigo-200">
+                      {selfMember?.photoUrl ? (
+                        <img src={selfMember.photoUrl} alt={selfMember.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span>{(selfMember?.name || 'M').charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-slate-900">{selfMember?.name}</span>
+                        <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 text-[10px] font-bold border border-indigo-200">
+                          #{selfMember?.memberNo}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        {selfMember?.phone || (isBn ? 'মোবাইল নেই' : 'No phone')}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-200 shrink-0">
+                    {isBn ? 'আপনার নিজস্ব একাউন্ট' : 'Your Account'}
+                  </span>
                 </div>
               ) : (
                 <select
@@ -1003,7 +1090,7 @@ export const LoansView: React.FC = () => {
                   className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-900 focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="">{isBn ? '-- সদস্য নির্বাচন করুন --' : '-- Select Member --'}</option>
-                  {members.map(m => (
+                  {availableApplyMembers.map(m => (
                     <option key={m.id} value={m.id}>
                       {m.memberNo} - {m.name} ({m.phone}) {m.activeLoanBalance > 0 ? (isBn ? ' [চলতি ঋণ আছে]' : ' [Has Active Loan]') : ''}
                     </option>

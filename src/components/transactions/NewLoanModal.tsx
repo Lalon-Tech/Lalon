@@ -29,36 +29,96 @@ export const NewLoanModal: React.FC<NewLoanModalProps> = ({
     applyForLoan, 
     settings, 
     useBengaliDigits,
-    selectedMemberId
+    selectedMemberId,
+    currentUser
   } = useSomiti();
 
-  const isMemberLocked = lockMember !== undefined ? lockMember : Boolean(initialMemberId || selectedMemberId);
-  const effectiveTargetId = (initialMemberId && members.some(m => m.id === initialMemberId))
-    ? initialMemberId
-    : (selectedMemberId && members.some(m => m.id === selectedMemberId))
-      ? selectedMemberId
-      : (members[0]?.id || '');
+  const isMemberRole = currentUser?.role === 'member';
+
+  // Identify the logged-in member with comprehensive profile matching & virtual fallback
+  const selfMember = React.useMemo(() => {
+    if (!isMemberRole) return null;
+    const authEmail = (currentUser?.email || '').toLowerCase().trim();
+    const currentMemberIdProp = currentUser?.memberId;
+    const currentMemberNoProp = currentUser?.memberNo || (currentUser as any)?.userUid;
+    const currentPhone = (currentUser?.phone || '').trim();
+    const currentName = (currentUser?.name || '').trim().toLowerCase();
+
+    const matched = members.find(m => 
+      (currentMemberIdProp && m.id === currentMemberIdProp) ||
+      (currentMemberNoProp && m.memberNo === currentMemberNoProp) ||
+      (currentUser?.id && (m.id === currentUser.id || currentUser.id === 'usr_' + m.id)) ||
+      (authEmail && m.email && m.email.toLowerCase().trim() === authEmail) ||
+      (currentPhone && m.phone && m.phone.trim() === currentPhone) ||
+      (currentName && m.name && m.name.trim().toLowerCase() === currentName)
+    ) || (currentMemberIdProp ? members.find(m => m.id === currentMemberIdProp) : null);
+
+    if (matched) return matched;
+
+    // Fallback self member representation so it never defaults to another member
+    return {
+      id: currentUser?.memberId || currentUser?.id || 'self_member',
+      memberNo: currentUser?.memberNo || (currentUser as any)?.userUid || 'BS-MEM',
+      name: currentUser?.name || 'সদস্য',
+      phone: currentUser?.phone || '',
+      email: currentUser?.email || '',
+      photoUrl: currentUser?.avatarUrl || '',
+      shareCount: 1,
+      totalSavings: 0,
+      activeLoanBalance: 0,
+      status: 'active' as const,
+      joiningDate: new Date().toISOString(),
+      fatherName: '',
+      presentAddress: currentUser?.assignedArea || '',
+      permanentAddress: '',
+      nidPassport: '',
+      nomineeName: '',
+      nomineeRelation: '',
+      nomineePhone: ''
+    };
+  }, [isMemberRole, currentUser, members]);
+
+  // When logged in as member: ALWAYS locked to themselves! No other member can be selected or seen.
+  const isMemberLocked = isMemberRole ? true : (lockMember !== undefined ? lockMember : Boolean(initialMemberId || selectedMemberId));
+
+  const effectiveTargetId = isMemberRole
+    ? (selfMember?.id || '')
+    : (initialMemberId && members.some(m => m.id === initialMemberId))
+      ? initialMemberId
+      : (selectedMemberId && members.some(m => m.id === selectedMemberId))
+        ? selectedMemberId
+        : (members[0]?.id || '');
 
   const [selectedId, setSelectedId] = useState(effectiveTargetId);
-  const memberId = isMemberLocked ? effectiveTargetId : (selectedId || effectiveTargetId);
+  const memberId = isMemberRole ? (selfMember?.id || '') : (isMemberLocked ? effectiveTargetId : (selectedId || effectiveTargetId));
   const setMemberId = setSelectedId;
-  const currentMember = members.find(m => m.id === memberId);
+  const currentMember = isMemberRole ? selfMember : (members.find(m => m.id === memberId) || members[0]);
+
+  // Available members list: When a member is logged in, ONLY selfMember is present!
+  const availableMembers = isMemberRole
+    ? (selfMember ? [selfMember] : [])
+    : members;
 
   // Sync memberId with active member whenever modal opens
   React.useEffect(() => {
+    if (isMemberRole && selfMember) {
+      setSelectedId(selfMember.id);
+      return;
+    }
     const targetId = initialMemberId || selectedMemberId;
     if (targetId && members.some(m => m.id === targetId)) {
       setSelectedId(targetId);
     }
-  }, [isOpen, initialMemberId, selectedMemberId, members]);
+  }, [isOpen, initialMemberId, selectedMemberId, members, isMemberRole, selfMember]);
+
   const [principalAmount, setPrincipalAmount] = useState<number>(50000);
   const [termMonths, setTermMonths] = useState<number>(12);
   const [installmentFrequency, setInstallmentFrequency] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
   const [purpose, setPurpose] = useState(isBn ? 'ব্যবসায়িক চলতি মূলধন' : 'Working Capital Investment');
-  const [guarantorMemberId, setGuarantorMemberId] = useState(members[1]?.id || '');
+  const [guarantorMemberId, setGuarantorMemberId] = useState(isMemberRole ? '' : (members[1]?.id || ''));
   const [guarantorName, setGuarantorName] = useState('');
   const [guarantorPhone, setGuarantorPhone] = useState('');
-  const [guarantorRelation, setGuarantorRelation] = useState(isBn ? 'সমিতি সদস্য' : 'Society Member');
+  const [guarantorRelation, setGuarantorRelation] = useState(isBn ? 'পিতা' : 'Father');
   const [disbursementMethod, setDisbursementMethod] = useState<PaymentMethod>('cash');
   const [bankAccountId, setBankAccountId] = useState(bankAccounts[0]?.id || '');
   const [processingFee, setProcessingFee] = useState<number>(500);
@@ -78,19 +138,20 @@ export const NewLoanModal: React.FC<NewLoanModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!memberId || principalAmount <= 0) {
+    const effectiveMemberId = isMemberRole ? (selfMember?.id || '') : memberId;
+    if (!effectiveMemberId || principalAmount <= 0) {
       alert(isBn ? 'সদস্য ও সঠিক ঋণের পরিমাণ পূরণ করুন।' : 'Please select member and enter valid loan amount.');
       return;
     }
 
     const res = applyForLoan({
-      memberId,
+      memberId: effectiveMemberId,
       principalAmount: Number(principalAmount),
       interestRate: 0,
       termMonths: Number(termMonths),
       installmentFrequency,
       purpose: purpose.trim(),
-      guarantorMemberId: guarantorMemberId || undefined,
+      guarantorMemberId: isMemberRole ? undefined : (guarantorMemberId || undefined),
       guarantorName: guarantorName.trim() || undefined,
       guarantorPhone: guarantorPhone.trim() || undefined,
       guarantorRelation: guarantorRelation.trim() || undefined,
@@ -141,7 +202,7 @@ export const NewLoanModal: React.FC<NewLoanModalProps> = ({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
           {/* Member Selection or Dedicated Member Account */}
-          {isMemberLocked && currentMember ? (
+          {(isMemberRole || isMemberLocked) && currentMember ? (
             <div className="space-y-3">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
@@ -150,7 +211,7 @@ export const NewLoanModal: React.FC<NewLoanModalProps> = ({
                   </label>
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
                     <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
-                    {isBn ? 'নির্দিষ্ট একাউন্ট' : 'Locked Account'}
+                    {isMemberRole ? (isBn ? 'আপনার নিজস্ব একাউন্ট' : 'Your Account') : (isBn ? 'নির্দিষ্ট একাউন্ট' : 'Locked Account')}
                   </span>
                 </div>
 
@@ -162,7 +223,7 @@ export const NewLoanModal: React.FC<NewLoanModalProps> = ({
                         {currentMember.photoUrl ? (
                           <img src={currentMember.photoUrl} alt={currentMember.name} className="w-full h-full object-cover" />
                         ) : (
-                          <span>{currentMember.name.charAt(0).toUpperCase()}</span>
+                          <span>{(currentMember.name || 'M').charAt(0).toUpperCase()}</span>
                         )}
                       </div>
                       <div className="min-w-0">
@@ -224,7 +285,7 @@ export const NewLoanModal: React.FC<NewLoanModalProps> = ({
                   onChange={(e) => setMemberId(e.target.value)}
                   className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden cursor-pointer"
                 >
-                  {members.map((m) => (
+                  {availableMembers.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.memberNo} - {m.name} ({m.phone})
                     </option>
@@ -336,51 +397,104 @@ export const NewLoanModal: React.FC<NewLoanModalProps> = ({
               <FileSignature className="w-4 h-4 text-indigo-600" />
               <span>{isBn ? 'জামিনদার / গ্যারান্টার তথ্য' : 'Guarantor Information'}</span>
             </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  {isBn ? 'সমিতির সদস্য জামিনদার' : 'Member Guarantor'}
-                </label>
-                <select
-                  value={guarantorMemberId}
-                  onChange={(e) => setGuarantorMemberId(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden cursor-pointer"
-                >
-                  <option value="">{isBn ? 'বহিরাগত জামিনদার' : 'External Guarantor'}</option>
-                  {members.filter(m => m.id !== memberId).map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.memberNo} - {m.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {isMemberRole ? (
+              /* For Member login: Only ask for Guarantor Name, Relationship, and Phone - NEVER list other society members! */
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    {isBn ? 'জামিনদারের নাম *' : "Guarantor's Name *"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={isBn ? "যেমন: মোহাম্মদ রহিম" : "e.g., John Doe"}
+                    value={guarantorName}
+                    onChange={(e) => setGuarantorName(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  {isBn ? 'জামিনদারের নাম' : "Guarantor's Name"}
-                </label>
-                <input
-                  type="text"
-                  placeholder={isBn ? "যেমন: মোহাম্মদ রহিম" : "e.g., John Doe"}
-                  value={guarantorName}
-                  onChange={(e) => setGuarantorName(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
-                />
-              </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    {isBn ? 'সম্পর্ক *' : "Relationship *"}
+                  </label>
+                  <select
+                    value={guarantorRelation}
+                    onChange={(e) => setGuarantorRelation(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden cursor-pointer"
+                  >
+                    <option value="পিতা">{isBn ? 'পিতা' : 'Father'}</option>
+                    <option value="মাতা">{isBn ? 'মাতা' : 'Mother'}</option>
+                    <option value="স্বামী/স্ত্রী">{isBn ? 'স্বামী/স্ত্রী' : 'Spouse'}</option>
+                    <option value="ভাই">{isBn ? 'ভাই' : 'Brother'}</option>
+                    <option value="বোন">{isBn ? 'বোন' : 'Sister'}</option>
+                    <option value="ব্যবসায়ী পার্টনার">{isBn ? 'ব্যবসায়ী পার্টনার' : 'Business Partner'}</option>
+                    <option value="অন্যান্য">{isBn ? 'অন্যান্য' : 'Other'}</option>
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  {isBn ? 'জামিনদারের মোবাইল' : "Guarantor's Phone"}
-                </label>
-                <input
-                  type="tel"
-                  placeholder={isBn ? "০১৭XXXXXXXX" : "+88017XXXXXXXX"}
-                  value={guarantorPhone}
-                  onChange={(e) => setGuarantorPhone(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
-                />
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    {isBn ? 'জামিনদারের মোবাইল নম্বর *' : "Guarantor's Phone *"}
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    placeholder={isBn ? "০১৭XXXXXXXX" : "017XXXXXXXX"}
+                    value={guarantorPhone}
+                    onChange={(e) => setGuarantorPhone(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                  />
+                </div>
               </div>
-            </div>
+            ) : (
+              /* For Admin: Can select existing member guarantor or enter details */
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    {isBn ? 'সমিতির সদস্য জামিনদার' : 'Member Guarantor'}
+                  </label>
+                  <select
+                    value={guarantorMemberId}
+                    onChange={(e) => setGuarantorMemberId(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden cursor-pointer"
+                  >
+                    <option value="">{isBn ? 'বহিরাগত জামিনদার' : 'External Guarantor'}</option>
+                    {members.filter(m => m.id !== memberId).map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.memberNo} - {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    {isBn ? 'জামিনদারের নাম' : "Guarantor's Name"}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder={isBn ? "যেমন: মোহাম্মদ রহিম" : "e.g., John Doe"}
+                    value={guarantorName}
+                    onChange={(e) => setGuarantorName(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    {isBn ? 'জামিনদারের মোবাইল' : "Guarantor's Phone"}
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder={isBn ? "০১৭XXXXXXXX" : "+88017XXXXXXXX"}
+                    value={guarantorPhone}
+                    onChange={(e) => setGuarantorPhone(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Disbursement Method */}
