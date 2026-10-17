@@ -62,55 +62,12 @@ export const LoansView: React.FC = () => {
     rejectPendingTransaction,
     openReceiptForTx,
     currentUser,
+    loggedInMember,
     totalAvailableBalance
   } = useSomiti();
 
   const isMember = currentUser?.role === 'member';
-
-  // Identify the logged-in member with comprehensive profile matching & virtual fallback
-  const selfMember = useMemo(() => {
-    if (!isMember) return null;
-    const authEmail = (currentUser?.email || '').toLowerCase().trim();
-    const currentMemberIdProp = currentUser?.memberId;
-    const currentMemberNoProp = currentUser?.memberNo || (currentUser as any)?.userUid;
-    const currentPhone = (currentUser?.phone || '').trim();
-    const currentName = (currentUser?.name || '').trim().toLowerCase();
-
-    const matched = members.find(m => 
-      (currentMemberIdProp && m.id === currentMemberIdProp) ||
-      (currentMemberNoProp && m.memberNo === currentMemberNoProp) ||
-      (currentUser?.id && (m.id === currentUser.id || currentUser.id === 'usr_' + m.id)) ||
-      (authEmail && m.email && m.email.toLowerCase().trim() === authEmail) ||
-      (currentPhone && m.phone && m.phone.trim() === currentPhone) ||
-      (currentName && m.name && m.name.trim().toLowerCase() === currentName)
-    ) || (currentMemberIdProp ? members.find(m => m.id === currentMemberIdProp) : null);
-
-    if (matched) return matched;
-
-    // Fallback self member representation so member login is never empty or unbound
-    return {
-      id: currentUser?.memberId || currentUser?.id || 'self_member',
-      memberNo: currentUser?.memberNo || (currentUser as any)?.userUid || 'BS-MEM',
-      name: currentUser?.name || 'সদস্য',
-      phone: currentUser?.phone || '',
-      email: currentUser?.email || '',
-      photoUrl: currentUser?.avatarUrl || '',
-      shareCount: 1,
-      totalSavings: 0,
-      activeLoanBalance: 0,
-      status: 'active' as const,
-      joiningDate: new Date().toISOString(),
-      fatherName: '',
-      presentAddress: currentUser?.assignedArea || '',
-      permanentAddress: '',
-      nidPassport: '',
-      nomineeName: '',
-      nomineeRelation: '',
-      nomineePhone: ''
-    };
-  }, [isMember, currentUser, members]);
-
-  const loggedInMember = selfMember;
+  const selfMember = loggedInMember;
   const currentMemberId = isMember ? (selfMember?.id || '') : '';
 
   // Available members list for loan application: strictly selfMember for member users

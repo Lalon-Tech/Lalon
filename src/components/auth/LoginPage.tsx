@@ -503,6 +503,77 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
           </div>
         </form>
 
+        {/* Quick Test Accounts selector for seamless multi-account testing */}
+        {mode === 'signin' && (
+          <div className="mt-4 pt-3.5 border-t border-slate-700/60">
+            <div className="text-[10px] sm:text-[11px] font-semibold text-slate-400 mb-2 flex items-center justify-between">
+              <span>{language === 'bn' ? '🔑 দ্রুত টেস্টিং একাউন্ট (Quick Switch):' : '🔑 Quick Test Accounts:'}</span>
+              <span className="text-[10px] text-cyan-400 font-normal">Password: 123456</span>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('admin@bondhusomiti.com');
+                  setPassword('123456');
+                  setValidationError('');
+                  clearError();
+                }}
+                className="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-left rounded-lg text-slate-200 hover:text-white transition-all cursor-pointer flex items-center gap-1.5 group"
+                title="Super Admin (BS-1001)"
+              >
+                <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0"></span>
+                <span className="truncate text-[11px] font-medium">এডমিন (BS-1001)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('BS-101');
+                  setPassword('123456');
+                  setValidationError('');
+                  clearError();
+                }}
+                className="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-left rounded-lg text-slate-200 hover:text-white transition-all cursor-pointer flex items-center gap-1.5 group"
+                title="Member 1: Junaid Hasan (BS-101)"
+              >
+                <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0"></span>
+                <span className="truncate text-[11px] font-medium">সদস্য ১ (BS-101)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('BS-102');
+                  setPassword('123456');
+                  setValidationError('');
+                  clearError();
+                }}
+                className="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-left rounded-lg text-slate-200 hover:text-white transition-all cursor-pointer flex items-center gap-1.5 group"
+                title="Member 2: Zakaria Alam (BS-102)"
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+                <span className="truncate text-[11px] font-medium">সদস্য ২ (BS-102)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('member@bondhusomiti.com');
+                  setPassword('123456');
+                  setValidationError('');
+                  clearError();
+                }}
+                className="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-left rounded-lg text-slate-200 hover:text-white transition-all cursor-pointer flex items-center gap-1.5 group"
+                title="Member Account (member@bondhusomiti.com)"
+              >
+                <span className="w-2 h-2 rounded-full bg-purple-400 shrink-0"></span>
+                <span className="truncate text-[11px] font-medium">সদস্য ৩ (Email)</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Footer switchers */}
         <div className="mt-4 sm:mt-5 text-center text-xs text-slate-400">
           {mode === 'signin' ? (

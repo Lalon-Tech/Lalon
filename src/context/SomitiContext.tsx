@@ -410,6 +410,8 @@ interface SomitiContextType {
   setUseBengaliDigits: (val: boolean) => void;
   currentUser: AppUser;
   setCurrentUser: (user: AppUser) => void;
+  loggedInMember: Member | null;
+  authUser: any;
   
   // Cloud Firestore Sync State
   firestoreConnected: boolean;
@@ -985,22 +987,28 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         u.id === authUser.uid
       );
 
-      // Check if matched user or authEmail corresponds to an existing Member in members
+      // Check if matched user or authUser corresponds to an existing Member in members
       const matchedMember = members.find(m => 
         (matched?.memberId && m.id === matched.memberId) ||
-        (m.email && m.email.toLowerCase() === authEmail)
+        (m.id === authUser.uid) ||
+        ((m as any).userId === authUser.uid) ||
+        ((m as any).userUid === authUser.uid) ||
+        (matched?.memberNo && m.memberNo === matched.memberNo) ||
+        (matched?.userUid && (m.memberNo === matched.userUid || m.id === matched.userUid)) ||
+        (authEmail && m.email && m.email.toLowerCase().trim() === authEmail) ||
+        (matched?.phone && m.phone && m.phone.trim() === matched.phone.trim())
       );
 
       if (matched) {
         const resolvedAvatar = matchedMember?.photoUrl || authUser.photoURL || matched.avatarUrl;
-        const resolvedMemberId = matched.memberId || matchedMember?.id;
-        const resolvedMemberNo = matched.memberNo || matchedMember?.memberNo;
+        const resolvedMemberId = matchedMember ? matchedMember.id : (matched.memberId || null);
+        const resolvedMemberNo = matchedMember ? matchedMember.memberNo : (matched.memberNo || matched.userUid || null);
         const sanitized = sanitizeUser({
           ...matched,
-          name: matched.name || matchedMember?.name || authName,
+          name: matchedMember?.name || matched.name || authName,
           avatarUrl: resolvedAvatar,
-          memberId: resolvedMemberId,
-          memberNo: resolvedMemberNo,
+          memberId: resolvedMemberId || undefined,
+          memberNo: resolvedMemberNo || undefined,
           status: matched.status === 'rejected' ? 'rejected' : 'active',
         });
 
@@ -1037,7 +1045,6 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return sanitized;
         });
       } else {
-        const matchedMember = members.find(m => m.email && m.email.toLowerCase() === authEmail);
         const isAdminEmail = authEmail === 'admin@bondhusomiti.com' || authEmail === 'sin4.riyas.lalon.dc@gmail.com' || authEmail === 'lalon2711@gmail.com' || authEmail.includes('admin');
         const dynamicUser: AppUser = {
           id: authUser.uid,
@@ -1112,6 +1119,89 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [authUser, users, members]);
 
+  // Dedicated single source of truth for the currently authenticated member profile
+  const loggedInMember = useMemo<Member | null>(() => {
+    if (!currentUser || currentUser.role !== 'member') return null;
+
+    const authUid = authUser?.uid || currentUser.id;
+    const authEmail = (authUser?.email || currentUser.email || '').toLowerCase().trim();
+    const currentMemberId = currentUser.memberId;
+    const currentMemberNo = currentUser.memberNo || currentUser.userUid;
+    const currentPhone = (currentUser.phone || '').trim();
+
+    // 1. Direct match by memberId if linked
+    if (currentMemberId) {
+      const found = members.find(m => m.id === currentMemberId);
+      if (found) return found;
+    }
+
+    // 2. Direct match by authenticated UID
+    if (authUid) {
+      const found = members.find(m => 
+        m.id === authUid || 
+        (m as any).userId === authUid || 
+        (m as any).userUid === authUid ||
+        (m as any).authUid === authUid
+      );
+      if (found) return found;
+    }
+
+    // 3. Match by verified memberNo
+    if (currentMemberNo) {
+      const found = members.find(m => m.memberNo === currentMemberNo);
+      if (found) return found;
+    }
+
+    // 4. Match by authenticated email (non-generic)
+    if (authEmail && authEmail !== 'member@bondhusomiti.com') {
+      const found = members.find(m => m.email && m.email.toLowerCase().trim() === authEmail);
+      if (found) return found;
+    }
+
+    // 5. Match by verified phone number
+    if (currentPhone) {
+      const found = members.find(m => m.phone && m.phone.trim() === currentPhone);
+      if (found) return found;
+    }
+
+    // 6. Generic demo member account fallback
+    if (authEmail === 'member@bondhusomiti.com' || authUid === 'member_demo_user') {
+      const demoMem = members.find(m => m.email === 'member@bondhusomiti.com' || m.id === 'mem-101' || m.memberNo === 'BS-101');
+      if (demoMem) return demoMem;
+    }
+
+    // 7. Synthetic member profile strictly tied to THIS user's UID (NEVER defaulting to someone else's member profile!)
+    return {
+      id: currentMemberId || authUid || ('mem_' + Date.now()),
+      memberNo: currentMemberNo || ('BS-' + (authUid ? authUid.slice(0, 5).toUpperCase() : 'MEM')),
+      name: currentUser.name || authUser?.displayName || 'সদস্য',
+      nameEn: currentUser.name || authUser?.displayName || 'Member',
+      phone: currentUser.phone || '',
+      email: authEmail,
+      nid: '',
+      dob: '',
+      gender: 'male',
+      fatherName: '',
+      motherName: '',
+      presentAddress: currentUser.assignedArea || 'সাধারণ সদস্য',
+      permanentAddress: '',
+      occupation: '',
+      monthlyIncome: 0,
+      joiningDate: new Date().toISOString().split('T')[0],
+      status: 'active' as const,
+      photoUrl: currentUser.avatarUrl || authUser?.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      shareCount: 1,
+      shareValue: 0,
+      admissionFee: 0,
+      generalSavingsBalance: 0,
+      dpsSavingsBalance: 0,
+      fdrSavingsBalance: 0,
+      totalSavings: 0,
+      activeLoanBalance: 0,
+      nominees: []
+    };
+  }, [currentUser, authUser, members]);
+
   // Permission & Role Checks - Restrict Member role from administrative actions
   const isUserAdmin = currentUser?.role === 'admin' || 
                       currentUser?.role === 'president' || 
@@ -1121,6 +1211,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const isCurrentMember = (memberId: string): boolean => {
     if (!memberId) return false;
+    if (loggedInMember?.id === memberId) return true;
     if (currentUser?.memberId === memberId) return true;
     if (currentUser?.id === memberId) return true;
     const m = members.find(item => item.id === memberId);
@@ -3216,34 +3307,21 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     bankAccountId?: string;
     processingFee?: number;
   }): { success: boolean; message: string; loan?: Loan } => {
-    // 0. Member Role Restriction: A member can strictly ONLY apply for a loan for themselves!
+    // 0. Member Role Restriction: A member can strictly ONLY apply for a loan for their OWN account!
+    // Never trust a Member ID supplied by the frontend without verifying ownership.
     if (currentUser?.role === 'member') {
-      const authEmail = (currentUser?.email || '').toLowerCase().trim();
-      const currentMemberIdProp = currentUser?.memberId;
-      const currentMemberNoProp = currentUser?.memberNo || (currentUser as any)?.userUid;
-      const currentPhone = (currentUser?.phone || '').trim();
-      const currentName = (currentUser?.name || '').trim().toLowerCase();
-
-      const currentMemberRecord = members.find(m => 
-        (currentMemberIdProp && m.id === currentMemberIdProp) ||
-        (currentMemberNoProp && m.memberNo === currentMemberNoProp) ||
-        (currentUser?.id && (m.id === currentUser.id || currentUser.id === 'usr_' + m.id)) ||
-        (authEmail && m.email && m.email.toLowerCase().trim() === authEmail) ||
-        (currentPhone && m.phone && m.phone.trim() === currentPhone) ||
-        (currentName && m.name && m.name.trim().toLowerCase() === currentName)
-      );
-
-      const effectiveSelfId = currentMemberRecord?.id || currentUser?.memberId || currentUser?.id;
-
-      if (effectiveSelfId && params.memberId !== effectiveSelfId) {
+      if (!loggedInMember) {
         return {
           success: false,
-          message: 'অনধিকার আবেদন: একজন সাধারণ সদস্য শুধুমাত্র নিজের অ্যাকাউন্টের জন্য ঋণ আবেদন করতে পারেন, অন্য কোনো সদস্যের জন্য নয়।'
+          message: 'অনধিকার আবেদন: আপনার সদস্য অ্যাকাউন্ট সনাক্ত করা যায়নি।'
         };
       }
-      if (effectiveSelfId) {
-        params.memberId = effectiveSelfId;
+
+      // Security check: Automatically and strictly enforce the authenticated user's verified Member ID
+      if (params.memberId && params.memberId !== loggedInMember.id) {
+        console.warn(`[Security Alert] Overriding unverified memberId ${params.memberId} with authenticated memberId ${loggedInMember.id} for user ${authUser?.uid}`);
       }
+      params.memberId = loggedInMember.id;
     }
 
     // 1. Duplicate Loan Check
@@ -3280,7 +3358,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       };
     }
 
-    const member = members.find(m => m.id === params.memberId);
+    const member = members.find(m => m.id === params.memberId) || (currentUser?.role === 'member' ? loggedInMember : null);
     if (!member) {
       return { success: false, message: 'সদস্য খুঁজে পাওয়া যায়নি।' };
     }
@@ -3331,6 +3409,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       memberName: member.name,
       memberPhone: member.phone,
       memberNo: member.memberNo,
+      userId: authUser?.uid || currentUser?.id,
+      applicantUid: authUser?.uid || currentUser?.id,
+      appliedByRole: currentUser?.role || 'member',
       principalAmount: params.principalAmount,
       interestRate: 0,
       totalAmount,
@@ -7033,6 +7114,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setUseBengaliDigits,
         currentUser,
         setCurrentUser,
+        loggedInMember,
+        authUser,
         isUserAdmin,
         isCurrentMember,
         canViewMemberFinancials,

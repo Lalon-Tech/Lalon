@@ -112,6 +112,7 @@ const AppContent: React.FC = () => {
     setShowQuickKistiModal,
     isDataLoading,
     currentUser,
+    loggedInMember,
     updateMember,
     useBengaliDigits,
     activeReceipt,
@@ -643,8 +644,8 @@ const AppContent: React.FC = () => {
       <NewLoanModal
         isOpen={showQuickLoanModal}
         onClose={() => setShowQuickLoanModal(false)}
-        initialMemberId={selectedMemberId || undefined}
-        lockMember={Boolean(selectedMemberId) || activeTab === 'member_profile'}
+        initialMemberId={currentUser?.role === 'member' ? (loggedInMember?.id || currentUser.memberId) : (selectedMemberId || undefined)}
+        lockMember={currentUser?.role === 'member' ? true : (Boolean(selectedMemberId) || activeTab === 'member_profile')}
       />
 
       <QuickKistiModal

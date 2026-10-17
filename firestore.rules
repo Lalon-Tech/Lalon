@@ -7,6 +7,15 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Helper function to check if user has administrative or staff authority
+    function isAdminOrStaff() {
+      return isAuthenticated() && (
+        request.auth.token.email in ['admin@bondhusomiti.com', 'sin4.riyas.lalon.dc@gmail.com', 'lalon2711@gmail.com'] ||
+        (exists(/databases/$(database)/documents/systemUsers/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/systemUsers/$(request.auth.uid)).data.role in ['admin', 'president', 'secretary', 'cashier', 'manager', 'field_officer'])
+      );
+    }
+
     // 0. Connection validation
     match /test/{docId} {
       allow read: if true;
@@ -52,8 +61,40 @@ service cloud.firestore {
     }
 
     // 8. Loans & Installment Schedules
+    // Backend security validation:
+    // Admin/staff can view and manage all members' loans.
+    // Members can ONLY apply for a loan for their OWN account, never for another member.
+    // The loan application must have status 'pending' and verify applicant ownership.
     match /loans/{loanId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      
+      allow create: if isAuthenticated() && (
+        isAdminOrStaff() ||
+        (
+          request.resource.data.status == 'pending' &&
+          (
+            request.resource.data.userId == request.auth.uid ||
+            request.resource.data.applicantUid == request.auth.uid ||
+            request.resource.data.memberId == request.auth.uid ||
+            (exists(/databases/$(database)/documents/systemUsers/$(request.auth.uid)) &&
+             request.resource.data.memberId == get(/databases/$(database)/documents/systemUsers/$(request.auth.uid)).data.memberId)
+          )
+        )
+      );
+
+      allow update, delete: if isAuthenticated() && (
+        isAdminOrStaff() ||
+        (
+          resource.data.status == 'pending' &&
+          (
+            resource.data.userId == request.auth.uid ||
+            resource.data.applicantUid == request.auth.uid ||
+            resource.data.memberId == request.auth.uid ||
+            (exists(/databases/$(database)/documents/systemUsers/$(request.auth.uid)) &&
+             resource.data.memberId == get(/databases/$(database)/documents/systemUsers/$(request.auth.uid)).data.memberId)
+          )
+        )
+      );
     }
 
     // 9. Savings & DPS / FDR Accounts

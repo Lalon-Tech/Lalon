@@ -126,6 +126,9 @@ export interface Loan {
   rejectedAt?: string;
   adminComment?: string;
   rejectionReason?: string;
+  userId?: string;
+  applicantUid?: string;
+  appliedByRole?: string;
 }
 
 export interface Member {

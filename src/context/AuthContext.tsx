@@ -437,20 +437,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let cleanEmail = identifier.trim();
     let resolvedUser: any = null;
 
-    // Rule 6: Support login using Email Address OR User UID (e.g. BS-1001, BS-101)
+    // Rule 6: Support login using Email Address OR User UID / Member No (e.g. BS-1001, BS-101, BS-102)
     if (!cleanEmail.includes('@')) {
       const normalizedUid = cleanEmail.toUpperCase();
 
-      // 1. Try querying Firestore systemUsers by userUid or document ID
+      // 1. Try querying Firestore systemUsers by userUid, memberNo, or document ID
       try {
         const q = query(collection(db, 'systemUsers'), where('userUid', '==', normalizedUid));
         const snap = await getDocs(q);
         if (!snap.empty) {
           resolvedUser = snap.docs[0].data();
           cleanEmail = resolvedUser.email;
+        } else {
+          const qMem = query(collection(db, 'systemUsers'), where('memberNo', '==', normalizedUid));
+          const snapMem = await getDocs(qMem);
+          if (!snapMem.empty) {
+            resolvedUser = snapMem.docs[0].data();
+            cleanEmail = resolvedUser.email;
+          }
         }
       } catch (fsErr) {
         console.warn("Firestore userUid query failed:", fsErr);
+      }
+
+      // 1b. Try querying Firestore members collection by memberNo or document ID
+      if (!resolvedUser || !cleanEmail || !cleanEmail.includes('@')) {
+        try {
+          const qMembers = query(collection(db, 'members'), where('memberNo', '==', normalizedUid));
+          const snapMembers = await getDocs(qMembers);
+          if (!snapMembers.empty) {
+            const memData = snapMembers.docs[0].data();
+            resolvedUser = {
+              id: memData.id,
+              memberId: memData.id,
+              memberNo: memData.memberNo,
+              name: memData.name,
+              email: memData.email || `${normalizedUid.toLowerCase()}@bondhusomiti.com`,
+              phone: memData.phone,
+              role: 'member',
+              roleTitle: 'সদস্য (Member)',
+              avatarUrl: memData.photoUrl,
+              status: 'active'
+            };
+            cleanEmail = resolvedUser.email;
+          }
+        } catch (memErr) {
+          console.warn("Firestore memberNo query failed:", memErr);
+        }
       }
 
       // 2. Check localStorage 'bondhu_users' or initial users if not yet resolved
@@ -461,11 +494,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const parsed = JSON.parse(saved);
             const matched = parsed.find((u: any) => 
               (u.userUid && u.userUid.toUpperCase() === normalizedUid) ||
+              (u.memberNo && u.memberNo.toUpperCase() === normalizedUid) ||
               (u.id && u.id.toUpperCase() === normalizedUid)
             );
             if (matched?.email) {
               resolvedUser = matched;
               cleanEmail = matched.email;
+            }
+          }
+        } catch {}
+      }
+
+      // 2b. Check localStorage 'bondhu_members'
+      if (!resolvedUser) {
+        try {
+          const savedMembers = localStorage.getItem('bondhu_members');
+          if (savedMembers) {
+            const parsedMembers = JSON.parse(savedMembers);
+            const matchedMem = parsedMembers.find((m: any) =>
+              (m.memberNo && m.memberNo.toUpperCase() === normalizedUid) ||
+              (m.id && m.id.toUpperCase() === normalizedUid)
+            );
+            if (matchedMem) {
+              resolvedUser = {
+                id: matchedMem.id,
+                memberId: matchedMem.id,
+                memberNo: matchedMem.memberNo,
+                name: matchedMem.name,
+                email: matchedMem.email || `${normalizedUid.toLowerCase()}@bondhusomiti.com`,
+                phone: matchedMem.phone,
+                role: 'member',
+                roleTitle: 'সদস্য (Member)',
+                avatarUrl: matchedMem.photoUrl,
+                status: 'active'
+              };
+              cleanEmail = resolvedUser.email;
             }
           }
         } catch {}
@@ -477,8 +540,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         cleanEmail = 'admin@bondhusomiti.com';
       }
 
+      // 4. Known demo members fallback (BS-101, BS-102, BS-103)
+      if (!resolvedUser && (normalizedUid === 'BS-101' || normalizedUid === 'MEM-101')) {
+        resolvedUser = { email: 'junaid.h@gmail.com', name: 'জুনাঈদ হাসান', memberNo: 'BS-101', memberId: 'mem-101', role: 'member', roleTitle: 'সদস্য (Member)' };
+        cleanEmail = 'junaid.h@gmail.com';
+      } else if (!resolvedUser && (normalizedUid === 'BS-102' || normalizedUid === 'MEM-102')) {
+        resolvedUser = { email: 'zakaria.alam@yahoo.com', name: 'জাকারিয়া আলম', memberNo: 'BS-102', memberId: 'mem-102', role: 'member', roleTitle: 'সদস্য (Member)' };
+        cleanEmail = 'zakaria.alam@yahoo.com';
+      }
+
       if (!resolvedUser || !cleanEmail || !cleanEmail.includes('@')) {
-        const msg = `"${identifier}" ইউজার ইউআইডি সম্বলিত কোনো অ্যাকাউন্ট পাওয়া যায়নি! সঠিক ইউআইডি অথবা ইমেইল দিয়ে চেষ্টা করুন।`;
+        const msg = `"${identifier}" ইউজার ইউআইডি / সদস্য নম্বর সম্বলিত কোনো অ্যাকাউন্ট পাওয়া যায়নি! সঠিক ইউআইডি অথবা ইমেইল দিয়ে চেষ্টা করুন।`;
         setError(msg);
         throw new Error(msg);
       }
