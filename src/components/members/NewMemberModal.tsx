@@ -136,7 +136,7 @@ export const NewMemberModal: React.FC<NewMemberModalProps> = ({ isOpen, onClose,
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!name.trim() || !phone.trim() || !nid.trim()) {
@@ -153,7 +153,7 @@ export const NewMemberModal: React.FC<NewMemberModalProps> = ({ isOpen, onClose,
     // Share Capital is not calculated based on the number of shares purchased
     const shareVal = 0;
 
-    const newMember = addMember({
+    const newMember = await addMember({
       name: name.trim(),
       nameEn: nameEn.trim() || name.trim(),
       phone: phone.trim(),

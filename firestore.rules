@@ -37,36 +37,37 @@ service cloud.firestore {
 
     // 3. Bank Accounts (Bank ledger & balances)
     match /bankAccounts/{accountId} {
-      allow read, write: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     // 4. Income & Expense Vouchers (Ledger records)
     match /incomeExpenses/{voucherId} {
-      allow read, write: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     // 5. Dashboard Summary
     match /dashboardSummary/{summaryId} {
-      allow read, write: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     // 6. Members Profile & Information
     match /members/{memberId} {
-      allow read, write: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     // 7. Member Financials
     match /memberFinancials/{memberId} {
-      allow read, write: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     // 8. Loans & Installment Schedules
-    // Backend security validation:
-    // Admin/staff can view and manage all members' loans.
-    // Members can ONLY apply for a loan for their OWN account, never for another member.
-    // The loan application must have status 'pending' and verify applicant ownership.
     match /loans/{loanId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       
       allow create: if isAuthenticated() && (
         isAdminOrStaff() ||
@@ -99,37 +100,57 @@ service cloud.firestore {
 
     // 9. Savings & DPS / FDR Accounts
     match /savings/{savingsId} {
-      allow read, write: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     // 10. Transactions (Deposits, Withdrawals, Installments, Expenses)
     match /transactions/{txId} {
-      allow read, write: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     // 11. Share Closures & Surrender Archives
     match /shareClosures/{closureId} {
-      allow read, write: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     // 12. Business Fundings & Applications
     match /businessFundings/{fundingId} {
-      allow read, write: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     // 13. Business Profit Records
     match /businessProfitRecords/{recordId} {
-      allow read, write: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     // 14. Monthly Profit Distributions
     match /profitDistributions/{distId} {
-      allow read, write: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
-    // Default fallback - require authentication
+    // 15. Member Numbers uniqueness registry (Database-level uniqueness validation)
+    match /memberNumbers/{memberNo} {
+      allow read: if true;
+      allow create: if isAuthenticated() && !exists(/databases/$(database)/documents/memberNumbers/$(memberNo));
+      allow update, delete: if isAuthenticated() && isAdminOrStaff();
+    }
+
+    // 16. Counters
+    match /counters/{counterId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Default fallback - allow read, require authentication for write
     match /{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
   }
 }

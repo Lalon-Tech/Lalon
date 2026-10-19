@@ -74,6 +74,12 @@ import {
   calculateTotalBusinessCapital,
   calculateMemberSavingsBreakdown
 } from '../utils/accountingRules';
+import {
+  generateNextMemberNoAtomic,
+  retireMemberNo,
+  getHighestMemberSequence,
+  setMemorySequenceFloor
+} from '../utils/memberIdGenerator';
 
 // Sanitization helpers to eliminate any NaN or undefined data
 // Helper date - returns local YYYY-MM-DD
@@ -435,7 +441,7 @@ interface SomitiContextType {
   users: AppUser[];
 
   // Actions - Members & Shares
-  addMember: (memberData: Omit<Member, 'id' | 'memberNo' | 'totalSavings' | 'generalSavingsBalance' | 'dpsSavingsBalance' | 'fdrSavingsBalance' | 'activeLoanBalance'>) => Member;
+  addMember: (memberData: Omit<Member, 'id' | 'memberNo' | 'totalSavings' | 'generalSavingsBalance' | 'dpsSavingsBalance' | 'fdrSavingsBalance' | 'activeLoanBalance'>) => Promise<Member>;
   updateMember: (id: string, memberData: Partial<Member>) => void;
   deleteMember: (id: string, reason?: string) => Promise<boolean>;
   moveToRecycleBin: (id: string, reason?: string) => Promise<boolean>;
@@ -1464,6 +1470,8 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               list.push(sanitized);
             });
             setMembers(list);
+            const highestSeq = getHighestMemberSequence(list);
+            setMemorySequenceFloor(highestSeq);
             setFirestoreConnected(true);
             setLastSyncTime(new Date().toLocaleTimeString());
           } else {
@@ -2045,13 +2053,15 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return max + 1;
   };
 
-  // Add Member
-  const addMember = (memberData: Omit<Member, 'id' | 'memberNo' | 'totalSavings' | 'generalSavingsBalance' | 'dpsSavingsBalance' | 'fdrSavingsBalance' | 'activeLoanBalance'>): Member => {
-    const nextNo = members.length + 101;
-    const memberNo = `BS-${nextNo}`;
+  // Add Member with atomic ID generation & database-level uniqueness validation
+  const addMember = async (memberData: Omit<Member, 'id' | 'memberNo' | 'totalSavings' | 'generalSavingsBalance' | 'dpsSavingsBalance' | 'fdrSavingsBalance' | 'activeLoanBalance'>): Promise<Member> => {
+    const newId = `mem-${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    // Atomic ID generation: scans active and recycle bin members, retiredMemberNos, and guarantees DB uniqueness
+    const memberNo = await generateNextMemberNoAtomic(db, newId, memberData.name, members);
+
     const newMember: Member = {
       ...memberData,
-      id: `mem-${Date.now()}`,
+      id: newId,
       memberNo,
       generalSavingsBalance: 0,
       dpsSavingsBalance: 0,
@@ -2063,7 +2073,7 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setMembers(prev => [newMember, ...prev]);
     // Save to Firestore
-    safeSetDoc(doc(db, 'members', newMember.id), newMember).catch(console.error);
+    await safeSetDoc(doc(db, 'members', newMember.id), newMember).catch(console.error);
 
     // Rule: Never automatically create admission fee or deposit transactions.
     // Financial transactions must be recorded only when explicitly entered/approved by an authorized user.
@@ -2314,6 +2324,9 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const targetMember = members.find(m => m.id === id);
       if (!targetMember) return false;
 
+      // Permanently retire member ID so it can NEVER be reused again, even after permanent deletion
+      await retireMemberNo(db, targetMember.memberNo, targetMember.id);
+
       // Permanently remove from Firestore using writeBatch
       const batch = writeBatch(db);
       batch.delete(doc(db, 'members', id));
@@ -2371,9 +2384,20 @@ export const SomitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const importMembersFromList = (newMembers: Member[]) => {
     setMembers(prev => [...newMembers, ...prev]);
+    const highest = getHighestMemberSequence(newMembers);
+    setMemorySequenceFloor(highest);
     const batch = writeBatch(db);
     newMembers.forEach(m => {
       safeBatchSet(batch, doc(db, 'members', m.id), m);
+      if (m.memberNo) {
+        safeBatchSet(batch, doc(db, 'memberNumbers', m.memberNo), {
+          memberNo: m.memberNo,
+          memberId: m.id,
+          name: m.name,
+          status: 'assigned',
+          assignedAt: new Date().toISOString()
+        });
+      }
     });
     batch.commit().catch(console.error);
   };

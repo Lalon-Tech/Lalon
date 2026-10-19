@@ -101,14 +101,14 @@ export const ExcelImportView: React.FC = () => {
     XLSX.writeFile(wb, 'sample_bondhu_members_template.xlsx');
   };
 
-  const handleImportAll = () => {
+  const handleImportAll = async () => {
     if (parsedMembers.length === 0) return;
 
     setIsProcessing(true);
     let count = 0;
 
-    parsedMembers.forEach((item) => {
-      addMember({
+    for (const item of parsedMembers) {
+      await addMember({
         name: item.name,
         nameEn: item.nameEn,
         phone: item.phone,
@@ -130,7 +130,7 @@ export const ExcelImportView: React.FC = () => {
         nominees: [],
       });
       count++;
-    });
+    }
 
     setIsProcessing(false);
     setSuccessCount(count);
